@@ -20,8 +20,10 @@ export default function OuEstCe() {
     const [displayMode, setDisplayMode] = useState('random') // 'random' ou 'sequential' pour l'affichage des étiquettes
     const [feedback, setFeedback] = useState('')
     const [completedGroupes, setCompletedGroupes] = useState([])
-    const [selectedVoice, setSelectedVoice] = useState('pNInz6obpgDQGcFmaJgB')
+    const [selectedVoice, setSelectedVoice] = useState('AfbuxQ9DVtS4azaxN1W7')
     const [availableVoices, setAvailableVoices] = useState([])
+    const [gameFinished, setGameFinished] = useState(false)
+    const [finalScore, setFinalScore] = useState({ correct: 0, total: 0, percentage: 0 })
     const router = useRouter()
 
     useEffect(() => {
@@ -107,7 +109,13 @@ export default function OuEstCe() {
                 if (response.ok) {
                     const data = await response.json()
                     const groupes = data.groupes_sens || []
-                    groupes.forEach(groupe => {
+                    // Filtrer pour exclure les sauts de lignes et groupes vides
+                    const groupesValides = groupes.filter(groupe => 
+                        groupe.type_groupe !== 'linebreak' && 
+                        groupe.contenu && 
+                        groupe.contenu.trim() !== ''
+                    )
+                    groupesValides.forEach(groupe => {
                         allGroupesTemp.push({
                             ...groupe,
                             texte_titre: data.texte.titre,
@@ -159,10 +167,22 @@ export default function OuEstCe() {
         setAttempts(0)
         setCompletedGroupes([])
         setGameStarted(true)
+        setGameFinished(false)
+        setFinalScore({ correct: 0, total: 0, percentage: 0 })
         setIsLoadingTextes(false)
         
         // Lire automatiquement le premier groupe
         setTimeout(() => playAudio(shuffled[0].contenu), 500)
+    }
+
+    const restartGame = () => {
+        setGameFinished(false)
+        setGameStarted(false)
+        setScore(0)
+        setAttempts(0)
+        setCompletedGroupes([])
+        setFeedback('')
+        setFinalScore({ correct: 0, total: 0, percentage: 0 })
     }
 
     const playAudio = async (texte) => {
@@ -269,8 +289,18 @@ export default function OuEstCe() {
                     setFeedback('')
                 } else {
                     // Fin du jeu
-                    setFeedback(`🎉 Terminé ! Score: ${score + 1}/${shuffledGroupes.length}`)
+                    const finalCorrect = score + 1
+                    const finalTotal = shuffledGroupes.length
+                    const percentage = Math.round((finalCorrect / finalTotal) * 100)
+                    
+                    setFinalScore({ 
+                        correct: finalCorrect, 
+                        total: finalTotal, 
+                        percentage: percentage 
+                    })
                     setGameStarted(false)
+                    setGameFinished(true)
+                    setFeedback('')
                 }
             }, 1500)
         } else {
@@ -590,6 +620,89 @@ export default function OuEstCe() {
                             </button>
                         </div>
                     </>
+                )}
+
+                {/* Écran de fin avec score */}
+                {gameFinished && (
+                    <div style={{
+                        backgroundColor: 'white',
+                        padding: '40px',
+                        borderRadius: '12px',
+                        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+                        textAlign: 'center',
+                        margin: '20px 0'
+                    }}>
+                        <div style={{ fontSize: '48px', marginBottom: '20px' }}>
+                            {finalScore.percentage >= 80 ? '🎉' : 
+                             finalScore.percentage >= 60 ? '👏' : '💪'}
+                        </div>
+                        
+                        <h2 style={{ 
+                            color: '#1f2937', 
+                            marginBottom: '20px',
+                            fontSize: '24px'
+                        }}>
+                            Exercice terminé !
+                        </h2>
+
+                        <div style={{
+                            backgroundColor: '#f3f4f6',
+                            padding: '20px',
+                            borderRadius: '8px',
+                            marginBottom: '25px'
+                        }}>
+                            <div style={{ fontSize: '36px', fontWeight: 'bold', color: '#10b981', marginBottom: '10px' }}>
+                                {finalScore.correct}/{finalScore.total}
+                            </div>
+                            <div style={{ fontSize: '18px', color: '#6b7280', marginBottom: '5px' }}>
+                                Score : {finalScore.percentage}%
+                            </div>
+                            <div style={{ fontSize: '14px', color: '#9ca3af' }}>
+                                {finalScore.percentage >= 80 ? 'Excellent travail !' : 
+                                 finalScore.percentage >= 60 ? 'Bon travail !' : 
+                                 'Continue tes efforts !'}
+                            </div>
+                        </div>
+
+                        <div style={{ 
+                            display: 'flex', 
+                            gap: '15px', 
+                            justifyContent: 'center',
+                            flexWrap: 'wrap'
+                        }}>
+                            <button
+                                onClick={restartGame}
+                                style={{
+                                    backgroundColor: '#10b981',
+                                    color: 'white',
+                                    padding: '12px 24px',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    fontSize: '16px',
+                                    fontWeight: 'bold',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                🔄 Recommencer
+                            </button>
+                            
+                            <button
+                                onClick={() => router.push('/lire')}
+                                style={{
+                                    backgroundColor: '#3b82f6',
+                                    color: 'white',
+                                    padding: '12px 24px',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    fontSize: '16px',
+                                    fontWeight: 'bold',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                🏠 Autres exercices
+                            </button>
+                        </div>
+                    </div>
                 )}
 
                 {/* Bouton retour */}

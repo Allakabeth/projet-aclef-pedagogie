@@ -76,8 +76,15 @@ export default function RemettreEnOrdre() {
                 const data = await response.json()
                 const groupes = data.groupes_sens || []
                 
+                // Filtrer pour exclure les sauts de lignes et groupes vides
+                const groupesValides = groupes.filter(groupe => 
+                    groupe.type_groupe !== 'linebreak' && 
+                    groupe.contenu && 
+                    groupe.contenu.trim() !== ''
+                )
+                
                 // Trier par ordre_groupe pour avoir l'ordre original
-                const sortedGroupes = groupes.sort((a, b) => a.ordre_groupe - b.ordre_groupe)
+                const sortedGroupes = groupesValides.sort((a, b) => a.ordre_groupe - b.ordre_groupe)
                 setOriginalOrder(sortedGroupes)
                 
                 // Mélanger pour le jeu

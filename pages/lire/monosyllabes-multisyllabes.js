@@ -51,7 +51,7 @@ export default function MonosyllabesMultisyllabes() {
             
             // Voix ElevenLabs
             const elevenLabsVoices = [
-                { name: 'Adam (ElevenLabs)', type: 'elevenlabs', id: 'pNInz6obpgDQGcFmaJgB', lang: 'fr-FR' },
+                { name: 'Adam (ElevenLabs)', type: 'elevenlabs', id: 'AfbuxQ9DVtS4azaxN1W7', lang: 'fr-FR' },
                 { name: 'Alice (ElevenLabs)', type: 'elevenlabs', id: 'Xb7hH8MSUJpSbSDYk0k2', lang: 'fr-FR' },
                 { name: 'Brian (ElevenLabs)', type: 'elevenlabs', id: 'nPczCjzI2devNBz1zQrb', lang: 'fr-FR' }
             ]
@@ -123,9 +123,16 @@ export default function MonosyllabesMultisyllabes() {
                 const data = await response.json()
                 const groupes = data.groupes_sens || []
                 
+                // Filtrer pour exclure les sauts de lignes et groupes vides
+                const groupesValides = groupes.filter(groupe => 
+                    groupe.type_groupe !== 'linebreak' && 
+                    groupe.contenu && 
+                    groupe.contenu.trim() !== ''
+                )
+                
                 // Extraire tous les mots de tous les groupes
                 const allWords = []
-                groupes.forEach(groupe => {
+                groupesValides.forEach(groupe => {
                     // Diviser le contenu en mots (simple pour commencer)
                     const words = groupe.contenu
                         .split(/\s+/)
