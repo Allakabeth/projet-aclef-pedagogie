@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Créateur de Texte Référence</title>
+    <link rel="stylesheet" href="entrainement-styles.css">
+    <style>
+        body { margin: 0; padding: 20px; }
+        .simple-container { max-width: 800px; margin: 0 auto; }
+        .text-group { 
+            background: #f8f9fa; 
+            border: 2px solid #dee2e6; 
+            border-radius: 8px; 
+            margin: 10px 0; 
+            padding: 10px; 
+            position: relative;
+        }
+        .group-number {
+            position: absolute;
+            top: -12px;
+            left: 12px;
+            background: #007bff;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+        .text-group textarea {
+            width: 100%;
+            min-height: 60px;
+            padding: 10px;
+            border: none;
+            outline: none;
+            resize: vertical;
+            font-size: 16px;
+            background: transparent;
+        }
+        .text-group.line-break {
+            height: 30px;
+            background: linear-gradient(90deg, #ccc 0%, transparent 100%);
+            border-style: dashed;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #666;
+            font-style: italic;
+        }
+        .btn { 
+            padding: 10px 15px; 
+            margin: 5px; 
+            border: none; 
+            border-radius: 5px; 
+            cursor: pointer; 
+            font-size: 14px;
+        }
+        .btn-primary { background: #007bff; color: white; }
+        .btn-secondary { background: #6c757d; color: white; }
+        .style-controls { 
+            background: #f8f9fa; 
+            padding: 20px; 
+            border-radius: 8px; 
+            margin-bottom: 20px; 
+        }
+        .style-options { display: flex; gap: 20px; flex-wrap: wrap; align-items: center; }
+        .style-options label { display: flex; align-items: center; gap: 5px; }
+        .stats { 
+            background: #d4edda; 
+            border: 1px solid #c3e6cb; 
+            border-radius: 8px; 
+            padding: 15px; 
+            margin: 20px 0; 
+            text-align: center; 
+        }
+    </style>
+</head>
+<body>
+    <div class="simple-container">
+        <h1>📝 Créer un Texte de Référence</h1>
+        <p><strong>Instructions :</strong> Saisissez vos groupes de mots. Les mots de plus d'une syllabe iront automatiquement dans l'entraînement.</p>
+        
+        <div class="style-controls">
+            <h3>Style du texte</h3>
+            <div class="style-options">
+                <label>
+                    <span>Police :</span>
+                    <select id="text-font">
+                        <option value="Arial">Arial</option>
+                        <option value="Times New Roman">Times New Roman</option>
+                        <option value="Georgia">Georgia</option>
+                        <option value="Comic Sans MS">Comic Sans MS</option>
+                    </select>
+                </label>
+                <label>
+                    <span>Taille :</span>
+                    <select id="text-size">
+                        <option value="16">16px</option>
+                        <option value="18" selected>18px</option>
+                        <option value="20">20px</option>
+                        <option value="24">24px</option>
+                    </select>
+                </label>
+                <label>
+                    <span>Couleur :</span>
+                    <input type="color" id="text-color" value="#000000">
+                </label>
+            </div>
+        </div>
+
+        <div id="text-groups">
+            <!-- Groupes ajoutés ici -->
+        </div>
+        
+        <div>
+            <button class="btn btn-primary" onclick="addGroup()">➕ Ajouter groupe</button>
+            <button class="btn btn-secondary" onclick="addLineBreak()">↵ Saut de ligne</button>
+            <button class="btn btn-secondary" onclick="removeLastGroup()">❌ Supprimer dernier</button>
+        </div>
+        
+        <div style="margin-top: 20px;">
+            <button class="btn btn-primary" onclick="saveText()" style="font-size: 16px; padding: 15px 25px;">💾 Enregistrer le Texte</button>
+            <button class="btn btn-secondary" onclick="previewText()">👁️ Aperçu</button>
+        </div>
+        
+        <div id="preview" style="display: none; background: white; border: 1px solid #ddd; padding: 20px; margin-top: 20px; border-radius: 8px;">
+            <h3>Aperçu :</h3>
+            <div id="preview-content"></div>
+        </div>
+        
+        <div id="stats" class="stats" style="display: none;">
+            <h3>Résultat de la sauvegarde :</h3>
+            <p><span id="total-words">0</span> mots au total</p>
+            <p><span id="multi-syllable-words">0</span> mots multi-syllabes ajoutés à l'entraînement</p>
+        </div>
+
+        <div style="margin-top: 30px; text-align: center;">
+            <a href="entrainement-nouveau.html" class="btn btn-primary" style="text-decoration: none; display: inline-block; font-size: 16px; padding: 15px 25px;">
+                🎯 Aller à l'Entraînement
+            </a>
+        </div>
+    </div>
+
+    <script src="supabase-config.js"></script>
+    <script>
+        // Syllable Engine simplifié pour cette page
+        class SimpleSyllableEngine {
+            segmentWord(word) {
+                if (word.length <= 2) return [word];
+                
+                // Quelques règles de base en français
+                const vowels = ['a', 'e', 'i', 'o', 'u', 'y', 'à', 'á', 'â', 'ã', 'ä', 'å', 'è', 'é', 'ê', 'ë', 'ì', 'í', 'î', 'ï', 'ò', 'ó', 'ô', 'õ', 'ö', 'ù', 'ú', 'û', 'ü', 'ÿ'];
+                
+                // Exceptions courantes
+                const exceptions = {
+                    'bonjour': ['bon', 'jour'],
+                    'madame': ['ma', 'dame'],
+                    'comment': ['com', 'ment'],
+                    'allez': ['al', 'lez'],
+                    'merci': ['mer', 'ci'],
+                    'pardon': ['par', 'don'],
+                    'voiture': ['voi', 'ture'],
+                    'famille': ['fa', 'mille'],
+                    'maison': ['mai', 'son'],
+                    'jardin': ['jar', 'din'],
+                    'enfant': ['en', 'fant'],
+                    'école': ['é', 'cole'],
+                    'photo': ['pho', 'to'],
+                    'piano': ['pi', 'a', 'no'],
+                    'radio': ['ra', 'dio'],
+                    'table': ['ta', 'ble']
+                };
+                
+                const lowerWord = word.toLowerCase();
+                if (exceptions[lowerWord]) {
+                    return exceptions[lowerWord];
+                }
+                
+                // Règle simple : couper entre les groupes de voyelles/consonnes
+                let syllables = [];
+                let current = '';
+                let lastWasVowel = false;
+                
+                for (let i = 0; i < word.length; i++) {
+                    const char = word[i].toLowerCase();
+                    const isVowel = vowels.includes(char);
+                    
+                    if (lastWasVowel && !isVowel && current.length > 0) {
+                        // Transition voyelle -> consonne, peut couper
+                        if (current.length >= 2) {
+                            syllables.push(current);
+                            current = char;
+                        } else {
+                            current += char;
+                        }
+                    } else {
+                        current += char;
+                    }
+                    
+                    lastWasVowel = isVowel;
+                }
+                
+                if (current) {
+                    syllables.push(current);
+                }
+                
+                return syllables.length > 0 ? syllables : [word];
+            }
+        }
+    </script>
+    <script>
+        let textGroups = [];
+        let groupCounter = 0;
+
+        // Ajouter le premier groupe au chargement
+        document.addEventListener('DOMContentLoaded', () => {
+            addGroup();
+        });
+
+        function addGroup() {
+            const container = document.getElementById('text-groups');
+            groupCounter++;
+            
+            const groupDiv = document.createElement('div');
+            groupDiv.className = 'text-group';
+            groupDiv.innerHTML = `
+                <div class="group-number">${groupCounter}</div>
+                <textarea placeholder="Saisissez votre groupe de mots..." data-index="${textGroups.length}"></textarea>
+            `;
+            
+            container.appendChild(groupDiv);
+            textGroups.push({ type: 'text', content: '' });
+            
+            const textarea = groupDiv.querySelector('textarea');
+            textarea.focus();
+            textarea.addEventListener('input', (e) => {
+                const index = parseInt(e.target.dataset.index);
+                textGroups[index].content = e.target.value;
+            });
+        }
+
+        function addLineBreak() {
+            const container = document.getElementById('text-groups');
+            const groupDiv = document.createElement('div');
+            groupDiv.className = 'text-group line-break';
+            groupDiv.innerHTML = '--- Saut de ligne ---';
+            container.appendChild(groupDiv);
+            textGroups.push({ type: 'linebreak' });
+        }
+
+        function removeLastGroup() {
+            if (textGroups.length <= 1) {
+                alert('Vous devez garder au moins un groupe !');
+                return;
+            }
+            const container = document.getElementById('text-groups');
+            const lastChild = container.lastElementChild;
+            if (lastChild) {
+                lastChild.remove();
+                textGroups.pop();
+            }
+        }
+
+        function previewText() {
+            const previewDiv = document.getElementById('preview');
+            const previewContent = document.getElementById('preview-content');
+            
+            let html = '';
+            textGroups.forEach(group => {
+                if (group.type === 'text' && group.content && group.content.trim()) {
+                    html += `<span>${group.content}</span> `;
+                } else if (group.type === 'linebreak') {
+                    html += '<br><br>';
+                }
+            });
+            
+            previewContent.innerHTML = html || '<em>Aucun contenu</em>';
+            previewDiv.style.display = previewDiv.style.display === 'none' ? 'block' : 'none';
+        }
+
+        async function saveText() {
+            console.log('=== DÉBUT SAUVEGARDE ===');
+            console.log('TextGroups:', textGroups);
+            
+            // Extraire les mots
+            const allWords = [];
+            const multiSyllableWords = [];
+            const syllableEngine = new SimpleSyllableEngine();
+            
+            textGroups.forEach((group, index) => {
+                console.log(`Groupe ${index}:`, group);
+                if (group.type === 'text' && group.content && group.content.trim()) {
+                    console.log(`Contenu groupe ${index}:`, group.content);
+                    // Regex simplifiée
+                    const words = group.content.match(/[a-zA-ZàáâãäåèéêëìíîïòóôõöùúûüÿçÀÁÂÃÄÅÈÉÊËÌÍÎÏÒÓÔÕÖÙÚÛÜŸÇ-]+/g) || [];
+                    console.log(`Mots trouvés:`, words);
+                    
+                    words.forEach(word => {
+                        const cleanWord = word.toLowerCase();
+                        if (!allWords.includes(cleanWord)) {
+                            allWords.push(cleanWord);
+                            
+                            const syllables = syllableEngine.segmentWord(cleanWord);
+                            console.log(`${cleanWord} -> ${syllables.length} syllabes:`, syllables);
+                            if (syllables.length > 1) {
+                                multiSyllableWords.push(cleanWord);
+                            }
+                        }
+                    });
+                }
+            });
+            
+            console.log('Tous les mots:', allWords);
+            console.log('Mots multi-syllabes:', multiSyllableWords);
+            
+            if (allWords.length === 0) {
+                alert('Veuillez saisir du texte ! (Aucun mot détecté)');
+                return;
+            }
+            
+            const titre = prompt('Titre du texte :') || `Texte ${new Date().toLocaleDateString()}`;
+            
+            const data = {
+                titre: titre,
+                groupes_sens: textGroups.filter(g => g.type === 'text' && g.content && g.content.trim()),
+                mots_extraits: multiSyllableWords
+            };
+            
+            try {
+                console.log('=== TENTATIVE SAUVEGARDE ===');
+                console.log('URL Supabase:', supabase.url);
+                console.log('Data à sauvegarder:', data);
+                
+                // Test de connexion d'abord
+                console.log('Test de connexion...');
+                const testResponse = await fetch(`${supabase.url}/rest/v1/syllabe_textes?select=count`, {
+                    headers: supabase.headers
+                });
+                console.log('Status test:', testResponse.status);
+                console.log('Headers response:', testResponse.headers);
+                
+                if (!testResponse.ok) {
+                    const errorText = await testResponse.text();
+                    console.log('Erreur test connexion:', errorText);
+                    throw new Error(`Connexion failed: ${testResponse.status} - ${errorText}`);
+                }
+                
+                console.log('Connexion OK, sauvegarde...');
+                await supabase.saveTexte(data);
+                
+                // Afficher les stats
+                document.getElementById('total-words').textContent = allWords.length;
+                document.getElementById('multi-syllable-words').textContent = multiSyllableWords.length;
+                document.getElementById('stats').style.display = 'block';
+                
+                alert(`✅ Texte "${titre}" sauvegardé !\\n${multiSyllableWords.length} mots ajoutés à l'entraînement.`);
+                
+            } catch (error) {
+                console.error('=== ERREUR DÉTAILLÉE ===');
+                console.error('Type:', typeof error);
+                console.error('Message:', error.message);
+                console.error('Stack:', error.stack);
+                console.error('Error complet:', error);
+                alert('❌ Erreur : ' + error.message + '\\n\\nVoir console (F12) pour plus de détails');
+            }
+        }
+    </script>
+</body>
+</html>

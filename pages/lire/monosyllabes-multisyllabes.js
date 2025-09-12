@@ -1,0 +1,868 @@
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/router'
+import { countSyllables, isMonosyllabic, syllabifyWord } from '../../utils/syllabify'
+
+export default function MonosyllabesMultisyllabes() {
+    const [user, setUser] = useState(null)
+    const [isLoading, setIsLoading] = useState(true)
+    const [textes, setTextes] = useState([])
+    const [selectedTexte, setSelectedTexte] = useState('')
+    const [isLoadingTexte, setIsLoadingTexte] = useState(false)
+    const [gameStarted, setGameStarted] = useState(false)
+    const [allMots, setAllMots] = useState([])
+    const [currentMotIndex, setCurrentMotIndex] = useState(0)
+    const [currentMot, setCurrentMot] = useState(null)
+    const [score, setScore] = useState(0)
+    const [attempts, setAttempts] = useState(0)
+    const [feedback, setFeedback] = useState('')
+    const [gameFinished, setGameFinished] = useState(false)
+    const [userChoices, setUserChoices] = useState([])
+    const [showResults, setShowResults] = useState(false)
+    const [availableVoices, setAvailableVoices] = useState([])
+    const [selectedVoice, setSelectedVoice] = useState('')
+    const [selectedVoiceType, setSelectedVoiceType] = useState('web') // 'web' ou 'elevenlabs'
+    const [autoRead, setAutoRead] = useState(false)
+    const router = useRouter()
+
+    useEffect(() => {
+        // Vérifier l'authentification
+        const token = localStorage.getItem('token')
+        const userData = localStorage.getItem('user')
+
+        if (!token || !userData) {
+            router.push('/login')
+            return
+        }
+
+        try {
+            setUser(JSON.parse(userData))
+            loadTextes()
+        } catch (error) {
+            console.error('Erreur parsing user data:', error)
+            router.push('/login')
+            return
+        }
+
+        setIsLoading(false)
+        
+        // Charger les voix disponibles
+        const loadAllVoices = () => {
+            const allVoices = []
+            
+            // Voix ElevenLabs
+            const elevenLabsVoices = [
+                { name: 'Adam (ElevenLabs)', type: 'elevenlabs', id: 'pNInz6obpgDQGcFmaJgB', lang: 'fr-FR' },
+                { name: 'Alice (ElevenLabs)', type: 'elevenlabs', id: 'Xb7hH8MSUJpSbSDYk0k2', lang: 'fr-FR' },
+                { name: 'Brian (ElevenLabs)', type: 'elevenlabs', id: 'nPczCjzI2devNBz1zQrb', lang: 'fr-FR' }
+            ]
+            allVoices.push(...elevenLabsVoices)
+            
+            // Voix Web Speech API
+            if ('speechSynthesis' in window) {
+                const webVoices = speechSynthesis.getVoices()
+                    .filter(voice => voice.lang.startsWith('fr') || voice.lang.includes('FR'))
+                    .map(voice => ({ 
+                        name: `${voice.name} (Système)`, 
+                        type: 'web', 
+                        voice: voice, 
+                        lang: voice.lang 
+                    }))
+                allVoices.push(...webVoices)
+            }
+            
+            setAvailableVoices(allVoices)
+            if (allVoices.length > 0 && !selectedVoice) {
+                setSelectedVoice(allVoices[0].name)
+                setSelectedVoiceType(allVoices[0].type)
+            }
+        }
+        
+        loadAllVoices()
+        if ('speechSynthesis' in window) {
+            speechSynthesis.addEventListener('voiceschanged', loadAllVoices)
+            return () => {
+                speechSynthesis.removeEventListener('voiceschanged', loadAllVoices)
+            }
+        }
+    }, [router])
+
+    const loadTextes = async () => {
+        setIsLoadingTexte(true)
+        try {
+            const token = localStorage.getItem('token')
+            const response = await fetch('/api/textes/list', {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            })
+
+            if (response.ok) {
+                const data = await response.json()
+                setTextes(data.textes || [])
+            } else {
+                console.error('Erreur chargement textes')
+            }
+        } catch (error) {
+            console.error('Erreur chargement textes:', error)
+        } finally {
+            setIsLoadingTexte(false)
+        }
+    }
+
+    const loadMotsTexte = async (texteId) => {
+        setIsLoadingTexte(true)
+        try {
+            const token = localStorage.getItem('token')
+            const response = await fetch(`/api/textes/get/${texteId}`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            })
+
+            if (response.ok) {
+                const data = await response.json()
+                const groupes = data.groupes_sens || []
+                
+                // Extraire tous les mots de tous les groupes
+                const allWords = []
+                groupes.forEach(groupe => {
+                    // Diviser le contenu en mots (simple pour commencer)
+                    const words = groupe.contenu
+                        .split(/\s+/)
+                        .filter(word => word.trim() !== '')
+                        .map(word => {
+                            // Nettoyer le mot : enlever ponctuation
+                            let cleanWord = word.replace(/[.,!?;:()"""]/g, '').toLowerCase()
+                            
+                            // Si le mot contient une apostrophe, prendre seulement la partie après l'apostrophe
+                            if (cleanWord.includes("'")) {
+                                cleanWord = cleanWord.split("'").pop()
+                            }
+                            
+                            return {
+                                original: word,
+                                clean: cleanWord,
+                                groupe_id: groupe.id,
+                                syllables: syllabifyWord(cleanWord),
+                                estimatedSyllables: countSyllables(cleanWord),
+                                isMonosyllabe: isMonosyllabic(cleanWord)
+                            }
+                        })
+                        .filter(wordObj => wordObj.clean.length > 0)
+                    
+                    allWords.push(...words)
+                })
+
+                // Éliminer les doublons en gardant seulement les mots uniques
+                const uniqueWordsMap = new Map()
+                allWords.forEach(wordObj => {
+                    if (!uniqueWordsMap.has(wordObj.clean)) {
+                        uniqueWordsMap.set(wordObj.clean, wordObj)
+                    }
+                })
+                
+                // Convertir en tableau et mélanger
+                const uniqueWords = Array.from(uniqueWordsMap.values())
+                const shuffledWords = uniqueWords.sort(() => Math.random() - 0.5)
+                setAllMots(shuffledWords)
+                setCurrentMotIndex(0)
+                setCurrentMot(shuffledWords[0])
+                setGameStarted(true)
+                setScore(0)
+                setAttempts(0)
+                setFeedback('')
+                setGameFinished(false)
+                setUserChoices([])
+                setShowResults(false)
+                
+                console.log(`Exercice démarré avec ${shuffledWords.length} mots uniques`)
+                
+                // Lecture automatique du premier mot si activée
+                if (autoRead && shuffledWords[0]) {
+                    setTimeout(() => speakText(shuffledWords[0]?.clean), 1000)
+                }
+            } else {
+                alert('Erreur lors du chargement du texte')
+            }
+        } catch (error) {
+            console.error('Erreur chargement mots:', error)
+            alert('Erreur lors du chargement du texte')
+        } finally {
+            setIsLoadingTexte(false)
+        }
+    }
+
+
+    const startGame = () => {
+        if (!selectedTexte) {
+            alert('Veuillez sélectionner un texte')
+            return
+        }
+        loadMotsTexte(selectedTexte)
+    }
+
+    const handleChoice = (isMonosyllabe) => {
+        if (!currentMot) return
+
+        const newAttempts = attempts + 1
+        const isCorrect = currentMot.isMonosyllabe === isMonosyllabe
+        const newScore = isCorrect ? score + 1 : score
+
+        // Enregistrer le choix
+        const choice = {
+            mot: currentMot,
+            userChoice: isMonosyllabe,
+            isCorrect: isCorrect
+        }
+
+        const newUserChoices = [...userChoices, choice]
+
+        setAttempts(newAttempts)
+        setScore(newScore)
+        setUserChoices(newUserChoices)
+        
+        if (isCorrect) {
+            setFeedback('✅ Correct !')
+        } else {
+            const correctType = currentMot.isMonosyllabe ? 'monosyllabe' : 'multisyllabe'
+            setFeedback(`❌ Non, "${currentMot.clean}" est ${correctType}`)
+        }
+
+        // Passer au mot suivant après un délai
+        setTimeout(() => {
+            if (currentMotIndex < allMots.length - 1) {
+                const nextIndex = currentMotIndex + 1
+                setCurrentMotIndex(nextIndex)
+                setCurrentMot(allMots[nextIndex])
+                setFeedback('')
+                
+                // Lecture automatique si activée
+                if (autoRead) {
+                    setTimeout(() => speakText(allMots[nextIndex]?.clean), 500)
+                }
+            } else {
+                // Fin du jeu
+                setGameFinished(true)
+                setFeedback('')
+            }
+        }, 1500)
+    }
+
+    // Fonction TTS avec ElevenLabs + Web Speech API
+    const speakText = async (text) => {
+        if (!text.trim()) return
+
+        const selectedVoiceObj = availableVoices.find(v => v.name === selectedVoice)
+        
+        if (selectedVoiceObj?.type === 'elevenlabs') {
+            // Utiliser ElevenLabs
+            try {
+                const response = await fetch('/api/speech/elevenlabs', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    },
+                    body: JSON.stringify({ 
+                        text,
+                        voice_id: selectedVoiceObj.id 
+                    })
+                })
+
+                if (response.ok) {
+                    const data = await response.json()
+                    const audio = new Audio(data.audio)
+                    audio.play()
+                    return
+                }
+            } catch (error) {
+                console.log('ElevenLabs non disponible, fallback vers Web Speech API')
+            }
+        }
+
+        // Utiliser Web Speech API (par défaut ou en fallback)
+        if ('speechSynthesis' in window) {
+            const utterance = new SpeechSynthesisUtterance(text)
+            utterance.lang = 'fr-FR'
+            utterance.rate = 0.8
+            
+            // Utiliser la voix Web Speech sélectionnée si disponible
+            if (selectedVoiceObj?.type === 'web' && selectedVoiceObj.voice) {
+                utterance.voice = selectedVoiceObj.voice
+            }
+            
+            window.speechSynthesis.speak(utterance)
+        } else {
+            alert('Fonction audio non disponible sur ce navigateur')
+        }
+    }
+
+    const resetGame = () => {
+        setGameStarted(false)
+        setSelectedTexte('')
+        setAllMots([])
+        setCurrentMotIndex(0)
+        setCurrentMot(null)
+        setScore(0)
+        setAttempts(0)
+        setFeedback('')
+        setGameFinished(false)
+        setUserChoices([])
+        setShowResults(false)
+    }
+
+    if (isLoading) {
+        return (
+            <div style={{
+                minHeight: '100vh',
+                background: 'white',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+            }}>
+                <div style={{ color: '#10b981', fontSize: '18px' }}>Chargement...</div>
+            </div>
+        )
+    }
+
+    if (!user) return null
+
+    return (
+        <div style={{
+            minHeight: '100vh',
+            background: 'white',
+            padding: '15px'
+        }}>
+            <div style={{
+                maxWidth: '800px',
+                margin: '0 auto'
+            }}>
+                {/* Titre */}
+                <h1 style={{
+                    fontSize: 'clamp(22px, 5vw, 28px)',
+                    fontWeight: 'bold',
+                    marginBottom: '20px',
+                    background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                    textAlign: 'center'
+                }}>
+                    🔤 Monosyllabes ou Multisyllabes ?
+                </h1>
+
+                {!gameStarted ? (
+                    <>
+                        {/* Instructions */}
+                        <div style={{
+                            background: '#e0f2fe',
+                            padding: '20px',
+                            borderRadius: '8px',
+                            marginBottom: '20px',
+                            textAlign: 'center'
+                        }}>
+                            <h3 style={{ marginBottom: '10px', color: '#0284c7' }}>
+                                📚 Comment jouer ?
+                            </h3>
+                            <p style={{ margin: 0, color: '#0369a1' }}>
+                                Pour chaque mot affiché, décidez s'il s'agit d'un <strong>monosyllabe</strong> (1 syllabe) 
+                                ou d'un <strong>multisyllabe</strong> (2+ syllabes)
+                            </p>
+                            <div style={{ marginTop: '15px', fontSize: '14px' }}>
+                                <strong>Exemples :</strong><br/>
+                                🟢 Monosyllabes : chat, pain, bon, mer<br/>
+                                🔴 Multisyllabes : ma-tin, voi-ture, pa-pil-lon
+                            </div>
+                        </div>
+
+                        {/* Paramètres audio */}
+                        <div style={{
+                            background: '#f0f9ff',
+                            padding: '20px',
+                            borderRadius: '8px',
+                            marginBottom: '20px'
+                        }}>
+                            <h3 style={{ marginBottom: '15px', color: '#0284c7' }}>🔊 Paramètres audio</h3>
+                            
+                            {/* Choix de la voix */}
+                            <div style={{ marginBottom: '15px' }}>
+                                <label style={{ 
+                                    display: 'block', 
+                                    marginBottom: '8px', 
+                                    fontSize: '14px', 
+                                    fontWeight: 'bold' 
+                                }}>
+                                    Voix de lecture :
+                                </label>
+                                <select
+                                    value={selectedVoice}
+                                    onChange={(e) => {
+                                        setSelectedVoice(e.target.value)
+                                        const voiceObj = availableVoices.find(v => v.name === e.target.value)
+                                        if (voiceObj) {
+                                            setSelectedVoiceType(voiceObj.type)
+                                        }
+                                    }}
+                                    disabled={availableVoices.length === 0}
+                                    style={{
+                                        width: '100%',
+                                        padding: '8px',
+                                        borderRadius: '4px',
+                                        border: '1px solid #ddd',
+                                        fontSize: '14px'
+                                    }}
+                                >
+                                    {availableVoices.length === 0 ? (
+                                        <option>Aucune voix disponible</option>
+                                    ) : (
+                                        <>
+                                            <optgroup label="🎵 Voix ElevenLabs (Qualité Premium)">
+                                                {availableVoices
+                                                    .filter(voice => voice.type === 'elevenlabs')
+                                                    .map(voice => (
+                                                        <option key={voice.name} value={voice.name}>
+                                                            {voice.name}
+                                                        </option>
+                                                    ))
+                                                }
+                                            </optgroup>
+                                            <optgroup label="🖥️ Voix Système">
+                                                {availableVoices
+                                                    .filter(voice => voice.type === 'web')
+                                                    .map(voice => (
+                                                        <option key={voice.name} value={voice.name}>
+                                                            {voice.name}
+                                                        </option>
+                                                    ))
+                                                }
+                                            </optgroup>
+                                        </>
+                                    )}
+                                </select>
+                            </div>
+                            
+                            {/* Lecture automatique */}
+                            <div style={{ marginBottom: '15px' }}>
+                                <label style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '8px',
+                                    fontSize: '14px',
+                                    cursor: 'pointer'
+                                }}>
+                                    <input
+                                        type="checkbox"
+                                        checked={autoRead}
+                                        onChange={(e) => setAutoRead(e.target.checked)}
+                                        style={{ transform: 'scale(1.2)' }}
+                                    />
+                                    <span>Lire automatiquement chaque mot</span>
+                                </label>
+                                <p style={{ 
+                                    fontSize: '12px', 
+                                    color: '#666', 
+                                    marginLeft: '24px', 
+                                    marginTop: '4px' 
+                                }}>
+                                    Si coché, les mots seront prononcés automatiquement
+                                </p>
+                            </div>
+                            
+                            {/* Test de la voix */}
+                            <button
+                                onClick={() => speakText('Bonjour, ceci est un test de la voix sélectionnée')}
+                                disabled={availableVoices.length === 0}
+                                style={{
+                                    backgroundColor: '#0284c7',
+                                    color: 'white',
+                                    padding: '8px 16px',
+                                    border: 'none',
+                                    borderRadius: '4px',
+                                    fontSize: '14px',
+                                    cursor: availableVoices.length > 0 ? 'pointer' : 'not-allowed',
+                                    opacity: availableVoices.length > 0 ? 1 : 0.5
+                                }}
+                            >
+                                🎵 Tester la voix
+                            </button>
+                        </div>
+
+                        {/* Sélection du texte */}
+                        <div style={{
+                            background: '#f8f9fa',
+                            padding: '20px',
+                            borderRadius: '8px',
+                            marginBottom: '20px'
+                        }}>
+                            <h3 style={{ marginBottom: '15px' }}>📚 Choisir un texte</h3>
+                            
+                            {isLoadingTexte ? (
+                                <div>Chargement des textes...</div>
+                            ) : textes.length === 0 ? (
+                                <div style={{
+                                    textAlign: 'center',
+                                    padding: '40px',
+                                    background: '#fff3cd',
+                                    borderRadius: '8px',
+                                    border: '1px solid #ffeaa7'
+                                }}>
+                                    <p>Aucun texte disponible</p>
+                                    <p style={{ fontSize: '14px', color: '#666' }}>
+                                        Créez d'abord un texte de référence
+                                    </p>
+                                </div>
+                            ) : (
+                                <>
+                                    <select
+                                        value={selectedTexte}
+                                        onChange={(e) => setSelectedTexte(e.target.value)}
+                                        style={{
+                                            width: '100%',
+                                            padding: '10px',
+                                            borderRadius: '4px',
+                                            border: '1px solid #ddd',
+                                            fontSize: '16px',
+                                            marginBottom: '20px'
+                                        }}
+                                    >
+                                        <option value="">-- Sélectionner un texte --</option>
+                                        {textes.map(texte => (
+                                            <option key={texte.id} value={texte.id}>
+                                                {texte.titre} ({texte.nombre_mots_total} mots)
+                                            </option>
+                                        ))}
+                                    </select>
+
+                                    <button
+                                        onClick={startGame}
+                                        disabled={!selectedTexte}
+                                        style={{
+                                            backgroundColor: selectedTexte ? '#10b981' : '#ccc',
+                                            color: 'white',
+                                            padding: '12px 30px',
+                                            border: 'none',
+                                            borderRadius: '8px',
+                                            fontSize: '16px',
+                                            fontWeight: 'bold',
+                                            cursor: selectedTexte ? 'pointer' : 'not-allowed',
+                                            width: '100%'
+                                        }}
+                                    >
+🚀 Commencer l'exercice (tous les mots uniques)
+                                    </button>
+                                </>
+                            )}
+                        </div>
+                    </>
+                ) : gameFinished ? (
+                    <>
+                        {/* Résultats finaux */}
+                        <div style={{
+                            background: '#f0fdf4',
+                            padding: '30px',
+                            borderRadius: '12px',
+                            marginBottom: '20px',
+                            textAlign: 'center'
+                        }}>
+                            <h2 style={{ color: '#166534', marginBottom: '20px' }}>
+                                🎉 Exercice terminé !
+                            </h2>
+                            <div style={{ fontSize: '24px', marginBottom: '20px' }}>
+                                Score final : <strong>{score}/{attempts}</strong>
+                            </div>
+                            <div style={{ fontSize: '18px', color: '#15803d' }}>
+                                Pourcentage de réussite : <strong>{Math.round((score / attempts) * 100)}%</strong>
+                            </div>
+                        </div>
+
+                        {/* Boutons d'actions */}
+                        <div style={{
+                            display: 'flex',
+                            gap: '10px',
+                            justifyContent: 'center',
+                            flexWrap: 'wrap',
+                            marginBottom: '20px'
+                        }}>
+                            <button
+                                onClick={() => setShowResults(!showResults)}
+                                style={{
+                                    backgroundColor: '#3b82f6',
+                                    color: 'white',
+                                    padding: '10px 20px',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    fontSize: '16px',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                {showResults ? '📊 Masquer le détail' : '📊 Voir le détail'}
+                            </button>
+
+                            <button
+                                onClick={() => loadMotsTexte(selectedTexte)}
+                                style={{
+                                    backgroundColor: '#10b981',
+                                    color: 'white',
+                                    padding: '10px 20px',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    fontSize: '16px',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                🔄 Recommencer
+                            </button>
+
+                            <button
+                                onClick={resetGame}
+                                style={{
+                                    backgroundColor: '#ef4444',
+                                    color: 'white',
+                                    padding: '10px 20px',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    fontSize: '16px',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                📚 Nouveau texte
+                            </button>
+                        </div>
+
+                        {/* Détail des résultats */}
+                        {showResults && (
+                            <div style={{
+                                background: '#f8f9fa',
+                                padding: '20px',
+                                borderRadius: '8px'
+                            }}>
+                                <h3 style={{ marginBottom: '20px' }}>📝 Détail des réponses</h3>
+                                <div style={{
+                                    display: 'grid',
+                                    gap: '10px'
+                                }}>
+                                    {userChoices.map((choice, index) => (
+                                        <div key={index} style={{
+                                            display: 'flex',
+                                            justifyContent: 'space-between',
+                                            alignItems: 'center',
+                                            padding: '10px',
+                                            background: choice.isCorrect ? '#d1fae5' : '#fee2e2',
+                                            borderRadius: '4px'
+                                        }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                <button
+                                                    onClick={() => speakText(choice.mot.clean)}
+                                                    style={{
+                                                        backgroundColor: '#3b82f6',
+                                                        color: 'white',
+                                                        padding: '4px 8px',
+                                                        border: 'none',
+                                                        borderRadius: '4px',
+                                                        fontSize: '12px',
+                                                        cursor: 'pointer'
+                                                    }}
+                                                >
+                                                    🔊
+                                                </button>
+                                                <div>
+                                                    <strong>{choice.mot.clean}</strong> 
+                                                    <span style={{ fontSize: '12px', color: '#666', marginLeft: '10px' }}>
+                                                        {choice.mot.syllables?.join('-')} ({choice.mot.estimatedSyllables} syllabe{choice.mot.estimatedSyllables > 1 ? 's' : ''})
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <span style={{ 
+                                                    color: choice.isCorrect ? '#065f46' : '#991b1b',
+                                                    fontSize: '14px'
+                                                }}>
+                                                    {choice.isCorrect ? '✅' : '❌'} 
+                                                    Vous: {choice.userChoice ? 'Mono' : 'Multi'} | 
+                                                    Correct: {choice.mot.isMonosyllabe ? 'Mono' : 'Multi'}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </>
+                ) : (
+                    <>
+                        {/* Zone de jeu */}
+                        <div style={{
+                            background: '#f8f9fa',
+                            padding: '20px',
+                            borderRadius: '8px',
+                            marginBottom: '20px'
+                        }}>
+                            {/* Progression */}
+                            <div style={{
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                                marginBottom: '30px'
+                            }}>
+                                <div style={{ fontSize: '16px', color: '#666' }}>
+                                    📊 Score: {score}/{attempts}
+                                </div>
+                                <div style={{ fontSize: '16px', color: '#666' }}>
+                                    📝 Mot {currentMotIndex + 1}/{allMots.length}
+                                </div>
+                            </div>
+
+                            {/* Mot actuel */}
+                            <div style={{
+                                textAlign: 'center',
+                                marginBottom: '30px'
+                            }}>
+                                <div style={{
+                                    fontSize: '48px',
+                                    fontWeight: 'bold',
+                                    color: '#10b981',
+                                    padding: '30px',
+                                    background: 'white',
+                                    borderRadius: '12px',
+                                    boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+                                    marginBottom: '20px'
+                                }}>
+                                    {currentMot?.clean}
+                                </div>
+                                
+                                {/* Bouton écouter */}
+                                <button
+                                    onClick={() => speakText(currentMot?.clean)}
+                                    style={{
+                                        backgroundColor: '#3b82f6',
+                                        color: 'white',
+                                        padding: '10px 20px',
+                                        border: 'none',
+                                        borderRadius: '8px',
+                                        fontSize: '16px',
+                                        cursor: 'pointer',
+                                        marginBottom: '15px',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '8px',
+                                        margin: '0 auto 15px auto'
+                                    }}
+                                >
+                                    🔊 Écouter le mot
+                                </button>
+                                
+                                <div style={{ fontSize: '14px', color: '#666' }}>
+                                    Syllabes: {currentMot?.syllables?.join('-')} ({currentMot?.estimatedSyllables} syllabe{currentMot?.estimatedSyllables > 1 ? 's' : ''})
+                                </div>
+                            </div>
+
+                            {/* Feedback */}
+                            {feedback && (
+                                <div style={{
+                                    textAlign: 'center',
+                                    fontSize: '20px',
+                                    fontWeight: 'bold',
+                                    marginBottom: '20px',
+                                    color: feedback.includes('✅') ? '#10b981' : '#ef4444'
+                                }}>
+                                    {feedback}
+                                </div>
+                            )}
+
+                            {/* Boutons de choix */}
+                            <div style={{
+                                display: 'flex',
+                                gap: '20px',
+                                justifyContent: 'center',
+                                flexWrap: 'wrap'
+                            }}>
+                                <button
+                                    onClick={() => handleChoice(true)}
+                                    disabled={!!feedback}
+                                    style={{
+                                        backgroundColor: '#10b981',
+                                        color: 'white',
+                                        padding: '20px 40px',
+                                        border: 'none',
+                                        borderRadius: '12px',
+                                        fontSize: '18px',
+                                        fontWeight: 'bold',
+                                        cursor: feedback ? 'not-allowed' : 'pointer',
+                                        opacity: feedback ? 0.5 : 1,
+                                        minWidth: '200px'
+                                    }}
+                                >
+                                    🟢 Monosyllabe<br/>
+                                    <span style={{ fontSize: '14px', fontWeight: 'normal' }}>
+                                        (1 syllabe)
+                                    </span>
+                                </button>
+
+                                <button
+                                    onClick={() => handleChoice(false)}
+                                    disabled={!!feedback}
+                                    style={{
+                                        backgroundColor: '#ef4444',
+                                        color: 'white',
+                                        padding: '20px 40px',
+                                        border: 'none',
+                                        borderRadius: '12px',
+                                        fontSize: '18px',
+                                        fontWeight: 'bold',
+                                        cursor: feedback ? 'not-allowed' : 'pointer',
+                                        opacity: feedback ? 0.5 : 1,
+                                        minWidth: '200px'
+                                    }}
+                                >
+                                    🔴 Multisyllabe<br/>
+                                    <span style={{ fontSize: '14px', fontWeight: 'normal' }}>
+                                        (2+ syllabes)
+                                    </span>
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Bouton arrêter */}
+                        <div style={{ textAlign: 'center' }}>
+                            <button
+                                onClick={resetGame}
+                                style={{
+                                    backgroundColor: '#6b7280',
+                                    color: 'white',
+                                    padding: '10px 20px',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    fontSize: '14px',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                ⏹️ Arrêter l'exercice
+                            </button>
+                        </div>
+                    </>
+                )}
+
+                {/* Bouton retour */}
+                <div style={{
+                    textAlign: 'center',
+                    marginTop: '30px'
+                }}>
+                    <button
+                        onClick={() => router.push('/lire/mes-textes-references')}
+                        style={{
+                            backgroundColor: '#6b7280',
+                            color: 'white',
+                            padding: '12px 30px',
+                            border: 'none',
+                            borderRadius: '8px',
+                            fontSize: '14px',
+                            fontWeight: 'bold',
+                            cursor: 'pointer'
+                        }}
+                    >
+                        ← Retour au menu
+                    </button>
+                </div>
+            </div>
+        </div>
+    )
+}
