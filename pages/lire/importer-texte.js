@@ -488,6 +488,9 @@ export default function ImporterTexte() {
                             accept=".txt,.pdf,.docx,.odt"
                             onChange={handleFileImport}
                             disabled={isProcessingFile}
+                            lang="fr"
+                            title="Parcourir les fichiers"
+                            placeholder="Aucun fichier sélectionné"
                             style={{
                                 marginBottom: '20px',
                                 padding: '15px',

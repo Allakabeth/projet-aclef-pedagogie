@@ -19,8 +19,8 @@ export default function MonosyllabesMultisyllabes() {
     const [userChoices, setUserChoices] = useState([])
     const [showResults, setShowResults] = useState(false)
     const [availableVoices, setAvailableVoices] = useState([])
-    const [selectedVoice, setSelectedVoice] = useState('')
-    const [selectedVoiceType, setSelectedVoiceType] = useState('web') // 'web' ou 'elevenlabs'
+    const [selectedVoice, setSelectedVoice] = useState('Paul (ElevenLabs)')
+    const [selectedVoiceType, setSelectedVoiceType] = useState('elevenlabs') // 'web' ou 'elevenlabs'
     const [autoRead, setAutoRead] = useState(false)
     const router = useRouter()
 
@@ -49,18 +49,31 @@ export default function MonosyllabesMultisyllabes() {
         const loadAllVoices = () => {
             const allVoices = []
             
-            // Voix ElevenLabs
+            // Voix ElevenLabs (seulement Paul et Julie)
             const elevenLabsVoices = [
-                { name: 'Adam (ElevenLabs)', type: 'elevenlabs', id: 'AfbuxQ9DVtS4azaxN1W7', lang: 'fr-FR' },
-                { name: 'Alice (ElevenLabs)', type: 'elevenlabs', id: 'Xb7hH8MSUJpSbSDYk0k2', lang: 'fr-FR' },
-                { name: 'Brian (ElevenLabs)', type: 'elevenlabs', id: 'nPczCjzI2devNBz1zQrb', lang: 'fr-FR' }
+                { name: 'Paul (ElevenLabs)', type: 'elevenlabs', id: 'AfbuxQ9DVtS4azaxN1W7', lang: 'fr-FR' },
+                { name: 'Julie (ElevenLabs)', type: 'elevenlabs', id: 'tMyQcCxfGDdIt7wJ2RQw', lang: 'fr-FR' }
             ]
             allVoices.push(...elevenLabsVoices)
             
-            // Voix Web Speech API
+            // Voix Web Speech API (seulement Paul et Julie, pas Hortense)
             if ('speechSynthesis' in window) {
                 const webVoices = speechSynthesis.getVoices()
-                    .filter(voice => voice.lang.startsWith('fr') || voice.lang.includes('FR'))
+                    .filter(voice => {
+                        const voiceName = voice.name.toLowerCase()
+                        const isFrencVoice = voice.lang.startsWith('fr') || voice.lang.includes('FR')
+                        
+                        // Inclure seulement Paul et Julie, exclure Hortense
+                        const isPaulOrJulie = voiceName.includes('paul') || 
+                                            voiceName.includes('julie') || 
+                                            voiceName.includes('thomas') || 
+                                            voiceName.includes('amelie') ||
+                                            voiceName.includes('marie')
+                        
+                        const isNotHortense = !voiceName.includes('hortense')
+                        
+                        return isFrencVoice && isPaulOrJulie && isNotHortense
+                    })
                     .map(voice => ({ 
                         name: `${voice.name} (Système)`, 
                         type: 'web', 
@@ -262,8 +275,17 @@ export default function MonosyllabesMultisyllabes() {
         const selectedVoiceObj = availableVoices.find(v => v.name === selectedVoice)
         
         if (selectedVoiceObj?.type === 'elevenlabs') {
-            // Utiliser ElevenLabs
+            // Utiliser ElevenLabs avec contexte français pour les mots isolés
             try {
+                // Ajouter un contexte français si c'est un mot isolé (sans espace)
+                let textToSpeak = text
+                if (!text.includes(' ') && text.length >= 1) {
+                    // Ajouter un contexte français subtil pour améliorer la prononciation
+                    textToSpeak = `Le mot "${text}".`
+                }
+                
+                console.log('Envoi à ElevenLabs:', textToSpeak)
+                
                 const response = await fetch('/api/speech/elevenlabs', {
                     method: 'POST',
                     headers: {
@@ -271,19 +293,23 @@ export default function MonosyllabesMultisyllabes() {
                         'Authorization': `Bearer ${localStorage.getItem('token')}`
                     },
                     body: JSON.stringify({ 
-                        text,
+                        text: textToSpeak,
                         voice_id: selectedVoiceObj.id 
                     })
                 })
 
                 if (response.ok) {
                     const data = await response.json()
+                    console.log('Réponse ElevenLabs OK, lecture audio')
                     const audio = new Audio(data.audio)
                     audio.play()
                     return
+                } else {
+                    console.log('Erreur ElevenLabs:', response.status, await response.text())
+                    throw new Error('ElevenLabs failed')
                 }
             } catch (error) {
-                console.log('ElevenLabs non disponible, fallback vers Web Speech API')
+                console.log('ElevenLabs non disponible, fallback vers Web Speech API:', error.message)
             }
         }
 
@@ -375,9 +401,9 @@ export default function MonosyllabesMultisyllabes() {
                                 ou d'un <strong>multisyllabe</strong> (2+ syllabes)
                             </p>
                             <div style={{ marginTop: '15px', fontSize: '14px' }}>
-                                <strong>Exemples :</strong><br/>
-                                🟢 Monosyllabes : chat, pain, bon, mer<br/>
-                                🔴 Multisyllabes : ma-tin, voi-ture, pa-pil-lon
+                                <strong>À vous de découvrir :</strong><br/>
+                                Écoutez bien les mots et comptez les syllabes !<br/>
+                                🟢 Une syllabe ou 🔴 Plusieurs syllabes ?
                             </div>
                         </div>
 
@@ -678,7 +704,7 @@ export default function MonosyllabesMultisyllabes() {
                                                     </span>
                                                 </div>
                                             </div>
-                                            <div>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                                                 <span style={{ 
                                                     color: choice.isCorrect ? '#065f46' : '#991b1b',
                                                     fontSize: '14px'
@@ -687,6 +713,23 @@ export default function MonosyllabesMultisyllabes() {
                                                     Vous: {choice.userChoice ? 'Mono' : 'Multi'} | 
                                                     Correct: {choice.mot.isMonosyllabe ? 'Mono' : 'Multi'}
                                                 </span>
+                                                <button
+                                                    onClick={() => {
+                                                        alert(`Merci pour votre retour sur le mot "${choice.mot.clean}". Nous prendrons en compte votre avis pour améliorer l'algorithme.`)
+                                                    }}
+                                                    style={{
+                                                        backgroundColor: '#f59e0b',
+                                                        color: 'white',
+                                                        padding: '4px 8px',
+                                                        border: 'none',
+                                                        borderRadius: '4px',
+                                                        fontSize: '11px',
+                                                        cursor: 'pointer',
+                                                        whiteSpace: 'nowrap'
+                                                    }}
+                                                >
+                                                    🤔 Pas d'accord
+                                                </button>
                                             </div>
                                         </div>
                                     ))}
@@ -757,9 +800,6 @@ export default function MonosyllabesMultisyllabes() {
                                     🔊 Écouter le mot
                                 </button>
                                 
-                                <div style={{ fontSize: '14px', color: '#666' }}>
-                                    Syllabes: {currentMot?.syllables?.join('-')} ({currentMot?.estimatedSyllables} syllabe{currentMot?.estimatedSyllables > 1 ? 's' : ''})
-                                </div>
                             </div>
 
                             {/* Feedback */}
@@ -798,10 +838,7 @@ export default function MonosyllabesMultisyllabes() {
                                         minWidth: '200px'
                                     }}
                                 >
-                                    🟢 Monosyllabe<br/>
-                                    <span style={{ fontSize: '14px', fontWeight: 'normal' }}>
-                                        (1 syllabe)
-                                    </span>
+                                    🟢 Monosyllabe
                                 </button>
 
                                 <button
@@ -820,10 +857,7 @@ export default function MonosyllabesMultisyllabes() {
                                         minWidth: '200px'
                                     }}
                                 >
-                                    🔴 Multisyllabe<br/>
-                                    <span style={{ fontSize: '14px', fontWeight: 'normal' }}>
-                                        (2+ syllabes)
-                                    </span>
+                                    🔴 Multisyllabe
                                 </button>
                             </div>
                         </div>
