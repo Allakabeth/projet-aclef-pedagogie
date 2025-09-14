@@ -16,6 +16,9 @@ export default function RecolteSyllabes() {
     const [motsEnAttenteSonsComplexes, setMotsEnAttenteSonsComplexes] = useState([])
     const [motsEnAttenteResegmentation, setMotsEnAttenteResegmentation] = useState([])
     const [tousMots, setTousMots] = useState([]) // Stocker tous les mots initiaux
+    const [lettreSelectionnee, setLettreSelectionnee] = useState(null) // Lettre sélectionnée pour navigation
+    const [jeuTermine, setJeuTermine] = useState(false) // État pour gérer la fin du jeu
+    const [afficherFinRecolte, setAfficherFinRecolte] = useState(false) // État pour la fenêtre "fin de récolte"
     const router = useRouter()
 
     useEffect(() => {
@@ -52,6 +55,9 @@ export default function RecolteSyllabes() {
         }
     }, [tousMots])
 
+    // Variable globale pour stocker les mots initiaux de façon stable
+    let motsInitiaux = []
+    
     const chargerMots = async () => {
         try {
             // Récupérer l'ID du texte depuis l'URL ou localStorage
@@ -75,6 +81,7 @@ export default function RecolteSyllabes() {
 
             if (response.ok) {
                 const data = await response.json()
+                motsInitiaux = data.mots || [] // Stocker de façon stable
                 setTousMots(data.mots || []) // Stocker tous les mots initiaux
                 setMotsATraiter(data.mots || [])
                 console.log('Mots chargés:', data.mots?.length || 0)
@@ -226,7 +233,8 @@ export default function RecolteSyllabes() {
         if (nouveauxMots.length > 0) {
             chargerMotActuel(nouveauxMots[0])
         } else {
-            // Plus de mots à traiter
+            // Plus de mots à traiter - afficher la fenêtre de fin de récolte
+            setAfficherFinRecolte(true)
             setMotActuel(null)
             setSegmentationActuelle([])
             setIndexSyllabeActuelle(0)
@@ -237,6 +245,67 @@ export default function RecolteSyllabes() {
         setShowNomPanier(false)
         setNomPanierSaisi('')
         setNomPanierPropose('')
+    }
+
+    // Calculer les statistiques
+    const calculerStatistiques = () => {
+        const totalSyllabes = paniers.reduce((total, panier) => total + panier.syllabes.length, 0)
+        
+        return {
+            motsTraites: motsTraites.length,
+            totalSyllabes: totalSyllabes,
+            sonsComplexes: motsEnAttenteSonsComplexes.length,
+            motsEnAttente: motsEnAttenteResegmentation.length,
+            paniersCreés: paniers.length
+        }
+    }
+
+    // Terminer la récolte : sauvegarder puis afficher les stats
+    const terminerRecolte = async () => {
+        try {
+            // D'abord sauvegarder
+            await sauvegarderPaniers()
+            
+            // Puis passer aux statistiques
+            setAfficherFinRecolte(false)
+            setJeuTermine(true)
+        } catch (error) {
+            console.error('Erreur lors de la sauvegarde finale:', error)
+            alert('❌ Erreur lors de la sauvegarde')
+        }
+    }
+
+    // Envoyer à l'admin pour validation
+    const envoyerPourValidation = async () => {
+        try {
+            const stats = calculerStatistiques()
+            
+            const response = await fetch('/api/admin/validation-syllabes', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    apprenantId: 'ef45f2ec-77e5-4df6-b73b-221fa56deb50', // Nina
+                    texteId: router.query.texte || localStorage.getItem('texte_selectionne_id'),
+                    statistiques: stats,
+                    paniers: paniers,
+                    motsTraites: motsTraites,
+                    motsEnAttenteSonsComplexes: motsEnAttenteSonsComplexes,
+                    motsEnAttenteResegmentation: motsEnAttenteResegmentation,
+                    dateEnvoi: new Date().toISOString()
+                })
+            })
+
+            if (response.ok) {
+                alert('✅ Travail envoyé à l\'administrateur pour validation !')
+            } else {
+                alert('❌ Erreur lors de l\'envoi')
+            }
+        } catch (error) {
+            console.error('Erreur envoi validation:', error)
+            alert('❌ Erreur lors de l\'envoi')
+        }
     }
 
     const sauvegarderPaniers = async () => {
@@ -370,14 +439,14 @@ export default function RecolteSyllabes() {
                     ...motsAttenteResegmentation.map(m => m.contenu)
                 ]
                 
-                // Utiliser tousMots qui contient tous les mots initiaux
-                console.log('Mots initiaux:', tousMots.length)
+                // Utiliser motsInitiaux qui est stable
+                console.log('Mots initiaux:', motsInitiaux.length)
                 console.log('Mots à enlever:', motsAEnlever)
-                const motsRestants = tousMots.filter(mot => !motsAEnlever.includes(mot.contenu))
+                const motsRestants = motsInitiaux.filter(mot => !motsAEnlever.includes(mot.contenu))
                 console.log('Mots restants après filtrage:', motsRestants.length)
                 setMotsATraiter(motsRestants)
                 
-                console.log(`SIMPLE: ${tousMots.length} mots total, on enlève ${motsAEnlever.length} mots (${motsAEnlever.join(', ')}), reste ${motsRestants.length} à traiter`)
+                console.log(`SIMPLE: ${motsInitiaux.length} mots total, on enlève ${motsAEnlever.length} mots (${motsAEnlever.join(', ')}), reste ${motsRestants.length} à traiter`)
                 
                 // Charger le premier mot restant
                 if (motsRestants.length > 0) {
@@ -394,6 +463,268 @@ export default function RecolteSyllabes() {
         return (
             <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <div>Chargement...</div>
+            </div>
+        )
+    }
+
+    // Afficher la fenêtre de fin de récolte
+    if (afficherFinRecolte) {
+        return (
+            <div style={{ 
+                minHeight: '100vh', 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center',
+                backgroundColor: 'rgba(0,0,0,0.5)'
+            }}>
+                <div style={{
+                    background: 'white',
+                    padding: '40px',
+                    borderRadius: '16px',
+                    boxShadow: '0 10px 25px rgba(0,0,0,0.2)',
+                    textAlign: 'center',
+                    maxWidth: '500px',
+                    margin: '20px'
+                }}>
+                    <div style={{ 
+                        fontSize: '48px', 
+                        marginBottom: '20px' 
+                    }}>
+                        🎉
+                    </div>
+                    
+                    <h2 style={{ 
+                        fontSize: '28px', 
+                        color: '#16a34a', 
+                        marginBottom: '15px' 
+                    }}>
+                        Tous les mots ont été récoltés !
+                    </h2>
+                    
+                    <p style={{ 
+                        fontSize: '16px', 
+                        color: '#666', 
+                        marginBottom: '30px',
+                        lineHeight: '1.5'
+                    }}>
+                        Félicitations ! Vous avez terminé la récolte de toutes les syllabes.
+                        <br />
+                        Cliquez sur "Terminer" pour sauvegarder votre travail et voir les statistiques.
+                    </p>
+                    
+                    <button
+                        onClick={terminerRecolte}
+                        style={{
+                            backgroundColor: '#16a34a',
+                            color: 'white',
+                            padding: '15px 30px',
+                            border: 'none',
+                            borderRadius: '8px',
+                            fontSize: '18px',
+                            fontWeight: 'bold',
+                            cursor: 'pointer',
+                            boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                            marginRight: '15px'
+                        }}
+                    >
+                        ✅ Terminer et sauvegarder
+                    </button>
+                    
+                    <button
+                        onClick={() => setAfficherFinRecolte(false)}
+                        style={{
+                            backgroundColor: '#6b7280',
+                            color: 'white',
+                            padding: '15px 30px',
+                            border: 'none',
+                            borderRadius: '8px',
+                            fontSize: '18px',
+                            fontWeight: 'bold',
+                            cursor: 'pointer',
+                            boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                        }}
+                    >
+                        Continuer à travailler
+                    </button>
+                </div>
+            </div>
+        )
+    }
+
+    // Afficher le rapport statistique quand le jeu est terminé
+    if (jeuTermine) {
+        const stats = calculerStatistiques()
+        
+        return (
+            <div style={{ minHeight: '100vh', padding: '20px', backgroundColor: '#f8f9fa' }}>
+                <div style={{ maxWidth: '800px', margin: '0 auto' }}>
+                    {/* En-tête */}
+                    <div style={{
+                        background: 'white',
+                        padding: '30px',
+                        borderRadius: '12px',
+                        marginBottom: '20px',
+                        textAlign: 'center',
+                        boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+                    }}>
+                        <h1 style={{ 
+                            fontSize: '32px', 
+                            color: '#16a34a', 
+                            marginBottom: '10px' 
+                        }}>
+                            🎉 Félicitations !
+                        </h1>
+                        <p style={{ 
+                            fontSize: '18px', 
+                            color: '#666', 
+                            marginBottom: '0' 
+                        }}>
+                            Vous avez terminé l'exercice de récolte de syllabes
+                        </p>
+                    </div>
+
+                    {/* Statistiques */}
+                    <div style={{
+                        background: 'white',
+                        padding: '30px',
+                        borderRadius: '12px',
+                        marginBottom: '20px',
+                        boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+                    }}>
+                        <h2 style={{ 
+                            fontSize: '24px', 
+                            color: '#333', 
+                            marginBottom: '20px',
+                            textAlign: 'center'
+                        }}>
+                            📊 Rapport Statistique
+                        </h2>
+                        
+                        <div style={{ 
+                            display: 'grid', 
+                            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
+                            gap: '15px' 
+                        }}>
+                            <div style={{ 
+                                padding: '20px', 
+                                background: '#dcfce7', 
+                                borderRadius: '8px', 
+                                textAlign: 'center' 
+                            }}>
+                                <div style={{ 
+                                    fontSize: '32px', 
+                                    fontWeight: 'bold', 
+                                    color: '#16a34a' 
+                                }}>
+                                    {stats.motsTraites}
+                                </div>
+                                <div style={{ color: '#374151' }}>Mots traités</div>
+                            </div>
+                            
+                            <div style={{ 
+                                padding: '20px', 
+                                background: '#dbeafe', 
+                                borderRadius: '8px', 
+                                textAlign: 'center' 
+                            }}>
+                                <div style={{ 
+                                    fontSize: '32px', 
+                                    fontWeight: 'bold', 
+                                    color: '#2563eb' 
+                                }}>
+                                    {stats.totalSyllabes}
+                                </div>
+                                <div style={{ color: '#374151' }}>Syllabes classées</div>
+                            </div>
+                            
+                            <div style={{ 
+                                padding: '20px', 
+                                background: '#fce7f3', 
+                                borderRadius: '8px', 
+                                textAlign: 'center' 
+                            }}>
+                                <div style={{ 
+                                    fontSize: '32px', 
+                                    fontWeight: 'bold', 
+                                    color: '#be185d' 
+                                }}>
+                                    {stats.sonsComplexes}
+                                </div>
+                                <div style={{ color: '#374151' }}>Sons complexes</div>
+                            </div>
+                            
+                            <div style={{ 
+                                padding: '20px', 
+                                background: '#fef3c7', 
+                                borderRadius: '8px', 
+                                textAlign: 'center' 
+                            }}>
+                                <div style={{ 
+                                    fontSize: '32px', 
+                                    fontWeight: 'bold', 
+                                    color: '#d97706' 
+                                }}>
+                                    {stats.motsEnAttente}
+                                </div>
+                                <div style={{ color: '#374151' }}>Mots en attente</div>
+                            </div>
+                            
+                            <div style={{ 
+                                padding: '20px', 
+                                background: '#f0f9ff', 
+                                borderRadius: '8px', 
+                                textAlign: 'center' 
+                            }}>
+                                <div style={{ 
+                                    fontSize: '32px', 
+                                    fontWeight: 'bold', 
+                                    color: '#0369a1' 
+                                }}>
+                                    {stats.paniersCreés}
+                                </div>
+                                <div style={{ color: '#374151' }}>Paniers créés</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Actions */}
+                    <div style={{ textAlign: 'center' }}>
+                        <button
+                            onClick={envoyerPourValidation}
+                            style={{
+                                backgroundColor: '#16a34a',
+                                color: 'white',
+                                padding: '15px 30px',
+                                border: 'none',
+                                borderRadius: '8px',
+                                fontSize: '18px',
+                                fontWeight: 'bold',
+                                cursor: 'pointer',
+                                marginRight: '15px',
+                                boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                            }}
+                        >
+                            ✅ Envoyer à l'admin pour validation
+                        </button>
+                        
+                        <button
+                            onClick={() => router.push('/lire/syllabes-paniers')}
+                            style={{
+                                backgroundColor: '#6b7280',
+                                color: 'white',
+                                padding: '15px 30px',
+                                border: 'none',
+                                borderRadius: '8px',
+                                fontSize: '18px',
+                                fontWeight: 'bold',
+                                cursor: 'pointer',
+                                boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                            }}
+                        >
+                            ← Retour aux activités
+                        </button>
+                    </div>
+                </div>
             </div>
         )
     }
@@ -437,6 +768,7 @@ export default function RecolteSyllabes() {
                         const syllabeCourante = segmentationActuelle[indexSyllabeActuelle] || ''
                         const premiereLettreSyllabe = syllabeCourante.charAt(0).toUpperCase()
                         const estCategorieActive = lettre === premiereLettreSyllabe
+                        const estLettreSelectionnee = lettreSelectionnee === lettre
                         
                         // Chercher un panier correspondant à cette lettre
                         const panierCorrespondant = paniers.find(p => p.nom.toUpperCase().startsWith(lettre))
@@ -446,11 +778,10 @@ export default function RecolteSyllabes() {
                         return (
                             <button
                                 key={lettre}
-                                onClick={() => panierCorrespondant && classerSyllabeDansPanier(panierCorrespondant.id)}
-                                disabled={!estCategorieActive || !panierCorrespondant}
+                                onClick={() => setLettreSelectionnee(lettreSelectionnee === lettre ? null : lettre)}
                                 style={{
-                                    backgroundColor: estCategorieActive ? '#84cc16' : '#e5e7eb',
-                                    color: estCategorieActive ? 'white' : 'black',
+                                    backgroundColor: estLettreSelectionnee ? '#3b82f6' : (estCategorieActive ? '#84cc16' : '#e5e7eb'),
+                                    color: estLettreSelectionnee ? 'white' : (estCategorieActive ? 'white' : 'black'),
                                     padding: '15px',
                                     border: 'none',
                                     borderRadius: '8px',
@@ -519,6 +850,26 @@ export default function RecolteSyllabes() {
                         }}
                     >
                         💾
+                    </button>
+                    
+                    {/* Case actualiser */}
+                    <button
+                        onClick={() => {
+                            console.log('🔄 Actualisation des données...')
+                            chargerPaniersExistants()
+                        }}
+                        style={{
+                            backgroundColor: '#16a34a',
+                            color: 'white',
+                            padding: '15px',
+                            border: 'none',
+                            borderRadius: '8px',
+                            fontSize: '16px',
+                            cursor: 'pointer',
+                            minHeight: '50px'
+                        }}
+                    >
+                        🔄
                     </button>
                     
                     {/* Case aide */}
@@ -685,56 +1036,6 @@ export default function RecolteSyllabes() {
                             + Ajouter un panier
                         </div>
 
-                        {/* Paniers créés dynamiquement - filtrés par la lettre courante */}
-                        {paniers
-                            .filter(panier => {
-                                const syllabeCourante = segmentationActuelle[indexSyllabeActuelle] || ''
-                                const premiereLettreSyllabe = syllabeCourante.charAt(0).toUpperCase()
-                                return panier.nom.toUpperCase().startsWith(premiereLettreSyllabe)
-                            })
-                            .map(panier => (
-                            <div 
-                                key={panier.id}
-                                onClick={() => classerSyllabeDansPanier(panier.id)}
-                                onDragOver={(e) => {
-                                    e.preventDefault()
-                                    e.currentTarget.style.backgroundColor = '#f0fdf4'
-                                }}
-                                onDragLeave={(e) => {
-                                    e.currentTarget.style.backgroundColor = 'white'
-                                }}
-                                onDrop={(e) => {
-                                    e.preventDefault()
-                                    e.currentTarget.style.backgroundColor = 'white'
-                                    const syllabe = e.dataTransfer.getData('text/plain')
-                                    if (syllabe) {
-                                        classerSyllabeDansPanier(panier.id)
-                                    }
-                                }}
-                                style={{
-                                    border: '2px dashed #84cc16',
-                                    borderRadius: '8px',
-                                    padding: '15px',
-                                    minHeight: '60px',
-                                    cursor: 'pointer',
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    fontSize: '12px',
-                                    fontWeight: 'bold'
-                                }}
-                            >
-                                <div style={{ marginBottom: '5px' }}>{panier.nom}</div>
-                                <div style={{ fontSize: '10px', color: '#666' }}>
-                                    {panier.syllabes.length} syllabe(s)
-                                </div>
-                                {/* Afficher les syllabes */}
-                                <div style={{ fontSize: '9px', color: '#333', marginTop: '5px', textAlign: 'center' }}>
-                                    {panier.syllabes.join(', ')}
-                                </div>
-                            </div>
-                        ))}
 
                         {/* Panier sons complexes */}
                         <div 
@@ -807,6 +1108,63 @@ export default function RecolteSyllabes() {
                         >
                             À resegmenter
                         </div>
+
+                        {/* Paniers créés dynamiquement - filtrés par la lettre sélectionnée ou syllabe courante */}
+                        {paniers
+                            .filter(panier => {
+                                if (lettreSelectionnee) {
+                                    // Si une lettre est sélectionnée, montrer tous les paniers de cette lettre
+                                    return panier.nom.toUpperCase().startsWith(lettreSelectionnee)
+                                } else {
+                                    // Sinon, comportement normal : seulement les paniers de la syllabe courante
+                                    const syllabeCourante = segmentationActuelle[indexSyllabeActuelle] || ''
+                                    const premiereLettreSyllabe = syllabeCourante.charAt(0).toUpperCase()
+                                    return panier.nom.toUpperCase().startsWith(premiereLettreSyllabe)
+                                }
+                            })
+                            .map(panier => (
+                            <div 
+                                key={panier.id}
+                                onClick={() => classerSyllabeDansPanier(panier.id)}
+                                onDragOver={(e) => {
+                                    e.preventDefault()
+                                    e.currentTarget.style.backgroundColor = '#f0fdf4'
+                                }}
+                                onDragLeave={(e) => {
+                                    e.currentTarget.style.backgroundColor = 'white'
+                                }}
+                                onDrop={(e) => {
+                                    e.preventDefault()
+                                    e.currentTarget.style.backgroundColor = 'white'
+                                    const syllabe = e.dataTransfer.getData('text/plain')
+                                    if (syllabe) {
+                                        classerSyllabeDansPanier(panier.id)
+                                    }
+                                }}
+                                style={{
+                                    border: '2px dashed #84cc16',
+                                    borderRadius: '8px',
+                                    padding: '15px',
+                                    minHeight: '60px',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    fontSize: '12px',
+                                    fontWeight: 'bold'
+                                }}
+                            >
+                                <div style={{ marginBottom: '5px' }}>{panier.nom}</div>
+                                <div style={{ fontSize: '10px', color: '#666' }}>
+                                    {panier.syllabes.length} syllabe(s)
+                                </div>
+                                {/* Afficher les syllabes */}
+                                <div style={{ fontSize: '9px', color: '#333', marginTop: '5px', textAlign: 'center' }}>
+                                    {panier.syllabes.join(', ')}
+                                </div>
+                            </div>
+                        ))}
 
                         {/* Bouton poubelle */}
                         <div 

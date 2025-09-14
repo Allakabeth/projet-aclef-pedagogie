@@ -191,9 +191,27 @@ export default function Lire() {
                     </button>
 
                     <button
-                        onClick={() => router.push('/lire/dictees-recherche')}
+                        onClick={() => router.push('/lire/segmentation-choix')}
                         style={{
                             backgroundColor: '#f59e0b',
+                            color: 'white',
+                            padding: 'clamp(15px, 4vw, 20px) clamp(10px, 3vw, 15px)',
+                            border: 'none',
+                            fontSize: 'clamp(13px, 3vw, 15px)',
+                            fontWeight: 'bold',
+                            cursor: 'pointer',
+                            transition: 'transform 0.2s ease'
+                        }}
+                        onMouseOver={(e) => e.target.style.transform = 'translateY(-2px)'}
+                        onMouseOut={(e) => e.target.style.transform = 'translateY(0)'}
+                    >
+                        ✂️ Segmentation des Syllabes
+                    </button>
+
+                    <button
+                        onClick={() => router.push('/lire/dictees-recherche')}
+                        style={{
+                            backgroundColor: '#a855f7',
                             color: 'white',
                             padding: 'clamp(15px, 4vw, 20px) clamp(10px, 3vw, 15px)',
                             border: 'none',
@@ -227,25 +245,7 @@ export default function Lire() {
                     </button>
 
                     <button
-                        onClick={() => router.push('/lire/segmentation-syllabes')}
-                        style={{
-                            backgroundColor: '#06b6d4',
-                            color: 'white',
-                            padding: 'clamp(15px, 4vw, 20px) clamp(10px, 3vw, 15px)',
-                            border: 'none',
-                            fontSize: 'clamp(13px, 3vw, 15px)',
-                            fontWeight: 'bold',
-                            cursor: 'pointer',
-                            transition: 'transform 0.2s ease'
-                        }}
-                        onMouseOver={(e) => e.target.style.transform = 'translateY(-2px)'}
-                        onMouseOut={(e) => e.target.style.transform = 'translateY(0)'}
-                    >
-                        ✂️ Segmentation des syllabes
-                    </button>
-
-                    <button
-                        onClick={() => router.push('/lire/mes-syllabes')}
+                        onClick={() => router.push('/lire/syllabes-paniers')}
                         style={{
                             backgroundColor: '#84cc16',
                             color: 'white',

@@ -264,8 +264,89 @@ export default function MonosyllabesMultisyllabes() {
                 // Fin du jeu
                 setGameFinished(true)
                 setFeedback('')
+                
+                // Sauvegarder tous les résultats en base de données
+                sauvegarderResultats()
             }
         }, 1500)
+    }
+
+    // Fonction pour sauvegarder tous les résultats en base de données
+    const sauvegarderResultats = async () => {
+        if (!selectedTexte || !userChoices.length) return
+
+        try {
+            const resultats = userChoices.map(choice => ({
+                mot: choice.mot.clean,
+                classification: choice.mot.isMonosyllabe ? 'mono' : 'multi',
+                score: choice.isCorrect ? 1 : 0
+            }))
+
+            const token = localStorage.getItem('token')
+            const response = await fetch('/api/mots-classifies/sauvegarder', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    texteId: parseInt(selectedTexte),
+                    resultats: resultats
+                })
+            })
+
+            if (response.ok) {
+                console.log('✅ Résultats sauvegardés en base de données')
+            } else {
+                console.error('Erreur sauvegarde résultats:', await response.json())
+            }
+        } catch (error) {
+            console.error('Erreur sauvegarde:', error)
+        }
+    }
+
+    // Fonction pour demander une correction à l'admin
+    const demanderCorrection = async (mot, isCurrentlyCorrect) => {
+        if (!selectedTexte) {
+            alert('Erreur: pas de texte sélectionné')
+            return
+        }
+
+        try {
+            const classificationActuelle = mot.isMonosyllabe ? 'mono' : 'multi'
+            const correctionProposee = mot.isMonosyllabe ? 'multi' : 'mono'
+            
+            const token = localStorage.getItem('token')
+            const response = await fetch('/api/corrections/demander', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    mot: mot.clean,
+                    texteId: parseInt(selectedTexte),
+                    classificationActuelle: classificationActuelle,
+                    correctionProposee: correctionProposee,
+                    raison: `L'utilisateur pense que "${mot.clean}" devrait être classé comme ${correctionProposee}syllabe plutôt que ${classificationActuelle}syllabe`
+                })
+            })
+
+            if (response.ok) {
+                const data = await response.json()
+                alert(`✅ ${data.message}\n\nVotre demande sera examinée par un administrateur.`)
+            } else {
+                const error = await response.json()
+                if (error.error.includes('déjà en attente')) {
+                    alert(`ℹ️ ${error.error}`)
+                } else {
+                    alert(`❌ Erreur: ${error.error}`)
+                }
+            }
+        } catch (error) {
+            console.error('Erreur demande correction:', error)
+            alert('❌ Erreur lors de la demande de correction')
+        }
     }
 
     // Fonction TTS avec ElevenLabs + Web Speech API
@@ -714,9 +795,7 @@ export default function MonosyllabesMultisyllabes() {
                                                     Correct: {choice.mot.isMonosyllabe ? 'Mono' : 'Multi'}
                                                 </span>
                                                 <button
-                                                    onClick={() => {
-                                                        alert(`Merci pour votre retour sur le mot "${choice.mot.clean}". Nous prendrons en compte votre avis pour améliorer l'algorithme.`)
-                                                    }}
+                                                    onClick={() => demanderCorrection(choice.mot, choice.isCorrect)}
                                                     style={{
                                                         backgroundColor: '#f59e0b',
                                                         color: 'white',
