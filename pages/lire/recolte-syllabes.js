@@ -20,6 +20,7 @@ export default function RecolteSyllabes() {
     const [jeuTermine, setJeuTermine] = useState(false) // État pour gérer la fin du jeu
     const [afficherFinRecolte, setAfficherFinRecolte] = useState(false) // État pour la fenêtre "fin de récolte"
     const [motsInitiaux, setMotsInitiaux] = useState([]) // Variable state pour persister les mots initiaux
+    const [sonPanierActive, setSonPanierActive] = useState(true) // Contrôle du son pour création de panier
     const router = useRouter()
 
     useEffect(() => {
@@ -41,6 +42,21 @@ export default function RecolteSyllabes() {
         }
 
         setIsLoading(false)
+
+        // Charger les voix pour la synthèse vocale
+        if ('speechSynthesis' in window) {
+            // Forcer le chargement des voix
+            const loadVoices = () => {
+                const voices = window.speechSynthesis.getVoices()
+                if (voices.length > 0) {
+                    console.log('🔊 Voix disponibles:', voices.filter(v => v.lang.startsWith('fr')).map(v => v.name))
+                }
+            }
+
+            // Les voix peuvent être chargées de manière asynchrone
+            window.speechSynthesis.addEventListener('voiceschanged', loadVoices)
+            loadVoices() // Essayer de charger immédiatement
+        }
     }, [router])
 
     useEffect(() => {
@@ -158,6 +174,11 @@ export default function RecolteSyllabes() {
             setShowNomPanier(false)
             setNomPanierSaisi('')
             setNomPanierPropose('')
+
+            // Jouer le son si activé
+            if (sonPanierActive) {
+                jouerSon('créer un nouveau panier')
+            }
         }
     }
 
@@ -251,6 +272,76 @@ export default function RecolteSyllabes() {
         setShowNomPanier(false)
         setNomPanierSaisi('')
         setNomPanierPropose('')
+    }
+
+    // Fonction pour jouer un son avec la synthèse vocale
+    const jouerSon = (texte, options = {}) => {
+        if ('speechSynthesis' in window) {
+            // Arrêter toute synthèse en cours
+            window.speechSynthesis.cancel()
+
+            const utterance = new SpeechSynthesisUtterance(texte)
+
+            // Configurer la voix (éviter Hortense)
+            const voices = window.speechSynthesis.getVoices()
+            const voixFrancaise = voices.find(voice =>
+                voice.lang.startsWith('fr') &&
+                !voice.name.toLowerCase().includes('hortense') &&
+                (voice.name.toLowerCase().includes('marie') ||
+                 voice.name.toLowerCase().includes('claire') ||
+                 voice.name.toLowerCase().includes('thomas') ||
+                 !voice.name.toLowerCase().includes('hortense'))
+            )
+
+            if (voixFrancaise) {
+                utterance.voice = voixFrancaise
+            }
+
+            // Paramètres audio (personnalisables)
+            utterance.rate = options.rate || 0.8
+            utterance.pitch = options.pitch || 1.1
+            utterance.volume = options.volume || 0.8
+
+            window.speechSynthesis.speak(utterance)
+        }
+    }
+
+    // Fonction pour jouer le son d'une lettre
+    const jouerSonLettre = (lettre) => {
+        jouerSon(lettre)
+    }
+
+    // Fonction pour jouer le son d'une syllabe (corrige la prononciation)
+    const jouerSonSyllabe = (syllabe) => {
+        // Corrections phonétiques pour une meilleure prononciation
+        let syllabeCorrigee = syllabe.toLowerCase()
+
+        // Corrections spécifiques pour éviter l'épellation
+        const corrections = {
+            'ir': 'ire',
+            'er': 'eur',
+            'ar': 'are',
+            'or': 'ore',
+            'ur': 'ure',
+            'eu': 'eue',
+            'ou': 'ou',
+            'ai': 'è',
+            'ei': 'è',
+            'au': 'ô',
+            'eau': 'ô',
+            'ch': 'che',
+            'ph': 'fe',
+            'th': 'te',
+            'tion': 'sion',
+            'gn': 'gne'
+        }
+
+        // Appliquer les corrections si la syllabe correspond exactement
+        if (corrections[syllabeCorrigee]) {
+            syllabeCorrigee = corrections[syllabeCorrigee]
+        }
+
+        jouerSon(syllabeCorrigee, { rate: 0.7 }) // Plus lent pour les syllabes
     }
 
     // Fonction pour afficher un mot avec colorisation
@@ -839,7 +930,14 @@ export default function RecolteSyllabes() {
                             ← Retour
                         </button>
                     )}
-                    <h1 style={{ textAlign: 'center', color: '#84cc16', fontSize: '24px', margin: '0' }}>
+                    <h1 style={{
+                        textAlign: 'center',
+                        color: '#84cc16',
+                        fontSize: window.innerWidth <= 768 ? '20px' : '24px',
+                        margin: '0',
+                        textShadow: '0 2px 4px rgba(132, 204, 22, 0.3)',
+                        fontWeight: '700'
+                    }}>
                         Récolte des Syllabes
                     </h1>
                 </div>
@@ -869,19 +967,39 @@ export default function RecolteSyllabes() {
                         return (
                             <button
                                 key={lettre}
-                                onClick={() => setLettreSelectionnee(lettreSelectionnee === lettre ? null : lettre)}
+                                onClick={() => {
+                                    setLettreSelectionnee(lettreSelectionnee === lettre ? null : lettre)
+                                    jouerSonLettre(lettre)
+                                }}
                                 style={{
-                                    backgroundColor: estLettreSelectionnee ? '#3b82f6' : (estCategorieActive ? '#84cc16' : '#e5e7eb'),
+                                    background: estLettreSelectionnee
+                                        ? 'linear-gradient(135deg, #3b82f6, #1d4ed8)'
+                                        : (estCategorieActive
+                                            ? 'linear-gradient(135deg, #84cc16, #65a30d)'
+                                            : '#e5e7eb'),
                                     color: estLettreSelectionnee ? 'white' : (estCategorieActive ? 'white' : 'black'),
                                     padding: '8px',
                                     border: 'none',
-                                    borderRadius: '6px',
+                                    borderRadius: '8px',
                                     fontSize: '14px',
                                     fontWeight: 'bold',
                                     cursor: (estCategorieActive && panierCorrespondant) ? 'pointer' : 'not-allowed',
-                                    minHeight: '32px',
+                                    minHeight: '44px',
                                     opacity: estCategorieActive ? 1 : 0.3,
-                                    position: 'relative'
+                                    position: 'relative',
+                                    boxShadow: estCategorieActive ? '0 2px 8px rgba(0,0,0,0.15)' : '0 1px 3px rgba(0,0,0,0.1)',
+                                    transition: 'all 0.2s ease',
+                                    transform: estLettreSelectionnee ? 'scale(1.05)' : 'scale(1)'
+                                }}
+                                onMouseEnter={(e) => {
+                                    if (estCategorieActive) {
+                                        e.target.style.transform = 'scale(1.05)'
+                                        e.target.style.boxShadow = '0 4px 12px rgba(0,0,0,0.2)'
+                                    }
+                                }}
+                                onMouseLeave={(e) => {
+                                    e.target.style.transform = estLettreSelectionnee ? 'scale(1.05)' : 'scale(1)'
+                                    e.target.style.boxShadow = estCategorieActive ? '0 2px 8px rgba(0,0,0,0.15)' : '0 1px 3px rgba(0,0,0,0.1)'
                                 }}
                             >
                                 {lettre}
@@ -911,19 +1029,35 @@ export default function RecolteSyllabes() {
 
                     {/* Case -!? pour caractères spéciaux */}
                     <button
-                        onClick={() => setLettreSelectionnee(lettreSelectionnee === 'SPECIAUX' ? null : 'SPECIAUX')}
+                        onClick={() => {
+                            setLettreSelectionnee(lettreSelectionnee === 'SPECIAUX' ? null : 'SPECIAUX')
+                            jouerSon("caractères spéciaux")
+                        }}
                         style={{
-                            backgroundColor: lettreSelectionnee === 'SPECIAUX' ? '#3b82f6' : '#e5e7eb',
+                            background: lettreSelectionnee === 'SPECIAUX'
+                                ? 'linear-gradient(135deg, #3b82f6, #1d4ed8)'
+                                : '#e5e7eb',
                             color: lettreSelectionnee === 'SPECIAUX' ? 'white' : 'black',
                             padding: '8px',
                             border: 'none',
-                            borderRadius: '6px',
-                            fontSize: '12px',
+                            borderRadius: '8px',
+                            fontSize: '14px',
                             fontWeight: 'bold',
                             cursor: 'pointer',
-                            minHeight: '32px',
-                            opacity: 1,
-                            position: 'relative'
+                            minHeight: '44px',
+                            opacity: lettreSelectionnee === 'SPECIAUX' ? 1 : 0.3,
+                            position: 'relative',
+                            boxShadow: lettreSelectionnee === 'SPECIAUX' ? '0 2px 8px rgba(0,0,0,0.15)' : '0 1px 3px rgba(0,0,0,0.1)',
+                            transition: 'all 0.2s ease',
+                            transform: lettreSelectionnee === 'SPECIAUX' ? 'scale(1.05)' : 'scale(1)'
+                        }}
+                        onMouseEnter={(e) => {
+                            e.target.style.transform = 'scale(1.05)'
+                            e.target.style.boxShadow = '0 4px 12px rgba(0,0,0,0.2)'
+                        }}
+                        onMouseLeave={(e) => {
+                            e.target.style.transform = lettreSelectionnee === 'SPECIAUX' ? 'scale(1.05)' : 'scale(1)'
+                            e.target.style.boxShadow = '0 2px 8px rgba(0,0,0,0.15)'
                         }}
                     >
                         -!?
@@ -953,14 +1087,24 @@ export default function RecolteSyllabes() {
                     <button
                         onClick={sauvegarderPaniers}
                         style={{
-                            backgroundColor: '#3b82f6',
+                            background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)',
                             color: 'white',
                             padding: '8px',
                             border: 'none',
-                            borderRadius: '6px',
+                            borderRadius: '8px',
                             fontSize: '12px',
                             cursor: 'pointer',
-                            minHeight: '32px'
+                            minHeight: '44px',
+                            boxShadow: '0 2px 8px rgba(59, 130, 246, 0.3)',
+                            transition: 'all 0.2s ease'
+                        }}
+                        onMouseEnter={(e) => {
+                            e.target.style.transform = 'scale(1.05)'
+                            e.target.style.boxShadow = '0 4px 12px rgba(59, 130, 246, 0.4)'
+                        }}
+                        onMouseLeave={(e) => {
+                            e.target.style.transform = 'scale(1)'
+                            e.target.style.boxShadow = '0 2px 8px rgba(59, 130, 246, 0.3)'
                         }}
                     >
                         💾
@@ -969,32 +1113,53 @@ export default function RecolteSyllabes() {
                     
                     {/* Case aide */}
                     <button
+                        onClick={() => jouerSon("aide")}
                         style={{
-                            backgroundColor: '#8b5cf6',
+                            background: 'linear-gradient(135deg, #8b5cf6, #7c3aed)',
                             color: 'white',
                             padding: '8px',
                             border: 'none',
-                            borderRadius: '6px',
+                            borderRadius: '8px',
                             fontSize: '12px',
                             cursor: 'pointer',
-                            minHeight: '32px'
+                            minHeight: '44px',
+                            boxShadow: '0 2px 8px rgba(139, 92, 246, 0.3)',
+                            transition: 'all 0.2s ease'
+                        }}
+                        onMouseEnter={(e) => {
+                            e.target.style.transform = 'scale(1.05)'
+                            e.target.style.boxShadow = '0 4px 12px rgba(139, 92, 246, 0.4)'
+                        }}
+                        onMouseLeave={(e) => {
+                            e.target.style.transform = 'scale(1)'
+                            e.target.style.boxShadow = '0 2px 8px rgba(139, 92, 246, 0.3)'
                         }}
                     >
                         ?
                     </button>
-                    
+
                     {/* Case retour */}
                     <button
                         onClick={() => router.push('/lire/syllabes-paniers')}
                         style={{
-                            backgroundColor: '#6b7280',
+                            background: 'linear-gradient(135deg, #6b7280, #4b5563)',
                             color: 'white',
                             padding: '8px',
                             border: 'none',
-                            borderRadius: '6px',
+                            borderRadius: '8px',
                             fontSize: '12px',
                             cursor: 'pointer',
-                            minHeight: '32px'
+                            minHeight: '44px',
+                            boxShadow: '0 2px 8px rgba(107, 114, 128, 0.3)',
+                            transition: 'all 0.2s ease'
+                        }}
+                        onMouseEnter={(e) => {
+                            e.target.style.transform = 'scale(1.05)'
+                            e.target.style.boxShadow = '0 4px 12px rgba(107, 114, 128, 0.4)'
+                        }}
+                        onMouseLeave={(e) => {
+                            e.target.style.transform = 'scale(1)'
+                            e.target.style.boxShadow = '0 2px 8px rgba(107, 114, 128, 0.3)'
                         }}
                     >
                         ←
@@ -1011,7 +1176,7 @@ export default function RecolteSyllabes() {
                                 <div style={{
                                     display: 'flex',
                                     alignItems: 'center',
-                                    justifyContent: 'center',
+                                    justifyContent: window.innerWidth <= 768 ? 'center' : 'center',
                                     gap: '4px',
                                     overflowX: 'auto',
                                     marginBottom: '5px',
@@ -1019,38 +1184,44 @@ export default function RecolteSyllabes() {
                                     whiteSpace: 'nowrap'
                                 }}>
                                     {/* Cadre du mot complet */}
-                                    <div style={{
-                                        padding: '4px 8px',
-                                        backgroundColor: '#f0f9ff',
-                                        border: '2px solid #0369a1',
-                                        borderRadius: '4px',
-                                        fontSize: '12px',
-                                        fontWeight: 'bold',
-                                        color: '#0369a1',
-                                        minHeight: '28px',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        flexShrink: 0
-                                    }}>
+                                    <div
+                                        onClick={() => jouerSon(`ce mot est ${motActuel.contenu}`)}
+                                        style={{
+                                            padding: '4px 8px',
+                                            backgroundColor: '#f0f9ff',
+                                            border: '2px solid #0369a1',
+                                            borderRadius: '4px',
+                                            fontSize: '12px',
+                                            fontWeight: 'bold',
+                                            color: '#0369a1',
+                                            minHeight: '28px',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            flexShrink: 0,
+                                            cursor: 'pointer'
+                                        }}>
                                         {motActuel.contenu}
                                     </div>
 
                                     {/* Flèche 1 */}
-                                    <div style={{
-                                        padding: '4px 6px',
-                                        backgroundColor: '#dcfce7',
-                                        border: '2px solid #16a34a',
-                                        borderRadius: '4px',
-                                        fontSize: '12px',
-                                        fontWeight: 'bold',
-                                        color: '#16a34a',
-                                        minHeight: '28px',
-                                        width: '32px',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        flexShrink: 0
-                                    }}>
+                                    <div
+                                        onClick={() => jouerSon(`ce mot est coupé comme ça`)}
+                                        style={{
+                                            padding: '4px 6px',
+                                            backgroundColor: '#dcfce7',
+                                            border: '2px solid #16a34a',
+                                            borderRadius: '4px',
+                                            fontSize: '12px',
+                                            fontWeight: 'bold',
+                                            color: '#16a34a',
+                                            minHeight: '28px',
+                                            width: '32px',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            flexShrink: 0,
+                                            cursor: 'pointer'
+                                        }}>
                                         →
                                     </div>
 
@@ -1058,6 +1229,7 @@ export default function RecolteSyllabes() {
                                     {segmentationActuelle.map((syllabe, index) => (
                                         <div
                                             key={index}
+                                            onClick={() => jouerSonSyllabe(syllabe)}
                                             style={{
                                                 padding: '4px 8px',
                                                 backgroundColor: index === indexSyllabeActuelle ? '#dcfce7' : '#e5e7eb',
@@ -1069,7 +1241,8 @@ export default function RecolteSyllabes() {
                                                 minHeight: '28px',
                                                 display: 'flex',
                                                 alignItems: 'center',
-                                                flexShrink: 0
+                                                flexShrink: 0,
+                                                cursor: 'pointer'
                                             }}
                                         >
                                             {syllabe}
@@ -1078,18 +1251,21 @@ export default function RecolteSyllabes() {
                                 </div>
 
                                 {/* Texte explicatif */}
-                                <div style={{
-                                    textAlign: 'center',
-                                    fontSize: '10px',
-                                    color: '#666',
-                                    margin: '5px auto',
-                                    padding: '4px 8px',
-                                    backgroundColor: '#f8f9fa',
-                                    border: '1px solid #e5e7eb',
-                                    borderRadius: '4px',
-                                    maxWidth: 'fit-content',
-                                    whiteSpace: 'nowrap'
-                                }}>
+                                <div
+                                    onClick={() => jouerSon("Classe la syllabe dans un panier. Crée le panier s'il n'existe pas. On doit voir et entendre la même chose.")}
+                                    style={{
+                                        textAlign: 'center',
+                                        fontSize: '10px',
+                                        color: '#666',
+                                        margin: '5px auto',
+                                        padding: '4px 8px',
+                                        backgroundColor: '#f8f9fa',
+                                        border: '1px solid #e5e7eb',
+                                        borderRadius: '4px',
+                                        maxWidth: 'fit-content',
+                                        whiteSpace: 'nowrap',
+                                        cursor: 'pointer'
+                                    }}>
                                     Classe la syllabe dans un panier
                                 </div>
 
@@ -1103,23 +1279,50 @@ export default function RecolteSyllabes() {
                                     {/* Syllabe à classer */}
                                     <div
                                         draggable
+                                        onClick={() => jouerSonSyllabe(segmentationActuelle[indexSyllabeActuelle])}
                                         onDragStart={(e) => {
                                             e.dataTransfer.setData('text/plain', segmentationActuelle[indexSyllabeActuelle])
                                             e.dataTransfer.setData('syllabe-index', indexSyllabeActuelle.toString())
+                                            e.target.style.opacity = '0.5'
+                                            e.target.style.transform = 'scale(0.95)'
+                                        }}
+                                        onDragEnd={(e) => {
+                                            e.target.style.opacity = '1'
+                                            e.target.style.transform = 'scale(1)'
                                         }}
                                         style={{
-                                            padding: '8px 16px',
-                                            backgroundColor: '#fef2f2',
-                                            border: '2px solid #dc2626',
-                                            borderRadius: '6px',
-                                            fontSize: '16px',
+                                            padding: '10px 18px',
+                                            background: 'linear-gradient(135deg, #fef2f2, #fee2e2)',
+                                            border: '3px solid #dc2626',
+                                            borderRadius: '8px',
+                                            fontSize: '18px',
                                             fontWeight: 'bold',
                                             color: '#dc2626',
-                                            minHeight: '36px',
+                                            minHeight: '40px',
                                             display: 'flex',
                                             alignItems: 'center',
                                             cursor: 'grab',
-                                            flexShrink: 0
+                                            flexShrink: 0,
+                                            boxShadow: '0 4px 12px rgba(220, 38, 38, 0.3)',
+                                            transition: 'all 0.2s ease',
+                                            textShadow: '0 1px 2px rgba(220, 38, 38, 0.2)'
+                                        }}
+                                        onMouseEnter={(e) => {
+                                            e.target.style.transform = 'scale(1.05)'
+                                            e.target.style.boxShadow = '0 6px 16px rgba(220, 38, 38, 0.4)'
+                                            e.target.style.cursor = 'grab'
+                                        }}
+                                        onMouseLeave={(e) => {
+                                            e.target.style.transform = 'scale(1)'
+                                            e.target.style.boxShadow = '0 4px 12px rgba(220, 38, 38, 0.3)'
+                                        }}
+                                        onMouseDown={(e) => {
+                                            e.target.style.cursor = 'grabbing'
+                                            e.target.style.transform = 'scale(1.02)'
+                                        }}
+                                        onMouseUp={(e) => {
+                                            e.target.style.cursor = 'grab'
+                                            e.target.style.transform = 'scale(1.05)'
                                         }}
                                     >
                                         {segmentationActuelle[indexSyllabeActuelle]}
@@ -1127,49 +1330,65 @@ export default function RecolteSyllabes() {
                                 </div>
                             </div>
                         ) : (
-                            // Affichage PC sur une ligne
+                            // Affichage PC centré sur deux lignes
                             <div style={{
                                 display: 'flex',
+                                flexDirection: 'column',
                                 alignItems: 'center',
-                                justifyContent: 'flex-start',
-                                gap: '6px',
-                                overflowX: 'auto',
-                                padding: '10px',
-                                minHeight: '50px',
-                                whiteSpace: 'nowrap'
+                                justifyContent: 'center',
+                                gap: '10px',
+                                padding: '10px'
                             }}>
-                                {/* Cadre du mot complet */}
+                                {/* Première ligne : mot > syllabes segmentées centrée */}
                                 <div style={{
-                                    padding: '6px 10px',
-                                    backgroundColor: '#f0f9ff',
-                                    border: '2px solid #0369a1',
-                                    borderRadius: '6px',
-                                    fontSize: '14px',
-                                    fontWeight: 'bold',
-                                    color: '#0369a1',
-                                    minHeight: '32px',
                                     display: 'flex',
                                     alignItems: 'center',
-                                    flexShrink: 0,
-                                    maxWidth: '120px',
-                                    overflow: 'hidden',
-                                    textOverflow: 'ellipsis'
+                                    justifyContent: 'center',
+                                    gap: '6px',
+                                    overflowX: 'auto',
+                                    minHeight: '50px',
+                                    whiteSpace: 'nowrap'
                                 }}>
+                                {/* Cadre du mot complet */}
+                                <div
+                                    onClick={() => jouerSon(`ce mot est ${motActuel.contenu}`)}
+                                    style={{
+                                        padding: '6px 10px',
+                                        backgroundColor: '#f0f9ff',
+                                        border: '2px solid #0369a1',
+                                        borderRadius: '6px',
+                                        fontSize: '28px',
+                                        fontWeight: 'bold',
+                                        color: '#0369a1',
+                                        minHeight: '32px',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        flexShrink: 0,
+                                        maxWidth: '120px',
+                                        overflow: 'hidden',
+                                        textOverflow: 'ellipsis',
+                                        cursor: 'pointer'
+                                    }}>
                                     {motActuel.contenu}
                                 </div>
 
                                 {/* Flèche 1 */}
-                                <div style={{
-                                    padding: '6px 8px',
-                                    backgroundColor: '#f3f4f6',
-                                    border: '2px solid #6b7280',
-                                    borderRadius: '6px',
-                                    fontSize: '14px',
-                                    minHeight: '32px',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    flexShrink: 0
-                                }}>
+                                <div
+                                    onClick={() => jouerSon(`ce mot est coupé comme ça`)}
+                                    style={{
+                                        padding: '6px 8px',
+                                        backgroundColor: '#dcfce7',
+                                        border: '2px solid #16a34a',
+                                        borderRadius: '6px',
+                                        fontSize: '28px',
+                                        color: '#16a34a',
+                                        fontWeight: 'bold',
+                                        minHeight: '32px',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        flexShrink: 0,
+                                        cursor: 'pointer'
+                                    }}>
                                     →
                                 </div>
 
@@ -1177,21 +1396,23 @@ export default function RecolteSyllabes() {
                                 {segmentationActuelle.map((syllabe, index) => (
                                     <div
                                         key={index}
+                                        onClick={() => jouerSonSyllabe(syllabe)}
                                         style={{
                                             padding: '6px 10px',
-                                            backgroundColor: index === indexSyllabeActuelle ? '#fef3c7' : '#e5e7eb',
-                                            border: index === indexSyllabeActuelle ? '2px solid #f59e0b' : '2px solid #9ca3af',
+                                            backgroundColor: index === indexSyllabeActuelle ? '#dcfce7' : '#e5e7eb',
+                                            border: index === indexSyllabeActuelle ? '2px solid #16a34a' : '2px solid #9ca3af',
                                             borderRadius: '6px',
-                                            fontSize: '14px',
+                                            fontSize: '28px',
                                             fontWeight: 'bold',
-                                            color: index === indexSyllabeActuelle ? '#92400e' : '#374151',
+                                            color: index === indexSyllabeActuelle ? '#16a34a' : '#374151',
                                             minHeight: '32px',
                                             display: 'flex',
                                             alignItems: 'center',
                                             flexShrink: 0,
                                             maxWidth: '80px',
                                             overflow: 'hidden',
-                                            textOverflow: 'ellipsis'
+                                            textOverflow: 'ellipsis',
+                                            cursor: 'pointer'
                                         }}
                                     >
                                         {syllabe}
@@ -1201,10 +1422,12 @@ export default function RecolteSyllabes() {
                                 {/* Flèche 2 */}
                                 <div style={{
                                     padding: '6px 8px',
-                                    backgroundColor: '#f3f4f6',
-                                    border: '2px solid #6b7280',
+                                    backgroundColor: '#dcfce7',
+                                    border: '2px solid #16a34a',
                                     borderRadius: '6px',
-                                    fontSize: '14px',
+                                    fontSize: '28px',
+                                    color: '#16a34a',
+                                    fontWeight: 'bold',
                                     minHeight: '32px',
                                     display: 'flex',
                                     alignItems: 'center',
@@ -1225,7 +1448,7 @@ export default function RecolteSyllabes() {
                                         backgroundColor: '#fef2f2',
                                         border: '2px solid #dc2626',
                                         borderRadius: '6px',
-                                        fontSize: '14px',
+                                        fontSize: '28px',
                                         fontWeight: 'bold',
                                         color: '#dc2626',
                                         minHeight: '32px',
@@ -1240,6 +1463,26 @@ export default function RecolteSyllabes() {
                                 >
                                     {segmentationActuelle[indexSyllabeActuelle]}
                                 </div>
+                                </div>
+
+                                {/* Deuxième ligne : Texte explicatif centré */}
+                                <div
+                                    onClick={() => jouerSon("Classe la syllabe dans un panier. Crée le panier s'il n'existe pas. On doit voir et entendre la même chose.")}
+                                    style={{
+                                        textAlign: 'center',
+                                        fontSize: '20px',
+                                        color: '#666',
+                                        margin: '5px auto',
+                                        padding: '8px 16px',
+                                        backgroundColor: '#f8f9fa',
+                                        border: '1px solid #e5e7eb',
+                                        borderRadius: '4px',
+                                        maxWidth: 'fit-content',
+                                        whiteSpace: 'nowrap',
+                                        cursor: 'pointer'
+                                    }}>
+                                    Classe la syllabe dans un panier
+                                </div>
                             </div>
                         )}
                     </div>
@@ -1253,15 +1496,20 @@ export default function RecolteSyllabes() {
                         display: 'grid',
                         gridTemplateColumns: window.innerWidth <= 768
                             ? 'repeat(4, 1fr)'
-                            : 'repeat(4, 1fr)',
+                            : 'repeat(6, 1fr)',
                         gap: window.innerWidth <= 768 ? '5px' : '10px',
                         gridAutoRows: '1fr'
                     }}>
                         {/* Ajouter un panier */}
                         <div
-                            onClick={ajouterPanier}
+                            onClick={() => {
+                                if (sonPanierActive) {
+                                    jouerSon('créer un nouveau panier')
+                                }
+                                ajouterPanier()
+                            }}
                             style={{
-                                border: '2px dashed #666',
+                                border: '2px dashed #84cc16',
                                 borderRadius: '8px',
                                 padding: window.innerWidth <= 768 ? '5px' : '10px',
                                 aspectRatio: '1',
@@ -1270,29 +1518,83 @@ export default function RecolteSyllabes() {
                                 alignItems: 'center',
                                 justifyContent: 'center',
                                 fontSize: window.innerWidth <= 768 ? '7px' : '10px',
-                                fontWeight: 'bold'
+                                fontWeight: 'bold',
+                                background: 'linear-gradient(135deg, #f0f9ff, #e0f2fe)',
+                                color: '#84cc16',
+                                transition: 'all 0.2s ease',
+                                boxShadow: '0 2px 4px rgba(132, 204, 22, 0.1)',
+                                position: 'relative'
+                            }}
+                            onMouseEnter={(e) => {
+                                e.target.style.transform = 'scale(1.02)'
+                                e.target.style.boxShadow = '0 4px 8px rgba(132, 204, 22, 0.2)'
+                                e.target.style.borderColor = '#65a30d'
+                            }}
+                            onMouseLeave={(e) => {
+                                e.target.style.transform = 'scale(1)'
+                                e.target.style.boxShadow = '0 2px 4px rgba(132, 204, 22, 0.1)'
+                                e.target.style.borderColor = '#84cc16'
                             }}
                         >
-                            + Ajouter un panier
+                            <div style={{ fontSize: window.innerWidth <= 768 ? '12px' : '16px' }}>
+                                ➕ Ajouter un panier
+                            </div>
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation()
+                                    setSonPanierActive(!sonPanierActive)
+                                }}
+                                style={{
+                                    position: 'absolute',
+                                    top: '2px',
+                                    right: '2px',
+                                    backgroundColor: sonPanierActive ? '#3b82f6' : '#9ca3af',
+                                    color: 'white',
+                                    padding: '2px',
+                                    border: 'none',
+                                    borderRadius: '3px',
+                                    fontSize: '8px',
+                                    cursor: 'pointer',
+                                    width: '16px',
+                                    height: '16px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center'
+                                }}
+                            >
+                                {sonPanierActive ? '🔊' : '🔇'}
+                            </button>
                         </div>
 
 
                         {/* Panier sons complexes */}
                         <div
-                            onClick={classerDansSonsComplexes}
+                            onClick={() => jouerSon("On ne voit pas et on n'entend pas la même chose!")}
                             onDragOver={(e) => {
                                 e.preventDefault()
-                                e.currentTarget.style.backgroundColor = '#fce7f3'
+                                if (e.currentTarget && e.currentTarget.style) {
+                                    e.currentTarget.style.backgroundColor = '#fce7f3'
+                                    e.currentTarget.style.transform = 'scale(1.05)'
+                                    e.currentTarget.style.boxShadow = '0 6px 12px rgba(190, 24, 93, 0.3)'
+                                }
                             }}
                             onDragLeave={(e) => {
-                                e.currentTarget.style.backgroundColor = '#fdf2f8'
+                                if (e.currentTarget && e.currentTarget.style) {
+                                    e.currentTarget.style.backgroundColor = '#fdf2f8'
+                                    e.currentTarget.style.transform = 'scale(1)'
+                                    e.currentTarget.style.boxShadow = '0 2px 6px rgba(190, 24, 93, 0.2)'
+                                }
                             }}
                             onDrop={(e) => {
                                 e.preventDefault()
-                                e.currentTarget.style.backgroundColor = '#fdf2f8'
+                                if (e.currentTarget && e.currentTarget.style) {
+                                    e.currentTarget.style.backgroundColor = '#fdf2f8'
+                                    e.currentTarget.style.transform = 'scale(1)'
+                                    e.currentTarget.style.boxShadow = '0 2px 6px rgba(190, 24, 93, 0.2)'
+                                }
                                 const syllabe = e.dataTransfer.getData('text/plain')
                                 if (syllabe) {
-                                    classerDansSonsComplexes()
+                                    jouerSon("On ne voit pas et on n'entend pas la même chose!")
                                 }
                             }}
                             style={{
@@ -1306,29 +1608,53 @@ export default function RecolteSyllabes() {
                                 justifyContent: 'center',
                                 fontSize: window.innerWidth <= 768 ? '7px' : '10px',
                                 fontWeight: 'bold',
-                                backgroundColor: '#fdf2f8',
-                                color: '#be185d'
+                                background: 'linear-gradient(135deg, #fdf2f8, #fce7f3)',
+                                color: '#be185d',
+                                transition: 'all 0.2s ease',
+                                boxShadow: '0 2px 6px rgba(190, 24, 93, 0.2)'
+                            }}
+                            onMouseEnter={(e) => {
+                                e.target.style.transform = 'scale(1.02)'
+                                e.target.style.boxShadow = '0 4px 8px rgba(190, 24, 93, 0.3)'
+                            }}
+                            onMouseLeave={(e) => {
+                                e.target.style.transform = 'scale(1)'
+                                e.target.style.boxShadow = '0 2px 6px rgba(190, 24, 93, 0.2)'
                             }}
                         >
-                            Sons complexes
+                            <div style={{ fontSize: window.innerWidth <= 768 ? '12px' : '16px' }}>
+                                🤔 Sons complexes
+                            </div>
                         </div>
 
                         {/* Panier à resegmenter */}
                         <div
-                            onClick={classerDansResegmentation}
+                            onClick={() => jouerSon("ce mot est mal coupé!")}
                             onDragOver={(e) => {
                                 e.preventDefault()
-                                e.currentTarget.style.backgroundColor = '#fef6e7'
+                                if (e.currentTarget && e.currentTarget.style) {
+                                    e.currentTarget.style.backgroundColor = '#fef6e7'
+                                    e.currentTarget.style.transform = 'scale(1.05)'
+                                    e.currentTarget.style.boxShadow = '0 6px 12px rgba(217, 119, 6, 0.3)'
+                                }
                             }}
                             onDragLeave={(e) => {
-                                e.currentTarget.style.backgroundColor = '#fef3c7'
+                                if (e.currentTarget && e.currentTarget.style) {
+                                    e.currentTarget.style.backgroundColor = '#fef3c7'
+                                    e.currentTarget.style.transform = 'scale(1)'
+                                    e.currentTarget.style.boxShadow = '0 2px 6px rgba(217, 119, 6, 0.2)'
+                                }
                             }}
                             onDrop={(e) => {
                                 e.preventDefault()
-                                e.currentTarget.style.backgroundColor = '#fef3c7'
+                                if (e.currentTarget && e.currentTarget.style) {
+                                    e.currentTarget.style.backgroundColor = '#fef3c7'
+                                    e.currentTarget.style.transform = 'scale(1)'
+                                    e.currentTarget.style.boxShadow = '0 2px 6px rgba(217, 119, 6, 0.2)'
+                                }
                                 const syllabe = e.dataTransfer.getData('text/plain')
                                 if (syllabe) {
-                                    classerDansResegmentation()
+                                    jouerSon("ce mot est mal coupé!")
                                 }
                             }}
                             style={{
@@ -1342,11 +1668,23 @@ export default function RecolteSyllabes() {
                                 justifyContent: 'center',
                                 fontSize: window.innerWidth <= 768 ? '7px' : '10px',
                                 fontWeight: 'bold',
-                                backgroundColor: '#fef3c7',
-                                color: '#d97706'
+                                background: 'linear-gradient(135deg, #fef3c7, #fef6e7)',
+                                color: '#d97706',
+                                transition: 'all 0.2s ease',
+                                boxShadow: '0 2px 6px rgba(217, 119, 6, 0.2)'
+                            }}
+                            onMouseEnter={(e) => {
+                                e.target.style.transform = 'scale(1.02)'
+                                e.target.style.boxShadow = '0 4px 8px rgba(217, 119, 6, 0.3)'
+                            }}
+                            onMouseLeave={(e) => {
+                                e.target.style.transform = 'scale(1)'
+                                e.target.style.boxShadow = '0 2px 6px rgba(217, 119, 6, 0.2)'
                             }}
                         >
-                            À resegmenter
+                            <div style={{ fontSize: window.innerWidth <= 768 ? '12px' : '16px' }}>
+                                ✂️ Mal coupés
+                            </div>
                         </div>
 
                         {/* Paniers créés dynamiquement - filtrés par la lettre sélectionnée ou syllabe courante */}
@@ -1364,20 +1702,45 @@ export default function RecolteSyllabes() {
                             })
                             .map(panier => (
                             <div
+                                onClick={() => jouerSon(`c'est le panier des ${panier.nom}`)}
                                 key={panier.id}
                                 onDragOver={(e) => {
                                     e.preventDefault()
-                                    e.currentTarget.style.backgroundColor = '#f0fdf4'
+                                    if (e.currentTarget && e.currentTarget.style) {
+                                        e.currentTarget.style.backgroundColor = '#f0fdf4'
+                                        e.currentTarget.style.transform = 'scale(1.05)'
+                                        e.currentTarget.style.boxShadow = '0 6px 12px rgba(132, 204, 22, 0.3)'
+                                        e.currentTarget.style.borderColor = '#65a30d'
+                                    }
                                 }}
                                 onDragLeave={(e) => {
-                                    e.currentTarget.style.backgroundColor = 'white'
+                                    if (e.currentTarget && e.currentTarget.style) {
+                                        e.currentTarget.style.backgroundColor = '#fefce8'
+                                        e.currentTarget.style.transform = 'scale(1)'
+                                        e.currentTarget.style.boxShadow = '0 2px 6px rgba(132, 204, 22, 0.2)'
+                                        e.currentTarget.style.borderColor = '#84cc16'
+                                    }
                                 }}
                                 onDrop={(e) => {
                                     e.preventDefault()
-                                    e.currentTarget.style.backgroundColor = 'white'
+                                    if (e.currentTarget && e.currentTarget.style) {
+                                        e.currentTarget.style.backgroundColor = '#fefce8'
+                                        e.currentTarget.style.transform = 'scale(1)'
+                                        e.currentTarget.style.boxShadow = '0 2px 6px rgba(132, 204, 22, 0.2)'
+                                        e.currentTarget.style.borderColor = '#84cc16'
+                                    }
                                     const syllabe = e.dataTransfer.getData('text/plain')
                                     if (syllabe) {
                                         classerSyllabeDansPanier(panier.id)
+                                        // Animation de succès après le classement
+                                        if (e.currentTarget && e.currentTarget.style) {
+                                            e.currentTarget.style.background = 'linear-gradient(135deg, #dcfce7, #bbf7d0)'
+                                            setTimeout(() => {
+                                                if (e.currentTarget && e.currentTarget.style) {
+                                                    e.currentTarget.style.background = 'linear-gradient(135deg, #fefce8, #f7fee7)'
+                                                }
+                                            }, 300)
+                                        }
                                     }
                                 }}
                                 style={{
@@ -1385,16 +1748,27 @@ export default function RecolteSyllabes() {
                                     borderRadius: '8px',
                                     padding: window.innerWidth <= 768 ? '5px' : '10px',
                                     aspectRatio: '1',
-                                    cursor: 'default',
+                                    cursor: 'pointer',
                                     display: 'flex',
                                     flexDirection: 'column',
                                     alignItems: 'center',
                                     justifyContent: 'center',
                                     fontSize: window.innerWidth <= 768 ? '6px' : '8px',
-                                    fontWeight: 'bold'
+                                    fontWeight: 'bold',
+                                    background: 'linear-gradient(135deg, #fefce8, #f7fee7)',
+                                    transition: 'all 0.2s ease',
+                                    boxShadow: '0 2px 6px rgba(132, 204, 22, 0.2)'
+                                }}
+                                onMouseEnter={(e) => {
+                                    e.target.style.transform = 'scale(1.02)'
+                                    e.target.style.boxShadow = '0 4px 8px rgba(132, 204, 22, 0.3)'
+                                }}
+                                onMouseLeave={(e) => {
+                                    e.target.style.transform = 'scale(1)'
+                                    e.target.style.boxShadow = '0 2px 6px rgba(132, 204, 22, 0.2)'
                                 }}
                             >
-                                <div style={{ marginBottom: '5px' }}>{panier.nom}</div>
+                                <div style={{ marginBottom: '5px', fontSize: window.innerWidth <= 768 ? '12px' : '16px' }}>{panier.nom}</div>
                                 <div style={{ fontSize: '10px', color: '#666' }}>
                                     {panier.syllabes.length} mot(s)
                                 </div>
@@ -1650,30 +2024,6 @@ export default function RecolteSyllabes() {
                     </div>
                 </div>
 
-                {/* Bouton retour en bas - masqué sur mobile */}
-                {window.innerWidth > 768 && (
-                    <div style={{
-                        display: 'flex',
-                        justifyContent: 'center',
-                        marginTop: '30px'
-                    }}>
-                        <button
-                            onClick={() => router.push('/lire/syllabes-paniers')}
-                            style={{
-                                backgroundColor: '#6b7280',
-                                color: 'white',
-                                padding: '15px 30px',
-                                border: 'none',
-                                borderRadius: '8px',
-                                fontSize: '16px',
-                                fontWeight: 'bold',
-                                cursor: 'pointer'
-                            }}
-                        >
-                            ← Retour aux textes
-                        </button>
-                    </div>
-                )}
             </div>
         </div>
     )
