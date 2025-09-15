@@ -252,18 +252,62 @@ export default function VoirPaniers() {
                                         flexWrap: 'wrap',
                                         gap: '6px'
                                     }}>
-                                        {(panier.mots || []).map((mot, motIndex) => (
-                                            <span key={motIndex} style={{
-                                                background: '#84cc16',
-                                                color: 'white',
-                                                padding: '4px 8px',
-                                                borderRadius: '4px',
-                                                fontSize: '14px',
-                                                fontWeight: 'bold'
-                                            }}>
-                                                {mot}
-                                            </span>
-                                        ))}
+                                        {(panier.mots || []).map((motData, motIndex) => {
+                                            // Gérer les deux formats : ancien (string) et nouveau (objet)
+                                            if (typeof motData === 'string') {
+                                                // Ancien format : simple syllabe
+                                                return (
+                                                    <span key={motIndex} style={{
+                                                        background: '#84cc16',
+                                                        color: 'white',
+                                                        padding: '4px 8px',
+                                                        borderRadius: '4px',
+                                                        fontSize: '14px',
+                                                        fontWeight: 'bold'
+                                                    }}>
+                                                        {motData}
+                                                    </span>
+                                                )
+                                            } else if (motData && motData.segmentation) {
+                                                // Nouveau format : objet avec mot et colorisation
+                                                return (
+                                                    <span key={motIndex} style={{
+                                                        background: '#f3f4f6',
+                                                        border: '2px solid #84cc16',
+                                                        padding: '4px 8px',
+                                                        borderRadius: '4px',
+                                                        fontSize: '14px',
+                                                        fontWeight: 'bold'
+                                                    }}>
+                                                        {motData.segmentation.map((syllabe, index) => (
+                                                            <span
+                                                                key={index}
+                                                                style={{
+                                                                    color: index === motData.indexSyllabeCiblee ? '#16a34a' : '#666',
+                                                                    fontWeight: index === motData.indexSyllabeCiblee ? 'bold' : 'normal'
+                                                                }}
+                                                            >
+                                                                {syllabe}
+                                                            </span>
+                                                        ))}
+                                                    </span>
+                                                )
+                                            } else {
+                                                // Données corrompues
+                                                return (
+                                                    <span key={motIndex} style={{
+                                                        background: '#ef4444',
+                                                        color: 'white',
+                                                        padding: '4px 8px',
+                                                        borderRadius: '4px',
+                                                        fontSize: '14px',
+                                                        fontWeight: 'bold'
+                                                    }}>
+                                                        Erreur
+                                                    </span>
+                                                )
+                                            }
+                                        })}
                                     </div>
                                 </div>
                             ))}

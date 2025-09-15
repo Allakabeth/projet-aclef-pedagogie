@@ -163,16 +163,24 @@ export default function RecolteSyllabes() {
 
     const classerSyllabeDansPanier = (panierId) => {
         if (!motActuel || !segmentationActuelle.length || indexSyllabeActuelle >= segmentationActuelle.length) return
-        
+
         const syllabeCourante = segmentationActuelle[indexSyllabeActuelle]
-        
-        // Ajouter la syllabe au panier
-        setPaniers(paniers.map(p => 
-            p.id === panierId ? 
-                { ...p, syllabes: [...p.syllabes, syllabeCourante] } : 
+
+        // Créer l'objet mot avec syllabe et position pour colorisation
+        const motAvecSyllabe = {
+            mot: motActuel.contenu,
+            segmentation: segmentationActuelle,
+            syllabeCiblee: syllabeCourante,
+            indexSyllabeCiblee: indexSyllabeActuelle
+        }
+
+        // Ajouter le mot avec syllabe au panier
+        setPaniers(paniers.map(p =>
+            p.id === panierId ?
+                { ...p, syllabes: [...p.syllabes, motAvecSyllabe] } :
                 p
         ))
-        
+
         // Passer à la syllabe suivante
         passerSyllabeSuivante()
     }
@@ -245,6 +253,31 @@ export default function RecolteSyllabes() {
         setNomPanierPropose('')
     }
 
+    // Fonction pour afficher un mot avec colorisation
+    const afficherMotAvecColorisation = (motAvecSyllabe, couleurSyllabeCiblee = '#16a34a') => {
+        if (!motAvecSyllabe || !motAvecSyllabe.segmentation) {
+            return <span>Erreur</span>
+        }
+
+        const { mot, segmentation, indexSyllabeCiblee } = motAvecSyllabe
+
+        return (
+            <>
+                {segmentation.map((syllabe, index) => (
+                    <span
+                        key={index}
+                        style={{
+                            color: index === indexSyllabeCiblee ? couleurSyllabeCiblee : '#666',
+                            fontWeight: index === indexSyllabeCiblee ? 'bold' : 'normal'
+                        }}
+                    >
+                        {syllabe}
+                    </span>
+                ))}
+            </>
+        )
+    }
+
     // Calculer les statistiques
     const calculerStatistiques = () => {
         const totalSyllabes = paniers.reduce((total, panier) => total + panier.syllabes.length, 0)
@@ -306,6 +339,44 @@ export default function RecolteSyllabes() {
         }
     }
 
+    const viderTousLesPaniers = async () => {
+        if (confirm('⚠️ Êtes-vous sûr de vouloir supprimer TOUS les paniers et recommencer à zéro ? Cette action est irréversible.')) {
+            try {
+                // Vider tous les états locaux
+                setPaniers([])
+                setMotsTraites([])
+                setMotsEnAttenteSonsComplexes([])
+                setMotsEnAttenteResegmentation([])
+
+                // Vider sur le serveur
+                const response = await fetch('/api/paniers/sauvegarder', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        paniers: {},
+                        motsTraites: []
+                    })
+                })
+
+                if (response.ok) {
+                    alert('✅ Tous les paniers ont été supprimés ! Vous pouvez recommencer à zéro.')
+                    // Recharger les mots pour recommencer
+                    setMotsATraiter(motsInitiaux)
+                    if (motsInitiaux.length > 0) {
+                        chargerMotActuel(motsInitiaux[0])
+                    }
+                } else {
+                    alert('❌ Erreur lors de la suppression')
+                }
+            } catch (error) {
+                console.error('Erreur suppression paniers:', error)
+                alert('❌ Erreur lors de la suppression')
+            }
+        }
+    }
+
     const sauvegarderPaniers = async () => {
         try {
             // Récupérer l'ID du texte actuel
@@ -319,6 +390,7 @@ export default function RecolteSyllabes() {
                 if (!paniersFormates[premiereLettre]) {
                     paniersFormates[premiereLettre] = {}
                 }
+                // Sauvegarder la structure complète avec mots et syllabes
                 paniersFormates[premiereLettre][panier.nom] = panier.syllabes
             })
 
@@ -400,11 +472,28 @@ export default function RecolteSyllabes() {
                     } else if (lettre.length === 1) {
                         // Paniers normaux par lettre
                         Object.keys(data.paniers[lettre] || {}).forEach(nomPanier => {
-                            const syllabes = data.paniers[lettre][nomPanier] || []
+                            const syllabesOuMots = data.paniers[lettre][nomPanier] || []
+
+                            // Adapter les anciennes données (simple syllabe) vers la nouvelle structure
+                            const syllabesFormatees = syllabesOuMots.map(item => {
+                                if (typeof item === 'string') {
+                                    // Ancienne structure : juste une syllabe
+                                    return {
+                                        mot: item, // On utilise la syllabe comme mot temporairement
+                                        segmentation: [item],
+                                        syllabeCiblee: item,
+                                        indexSyllabeCiblee: 0
+                                    }
+                                } else {
+                                    // Nouvelle structure : objet complet
+                                    return item
+                                }
+                            })
+
                             paniersChargés.push({
                                 id: Date.now() + Math.random(),
                                 nom: nomPanier,
-                                syllabes: syllabes
+                                syllabes: syllabesFormatees
                             })
                         })
                     }
@@ -731,34 +820,38 @@ export default function RecolteSyllabes() {
         <div style={{ minHeight: '100vh', padding: '20px' }}>
             <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', marginBottom: '30px' }}>
-                    <button
-                        onClick={() => router.push('/lire/syllabes-paniers')}
-                        style={{
-                            position: 'absolute',
-                            left: '0',
-                            backgroundColor: '#6b7280',
-                            color: 'white',
-                            padding: '10px 20px',
-                            border: 'none',
-                            borderRadius: '8px',
-                            fontSize: '14px',
-                            fontWeight: 'bold',
-                            cursor: 'pointer'
-                        }}
-                    >
-                        ← Retour
-                    </button>
+                    {window.innerWidth > 768 && (
+                        <button
+                            onClick={() => router.push('/lire/syllabes-paniers')}
+                            style={{
+                                position: 'absolute',
+                                left: '0',
+                                backgroundColor: '#6b7280',
+                                color: 'white',
+                                padding: '10px 20px',
+                                border: 'none',
+                                borderRadius: '8px',
+                                fontSize: '14px',
+                                fontWeight: 'bold',
+                                cursor: 'pointer'
+                            }}
+                        >
+                            ← Retour
+                        </button>
+                    )}
                     <h1 style={{ textAlign: 'center', color: '#84cc16', fontSize: '24px', margin: '0' }}>
                         Récolte des Syllabes
                     </h1>
                 </div>
 
                 {/* Grille alphabet + boutons */}
-                <div style={{ 
-                    display: 'grid', 
-                    gridTemplateColumns: 'repeat(6, 1fr)', 
-                    gap: '10px',
-                    marginBottom: '30px'
+                <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(6, 1fr)',
+                    gap: '6px',
+                    marginBottom: '20px',
+                    maxHeight: '33vh',
+                    overflow: 'visible'
                 }}>
                     {/* 26 lettres de l'alphabet */}
                     {'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').map(lettre => {
@@ -780,13 +873,13 @@ export default function RecolteSyllabes() {
                                 style={{
                                     backgroundColor: estLettreSelectionnee ? '#3b82f6' : (estCategorieActive ? '#84cc16' : '#e5e7eb'),
                                     color: estLettreSelectionnee ? 'white' : (estCategorieActive ? 'white' : 'black'),
-                                    padding: '15px',
+                                    padding: '8px',
                                     border: 'none',
-                                    borderRadius: '8px',
-                                    fontSize: '18px',
+                                    borderRadius: '6px',
+                                    fontSize: '14px',
                                     fontWeight: 'bold',
                                     cursor: (estCategorieActive && panierCorrespondant) ? 'pointer' : 'not-allowed',
-                                    minHeight: '50px',
+                                    minHeight: '32px',
                                     opacity: estCategorieActive ? 1 : 0.3,
                                     position: 'relative'
                                 }}
@@ -801,9 +894,9 @@ export default function RecolteSyllabes() {
                                         backgroundColor: '#dc2626',
                                         color: 'white',
                                         borderRadius: '50%',
-                                        width: '20px',
-                                        height: '20px',
-                                        fontSize: '12px',
+                                        width: window.innerWidth <= 768 ? '16px' : '20px',
+                                        height: window.innerWidth <= 768 ? '16px' : '20px',
+                                        fontSize: window.innerWidth <= 768 ? '10px' : '12px',
                                         display: 'flex',
                                         alignItems: 'center',
                                         justifyContent: 'center',
@@ -815,72 +908,76 @@ export default function RecolteSyllabes() {
                             </button>
                         )
                     })}
-                    
-                    {/* Case -!? */}
+
+                    {/* Case -!? pour caractères spéciaux */}
                     <button
+                        onClick={() => setLettreSelectionnee(lettreSelectionnee === 'SPECIAUX' ? null : 'SPECIAUX')}
                         style={{
-                            backgroundColor: '#ef4444',
-                            color: 'white',
-                            padding: '15px',
+                            backgroundColor: lettreSelectionnee === 'SPECIAUX' ? '#3b82f6' : '#e5e7eb',
+                            color: lettreSelectionnee === 'SPECIAUX' ? 'white' : 'black',
+                            padding: '8px',
                             border: 'none',
-                            borderRadius: '8px',
-                            fontSize: '16px',
+                            borderRadius: '6px',
+                            fontSize: '12px',
                             fontWeight: 'bold',
                             cursor: 'pointer',
-                            minHeight: '50px'
+                            minHeight: '32px',
+                            opacity: 1,
+                            position: 'relative'
                         }}
                     >
                         -!?
+                        {/* Afficher le nombre de paniers si > 0 */}
+                        {paniers.filter(p => p.nom.match(/^[-!?.,;:'"()]/)).length > 0 && (
+                            <span style={{
+                                position: 'absolute',
+                                top: '-8px',
+                                right: '-8px',
+                                backgroundColor: '#dc2626',
+                                color: 'white',
+                                borderRadius: '50%',
+                                width: window.innerWidth <= 768 ? '16px' : '20px',
+                                height: window.innerWidth <= 768 ? '16px' : '20px',
+                                fontSize: window.innerWidth <= 768 ? '10px' : '12px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontWeight: 'bold'
+                            }}>
+                                {paniers.filter(p => p.nom.match(/^[-!?.,;:'"()]/)).length}
+                            </span>
+                        )}
                     </button>
-                    
+
                     {/* Case sauvegarde */}
                     <button
                         onClick={sauvegarderPaniers}
                         style={{
                             backgroundColor: '#3b82f6',
                             color: 'white',
-                            padding: '15px',
+                            padding: '8px',
                             border: 'none',
-                            borderRadius: '8px',
-                            fontSize: '16px',
+                            borderRadius: '6px',
+                            fontSize: '12px',
                             cursor: 'pointer',
-                            minHeight: '50px'
+                            minHeight: '32px'
                         }}
                     >
                         💾
                     </button>
                     
-                    {/* Case actualiser */}
-                    <button
-                        onClick={() => {
-                            console.log('🔄 Actualisation des données...')
-                            chargerPaniersExistants()
-                        }}
-                        style={{
-                            backgroundColor: '#16a34a',
-                            color: 'white',
-                            padding: '15px',
-                            border: 'none',
-                            borderRadius: '8px',
-                            fontSize: '16px',
-                            cursor: 'pointer',
-                            minHeight: '50px'
-                        }}
-                    >
-                        🔄
-                    </button>
                     
                     {/* Case aide */}
                     <button
                         style={{
                             backgroundColor: '#8b5cf6',
                             color: 'white',
-                            padding: '15px',
+                            padding: '8px',
                             border: 'none',
-                            borderRadius: '8px',
-                            fontSize: '16px',
+                            borderRadius: '6px',
+                            fontSize: '12px',
                             cursor: 'pointer',
-                            minHeight: '50px'
+                            minHeight: '32px'
                         }}
                     >
                         ?
@@ -892,12 +989,12 @@ export default function RecolteSyllabes() {
                         style={{
                             backgroundColor: '#6b7280',
                             color: 'white',
-                            padding: '15px',
+                            padding: '8px',
                             border: 'none',
-                            borderRadius: '8px',
-                            fontSize: '16px',
+                            borderRadius: '6px',
+                            fontSize: '12px',
                             cursor: 'pointer',
-                            minHeight: '50px'
+                            minHeight: '32px'
                         }}
                     >
                         ←
@@ -906,128 +1003,273 @@ export default function RecolteSyllabes() {
 
                 {/* Affichage du mot */}
                 {motActuel && segmentationActuelle.length > 0 && (
-                    <div style={{ textAlign: 'center', marginTop: '30px', marginBottom: '30px' }}>
-                        <div style={{ 
-                            display: 'flex', 
-                            alignItems: 'center', 
-                            justifyContent: 'center',
-                            gap: '10px',
-                            flexWrap: 'wrap'
-                        }}>
-                            {/* Cadre du mot complet */}
-                            <div style={{
-                                padding: '10px 15px',
-                                backgroundColor: '#f0f9ff',
-                                border: '2px solid #0369a1',
-                                borderRadius: '8px',
-                                fontSize: '16px',
-                                fontWeight: 'bold',
-                                color: '#0369a1',
-                                minHeight: '40px',
-                                display: 'flex',
-                                alignItems: 'center'
-                            }}>
-                                {motActuel.contenu}
-                            </div>
-                            
-                            {/* Flèche 1 */}
-                            <div style={{
-                                padding: '10px 15px',
-                                backgroundColor: '#f3f4f6',
-                                border: '2px solid #6b7280',
-                                borderRadius: '8px',
-                                fontSize: '16px',
-                                minHeight: '40px',
-                                display: 'flex',
-                                alignItems: 'center'
-                            }}>
-                                →
-                            </div>
-                            
-                            {/* Syllabes segmentées */}
-                            {segmentationActuelle.map((syllabe, index) => (
-                                <div
-                                    key={index}
-                                    style={{
-                                        padding: '10px 15px',
-                                        backgroundColor: index === indexSyllabeActuelle ? '#fef3c7' : '#e5e7eb',
-                                        border: index === indexSyllabeActuelle ? '2px solid #f59e0b' : '2px solid #9ca3af',
-                                        borderRadius: '8px',
-                                        fontSize: '16px',
-                                        fontWeight: 'bold',
-                                        color: index === indexSyllabeActuelle ? '#92400e' : '#374151',
-                                        minHeight: '40px',
-                                        display: 'flex',
-                                        alignItems: 'center'
-                                    }}
-                                >
-                                    {syllabe}
-                                </div>
-                            ))}
-                            
-                            {/* Flèche 2 */}
-                            <div style={{
-                                padding: '10px 15px',
-                                backgroundColor: '#f3f4f6',
-                                border: '2px solid #6b7280',
-                                borderRadius: '8px',
-                                fontSize: '16px',
-                                minHeight: '40px',
-                                display: 'flex',
-                                alignItems: 'center'
-                            }}>
-                                →
-                            </div>
-                            
-                            {/* Syllabe à classer */}
-                            <div 
-                                draggable
-                                onDragStart={(e) => {
-                                    e.dataTransfer.setData('text/plain', segmentationActuelle[indexSyllabeActuelle])
-                                    e.dataTransfer.setData('syllabe-index', indexSyllabeActuelle.toString())
-                                }}
-                                style={{
-                                    padding: '10px 15px',
-                                    backgroundColor: '#fef2f2',
-                                    border: '2px solid #dc2626',
-                                    borderRadius: '8px',
-                                    fontSize: '16px',
-                                    fontWeight: 'bold',
-                                    color: '#dc2626',
-                                    minHeight: '40px',
+                    <div style={{ marginTop: '10px', marginBottom: '10px' }}>
+                        {window.innerWidth <= 768 ? (
+                            // Affichage mobile sur deux lignes
+                            <div style={{ padding: '5px' }}>
+                                {/* Première ligne : mot > syllabes segmentées */}
+                                <div style={{
                                     display: 'flex',
                                     alignItems: 'center',
-                                    cursor: 'grab'
-                                }}
-                            >
-                                {segmentationActuelle[indexSyllabeActuelle]}
+                                    justifyContent: 'center',
+                                    gap: '4px',
+                                    overflowX: 'auto',
+                                    marginBottom: '5px',
+                                    minHeight: '40px',
+                                    whiteSpace: 'nowrap'
+                                }}>
+                                    {/* Cadre du mot complet */}
+                                    <div style={{
+                                        padding: '4px 8px',
+                                        backgroundColor: '#f0f9ff',
+                                        border: '2px solid #0369a1',
+                                        borderRadius: '4px',
+                                        fontSize: '12px',
+                                        fontWeight: 'bold',
+                                        color: '#0369a1',
+                                        minHeight: '28px',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        flexShrink: 0
+                                    }}>
+                                        {motActuel.contenu}
+                                    </div>
+
+                                    {/* Flèche 1 */}
+                                    <div style={{
+                                        padding: '4px 6px',
+                                        backgroundColor: '#dcfce7',
+                                        border: '2px solid #16a34a',
+                                        borderRadius: '4px',
+                                        fontSize: '12px',
+                                        fontWeight: 'bold',
+                                        color: '#16a34a',
+                                        minHeight: '28px',
+                                        width: '32px',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        flexShrink: 0
+                                    }}>
+                                        →
+                                    </div>
+
+                                    {/* Syllabes segmentées */}
+                                    {segmentationActuelle.map((syllabe, index) => (
+                                        <div
+                                            key={index}
+                                            style={{
+                                                padding: '4px 8px',
+                                                backgroundColor: index === indexSyllabeActuelle ? '#dcfce7' : '#e5e7eb',
+                                                border: index === indexSyllabeActuelle ? '2px solid #16a34a' : '2px solid #9ca3af',
+                                                borderRadius: '4px',
+                                                fontSize: '12px',
+                                                fontWeight: 'bold',
+                                                color: index === indexSyllabeActuelle ? '#16a34a' : '#6b7280',
+                                                minHeight: '28px',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                flexShrink: 0
+                                            }}
+                                        >
+                                            {syllabe}
+                                        </div>
+                                    ))}
+                                </div>
+
+                                {/* Texte explicatif */}
+                                <div style={{
+                                    textAlign: 'center',
+                                    fontSize: '10px',
+                                    color: '#666',
+                                    margin: '5px auto',
+                                    padding: '4px 8px',
+                                    backgroundColor: '#f8f9fa',
+                                    border: '1px solid #e5e7eb',
+                                    borderRadius: '4px',
+                                    maxWidth: 'fit-content',
+                                    whiteSpace: 'nowrap'
+                                }}>
+                                    Classe la syllabe dans un panier
+                                </div>
+
+                                {/* Deuxième ligne : syllabe à classer centrée */}
+                                <div style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    minHeight: '40px'
+                                }}>
+                                    {/* Syllabe à classer */}
+                                    <div
+                                        draggable
+                                        onDragStart={(e) => {
+                                            e.dataTransfer.setData('text/plain', segmentationActuelle[indexSyllabeActuelle])
+                                            e.dataTransfer.setData('syllabe-index', indexSyllabeActuelle.toString())
+                                        }}
+                                        style={{
+                                            padding: '8px 16px',
+                                            backgroundColor: '#fef2f2',
+                                            border: '2px solid #dc2626',
+                                            borderRadius: '6px',
+                                            fontSize: '16px',
+                                            fontWeight: 'bold',
+                                            color: '#dc2626',
+                                            minHeight: '36px',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            cursor: 'grab',
+                                            flexShrink: 0
+                                        }}
+                                    >
+                                        {segmentationActuelle[indexSyllabeActuelle]}
+                                    </div>
+                                </div>
                             </div>
-                        </div>
+                        ) : (
+                            // Affichage PC sur une ligne
+                            <div style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'flex-start',
+                                gap: '6px',
+                                overflowX: 'auto',
+                                padding: '10px',
+                                minHeight: '50px',
+                                whiteSpace: 'nowrap'
+                            }}>
+                                {/* Cadre du mot complet */}
+                                <div style={{
+                                    padding: '6px 10px',
+                                    backgroundColor: '#f0f9ff',
+                                    border: '2px solid #0369a1',
+                                    borderRadius: '6px',
+                                    fontSize: '14px',
+                                    fontWeight: 'bold',
+                                    color: '#0369a1',
+                                    minHeight: '32px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    flexShrink: 0,
+                                    maxWidth: '120px',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis'
+                                }}>
+                                    {motActuel.contenu}
+                                </div>
+
+                                {/* Flèche 1 */}
+                                <div style={{
+                                    padding: '6px 8px',
+                                    backgroundColor: '#f3f4f6',
+                                    border: '2px solid #6b7280',
+                                    borderRadius: '6px',
+                                    fontSize: '14px',
+                                    minHeight: '32px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    flexShrink: 0
+                                }}>
+                                    →
+                                </div>
+
+                                {/* Syllabes segmentées */}
+                                {segmentationActuelle.map((syllabe, index) => (
+                                    <div
+                                        key={index}
+                                        style={{
+                                            padding: '6px 10px',
+                                            backgroundColor: index === indexSyllabeActuelle ? '#fef3c7' : '#e5e7eb',
+                                            border: index === indexSyllabeActuelle ? '2px solid #f59e0b' : '2px solid #9ca3af',
+                                            borderRadius: '6px',
+                                            fontSize: '14px',
+                                            fontWeight: 'bold',
+                                            color: index === indexSyllabeActuelle ? '#92400e' : '#374151',
+                                            minHeight: '32px',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            flexShrink: 0,
+                                            maxWidth: '80px',
+                                            overflow: 'hidden',
+                                            textOverflow: 'ellipsis'
+                                        }}
+                                    >
+                                        {syllabe}
+                                    </div>
+                                ))}
+
+                                {/* Flèche 2 */}
+                                <div style={{
+                                    padding: '6px 8px',
+                                    backgroundColor: '#f3f4f6',
+                                    border: '2px solid #6b7280',
+                                    borderRadius: '6px',
+                                    fontSize: '14px',
+                                    minHeight: '32px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    flexShrink: 0
+                                }}>
+                                    →
+                                </div>
+
+                                {/* Syllabe à classer */}
+                                <div
+                                    draggable
+                                    onDragStart={(e) => {
+                                        e.dataTransfer.setData('text/plain', segmentationActuelle[indexSyllabeActuelle])
+                                        e.dataTransfer.setData('syllabe-index', indexSyllabeActuelle.toString())
+                                    }}
+                                    style={{
+                                        padding: '6px 12px',
+                                        backgroundColor: '#fef2f2',
+                                        border: '2px solid #dc2626',
+                                        borderRadius: '6px',
+                                        fontSize: '14px',
+                                        fontWeight: 'bold',
+                                        color: '#dc2626',
+                                        minHeight: '32px',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        cursor: 'grab',
+                                        flexShrink: 0,
+                                        maxWidth: '100px',
+                                        overflow: 'hidden',
+                                        textOverflow: 'ellipsis'
+                                    }}
+                                >
+                                    {segmentationActuelle[indexSyllabeActuelle]}
+                                </div>
+                            </div>
+                        )}
                     </div>
                 )}
 
                 {/* Cadre avec paniers */}
-                <div style={{ 
-                    marginTop: '30px'
+                <div style={{
+                    marginTop: '15px'
                 }}>
-                    <div style={{ 
-                        display: 'grid', 
-                        gridTemplateColumns: 'repeat(4, 1fr)', 
-                        gap: '15px' 
+                    <div style={{
+                        display: 'grid',
+                        gridTemplateColumns: window.innerWidth <= 768
+                            ? 'repeat(4, 1fr)'
+                            : 'repeat(4, 1fr)',
+                        gap: window.innerWidth <= 768 ? '5px' : '10px',
+                        gridAutoRows: '1fr'
                     }}>
                         {/* Ajouter un panier */}
-                        <div 
+                        <div
                             onClick={ajouterPanier}
                             style={{
                                 border: '2px dashed #666',
                                 borderRadius: '8px',
-                                padding: '15px',
-                                minHeight: '60px',
+                                padding: window.innerWidth <= 768 ? '5px' : '10px',
+                                aspectRatio: '1',
                                 cursor: 'pointer',
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
-                                fontSize: '14px',
+                                fontSize: window.innerWidth <= 768 ? '7px' : '10px',
                                 fontWeight: 'bold'
                             }}
                         >
@@ -1036,7 +1278,7 @@ export default function RecolteSyllabes() {
 
 
                         {/* Panier sons complexes */}
-                        <div 
+                        <div
                             onClick={classerDansSonsComplexes}
                             onDragOver={(e) => {
                                 e.preventDefault()
@@ -1056,13 +1298,13 @@ export default function RecolteSyllabes() {
                             style={{
                                 border: '2px dashed #be185d',
                                 borderRadius: '8px',
-                                padding: '15px',
-                                minHeight: '60px',
+                                padding: window.innerWidth <= 768 ? '5px' : '10px',
+                                aspectRatio: '1',
                                 cursor: 'pointer',
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
-                                fontSize: '14px',
+                                fontSize: window.innerWidth <= 768 ? '7px' : '10px',
                                 fontWeight: 'bold',
                                 backgroundColor: '#fdf2f8',
                                 color: '#be185d'
@@ -1072,7 +1314,7 @@ export default function RecolteSyllabes() {
                         </div>
 
                         {/* Panier à resegmenter */}
-                        <div 
+                        <div
                             onClick={classerDansResegmentation}
                             onDragOver={(e) => {
                                 e.preventDefault()
@@ -1092,13 +1334,13 @@ export default function RecolteSyllabes() {
                             style={{
                                 border: '2px dashed #d97706',
                                 borderRadius: '8px',
-                                padding: '15px',
-                                minHeight: '60px',
+                                padding: window.innerWidth <= 768 ? '5px' : '10px',
+                                aspectRatio: '1',
                                 cursor: 'pointer',
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
-                                fontSize: '14px',
+                                fontSize: window.innerWidth <= 768 ? '7px' : '10px',
                                 fontWeight: 'bold',
                                 backgroundColor: '#fef3c7',
                                 color: '#d97706'
@@ -1121,9 +1363,8 @@ export default function RecolteSyllabes() {
                                 }
                             })
                             .map(panier => (
-                            <div 
+                            <div
                                 key={panier.id}
-                                onClick={() => classerSyllabeDansPanier(panier.id)}
                                 onDragOver={(e) => {
                                     e.preventDefault()
                                     e.currentTarget.style.backgroundColor = '#f0fdf4'
@@ -1142,60 +1383,43 @@ export default function RecolteSyllabes() {
                                 style={{
                                     border: '2px dashed #84cc16',
                                     borderRadius: '8px',
-                                    padding: '15px',
-                                    minHeight: '60px',
-                                    cursor: 'pointer',
+                                    padding: window.innerWidth <= 768 ? '5px' : '10px',
+                                    aspectRatio: '1',
+                                    cursor: 'default',
                                     display: 'flex',
                                     flexDirection: 'column',
                                     alignItems: 'center',
                                     justifyContent: 'center',
-                                    fontSize: '12px',
+                                    fontSize: window.innerWidth <= 768 ? '6px' : '8px',
                                     fontWeight: 'bold'
                                 }}
                             >
                                 <div style={{ marginBottom: '5px' }}>{panier.nom}</div>
                                 <div style={{ fontSize: '10px', color: '#666' }}>
-                                    {panier.syllabes.length} syllabe(s)
+                                    {panier.syllabes.length} mot(s)
                                 </div>
-                                {/* Afficher les syllabes */}
+                                {/* Afficher les mots avec colorisation */}
                                 <div style={{ fontSize: '9px', color: '#333', marginTop: '5px', textAlign: 'center' }}>
-                                    {panier.syllabes.join(', ')}
+                                    {panier.syllabes.map((motAvecSyllabe, index) => {
+                                        // Vérification de sécurité : s'assurer que c'est un objet valide
+                                        if (typeof motAvecSyllabe === 'string') {
+                                            return <div key={index} style={{ marginBottom: '2px' }}>{motAvecSyllabe}</div>
+                                        }
+
+                                        if (!motAvecSyllabe || typeof motAvecSyllabe !== 'object' || !motAvecSyllabe.segmentation) {
+                                            return <div key={index} style={{ marginBottom: '2px' }}>Erreur données</div>
+                                        }
+
+                                        return (
+                                            <div key={index} style={{ marginBottom: '2px' }}>
+                                                {afficherMotAvecColorisation(motAvecSyllabe)}
+                                            </div>
+                                        )
+                                    })}
                                 </div>
                             </div>
                         ))}
 
-                        {/* Bouton poubelle */}
-                        <div 
-                            onClick={supprimerSyllabe}
-                            onDragOver={(e) => {
-                                e.preventDefault()
-                                e.currentTarget.style.backgroundColor = '#f3f4f6'
-                            }}
-                            onDragLeave={(e) => {
-                                e.currentTarget.style.backgroundColor = 'white'
-                            }}
-                            onDrop={(e) => {
-                                e.preventDefault()
-                                e.currentTarget.style.backgroundColor = 'white'
-                                const syllabe = e.dataTransfer.getData('text/plain')
-                                if (syllabe) {
-                                    supprimerSyllabe()
-                                }
-                            }}
-                            style={{
-                                border: '2px dashed #666',
-                                borderRadius: '8px',
-                                padding: '15px',
-                                minHeight: '60px',
-                                cursor: 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                fontSize: '18px'
-                            }}
-                        >
-                            🗑️
-                        </div>
                     </div>
                 </div>
 
@@ -1204,86 +1428,73 @@ export default function RecolteSyllabes() {
                     <div style={{
                         backgroundColor: '#f8f9fa',
                         border: '2px solid #84cc16',
-                        borderRadius: '12px',
-                        padding: '20px',
-                        marginTop: '20px',
-                        textAlign: 'center'
+                        borderRadius: '6px',
+                        padding: '8px',
+                        marginTop: '8px',
+                        textAlign: 'center',
+                        minHeight: '50px',
+                        display: 'flex',
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '8px'
                     }}>
-                        <h3 style={{
-                            color: '#84cc16',
-                            marginBottom: '15px',
-                            fontSize: '18px',
-                            fontWeight: 'bold'
-                        }}>
-                            Créer un nouveau panier
-                        </h3>
-                        
-                        <div style={{ marginBottom: '15px' }}>
-                            <label style={{ 
-                                display: 'block', 
-                                marginBottom: '8px', 
-                                color: '#333',
-                                fontSize: '14px',
-                                fontWeight: 'bold'
-                            }}>
-                                Nom du panier :
-                            </label>
-                            <input
-                                type="text"
-                                value={nomPanierSaisi}
-                                onChange={(e) => setNomPanierSaisi(e.target.value)}
-                                placeholder={`Suggestion: ${nomPanierPropose}`}
-                                style={{
-                                    padding: '10px',
-                                    fontSize: '16px',
-                                    borderRadius: '6px',
-                                    border: '1px solid #ccc',
-                                    width: '200px',
-                                    textAlign: 'center'
-                                }}
-                                autoFocus
-                            />
-                        </div>
-                        
-                        <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+                        <input
+                            type="text"
+                            value={nomPanierSaisi}
+                            onChange={(e) => setNomPanierSaisi(e.target.value)}
+                            placeholder={`Ex: ${nomPanierPropose}`}
+                            style={{
+                                padding: '6px',
+                                fontSize: '12px',
+                                borderRadius: '4px',
+                                border: '1px solid #ccc',
+                                width: '120px',
+                                textAlign: 'center',
+                                flex: '1'
+                            }}
+                            autoFocus
+                        />
+
+                        <div style={{ display: 'flex', gap: '6px' }}>
                             <button
                                 onClick={validerPanier}
                                 style={{
                                     backgroundColor: '#84cc16',
                                     color: 'white',
-                                    padding: '10px 20px',
+                                    padding: '6px 8px',
                                     border: 'none',
-                                    borderRadius: '6px',
-                                    fontSize: '14px',
+                                    borderRadius: '4px',
+                                    fontSize: '10px',
                                     fontWeight: 'bold',
                                     cursor: 'pointer'
                                 }}
                             >
-                                ✓ Valider
+                                ✓
                             </button>
                             <button
                                 onClick={annulerPanier}
                                 style={{
                                     backgroundColor: '#6b7280',
                                     color: 'white',
-                                    padding: '10px 20px',
+                                    padding: '6px 8px',
                                     border: 'none',
-                                    borderRadius: '6px',
-                                    fontSize: '14px',
+                                    borderRadius: '4px',
+                                    fontSize: '10px',
                                     fontWeight: 'bold',
                                     cursor: 'pointer'
                                 }}
                             >
-                                ✗ Annuler
+                                ✗
                             </button>
                         </div>
                     </div>
                 )}
 
-                {/* 4 cadres en bas */}
-                <div style={{ 
-                    display: 'grid', 
-                    gridTemplateColumns: 'repeat(4, 1fr)', 
+                {/* 4 cadres en bas - cachés */}
+                <div style={{
+                    display: 'none',
+                    gridTemplateColumns: 'repeat(4, 1fr)',
                     gap: '15px',
                     marginTop: '30px'
                 }}>
@@ -1439,28 +1650,30 @@ export default function RecolteSyllabes() {
                     </div>
                 </div>
 
-                {/* Bouton retour en bas */}
-                <div style={{ 
-                    display: 'flex', 
-                    justifyContent: 'center', 
-                    marginTop: '30px' 
-                }}>
-                    <button
-                        onClick={() => router.push('/lire/syllabes-paniers')}
-                        style={{
-                            backgroundColor: '#6b7280',
-                            color: 'white',
-                            padding: '15px 30px',
-                            border: 'none',
-                            borderRadius: '8px',
-                            fontSize: '16px',
-                            fontWeight: 'bold',
-                            cursor: 'pointer'
-                        }}
-                    >
-                        ← Retour aux textes
-                    </button>
-                </div>
+                {/* Bouton retour en bas - masqué sur mobile */}
+                {window.innerWidth > 768 && (
+                    <div style={{
+                        display: 'flex',
+                        justifyContent: 'center',
+                        marginTop: '30px'
+                    }}>
+                        <button
+                            onClick={() => router.push('/lire/syllabes-paniers')}
+                            style={{
+                                backgroundColor: '#6b7280',
+                                color: 'white',
+                                padding: '15px 30px',
+                                border: 'none',
+                                borderRadius: '8px',
+                                fontSize: '16px',
+                                fontWeight: 'bold',
+                                cursor: 'pointer'
+                            }}
+                        >
+                            ← Retour aux textes
+                        </button>
+                    </div>
+                )}
             </div>
         </div>
     )
