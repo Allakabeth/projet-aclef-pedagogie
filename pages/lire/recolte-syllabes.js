@@ -21,6 +21,7 @@ export default function RecolteSyllabes() {
     const [afficherFinRecolte, setAfficherFinRecolte] = useState(false) // État pour la fenêtre "fin de récolte"
     const [motsInitiaux, setMotsInitiaux] = useState([]) // Variable state pour persister les mots initiaux
     const [sonPanierActive, setSonPanierActive] = useState(true) // Contrôle du son pour création de panier
+    const [showAide, setShowAide] = useState(false) // Contrôle l'affichage du popup d'aide
     const router = useRouter()
 
     useEffect(() => {
@@ -1113,7 +1114,10 @@ export default function RecolteSyllabes() {
                     
                     {/* Case aide */}
                     <button
-                        onClick={() => jouerSon("aide")}
+                        onClick={() => {
+                            jouerSon("aide")
+                            setShowAide(true)
+                        }}
                         style={{
                             background: 'linear-gradient(135deg, #8b5cf6, #7c3aed)',
                             color: 'white',
@@ -2023,6 +2027,141 @@ export default function RecolteSyllabes() {
                         )}
                     </div>
                 </div>
+
+                {/* Popup d'aide */}
+                {showAide && (
+            <div style={{
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                width: '100%',
+                height: '100%',
+                backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                zIndex: 1000,
+                padding: '20px'
+            }}>
+                <div style={{
+                    backgroundColor: 'white',
+                    borderRadius: '12px',
+                    padding: '30px',
+                    maxWidth: '800px',
+                    maxHeight: '90vh',
+                    overflow: 'auto',
+                    boxShadow: '0 10px 25px rgba(0,0,0,0.25)',
+                    position: 'relative'
+                }}>
+                    {/* Bouton fermer */}
+                    <button
+                        onClick={() => setShowAide(false)}
+                        style={{
+                            position: 'absolute',
+                            top: '15px',
+                            right: '15px',
+                            backgroundColor: '#ef4444',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '50%',
+                            width: '30px',
+                            height: '30px',
+                            fontSize: '18px',
+                            fontWeight: 'bold',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                        }}
+                    >
+                        ×
+                    </button>
+
+                    {/* Contenu de l'aide */}
+                    <h1 style={{ color: '#84cc16', fontSize: '28px', marginBottom: '20px', textAlign: 'center' }}>
+                        🎯 Guide de la Récolte de Syllabes
+                    </h1>
+
+                    <div style={{ lineHeight: '1.6', color: '#333' }}>
+                        <h2 style={{ color: '#16a34a', fontSize: '22px', marginTop: '25px', marginBottom: '15px' }}>
+                            🎮 Comment jouer ?
+                        </h2>
+                        <p style={{ marginBottom: '15px' }}>
+                            <strong>Objectif :</strong> Organiser les syllabes des mots dans des paniers pour créer des collections thématiques.
+                        </p>
+
+                        <h2 style={{ color: '#16a34a', fontSize: '22px', marginTop: '25px', marginBottom: '15px' }}>
+                            🔤 Interface principale
+                        </h2>
+                        <ul style={{ marginBottom: '15px', paddingLeft: '20px' }}>
+                            <li><strong>Alphabet :</strong> Cliquez sur une lettre pour entendre son son</li>
+                            <li><strong>-!? :</strong> Caractères spéciaux avec son explicatif</li>
+                            <li><strong>Mot affiché :</strong> Cliquez pour entendre "ce mot est [mot]"</li>
+                            <li><strong>Flèche → :</strong> Cliquez pour entendre "ce mot est coupé comme ça"</li>
+                            <li><strong>Syllabes :</strong> Cliquez pour entendre la syllabe (prononciation complète)</li>
+                        </ul>
+
+                        <h2 style={{ color: '#16a34a', fontSize: '22px', marginTop: '25px', marginBottom: '15px' }}>
+                            🗂️ Organisation en paniers
+                        </h2>
+                        <ul style={{ marginBottom: '15px', paddingLeft: '20px' }}>
+                            <li><strong>➕ Ajouter un panier :</strong> Créez de nouveaux paniers pour organiser vos syllabes</li>
+                            <li><strong>🔊 Bouton son :</strong> Dans le coin du panier pour activer/désactiver le son de création</li>
+                            <li><strong>Glisser-déposer :</strong> Faites glisser une syllabe vers un panier</li>
+                            <li><strong>Paniers existants :</strong> Cliquez pour entendre "c'est le panier des [nom]"</li>
+                        </ul>
+
+                        <h2 style={{ color: '#16a34a', fontSize: '22px', marginTop: '25px', marginBottom: '15px' }}>
+                            🎯 Paniers spéciaux
+                        </h2>
+                        <ul style={{ marginBottom: '15px', paddingLeft: '20px' }}>
+                            <li><strong>🤔 Sons complexes :</strong> "On ne voit pas et on n'entend pas la même chose!"</li>
+                            <li><strong>✂️ Mal coupés :</strong> "Ce mot est mal coupé!"</li>
+                        </ul>
+
+                        <h2 style={{ color: '#16a34a', fontSize: '22px', marginTop: '25px', marginBottom: '15px' }}>
+                            🔊 Fonctionnalités sonores
+                        </h2>
+                        <ul style={{ marginBottom: '15px', paddingLeft: '20px' }}>
+                            <li><strong>Syllabes intelligentes :</strong> Prononciations corrigées (IR → "ire", pas "I-R")</li>
+                            <li><strong>Voix française :</strong> Évite automatiquement la voix Hortense</li>
+                            <li><strong>Sons contextuels :</strong> Chaque élément a son propre message sonore</li>
+                            <li><strong>Contrôle création :</strong> Bouton 🔊/🔇 pour les nouveaux paniers</li>
+                        </ul>
+
+                        <h2 style={{ color: '#16a34a', fontSize: '22px', marginTop: '25px', marginBottom: '15px' }}>
+                            📱💻 Versions Mobile/PC
+                        </h2>
+                        <ul style={{ marginBottom: '15px', paddingLeft: '20px' }}>
+                            <li><strong>Mobile :</strong> Interface compacte sur 2 lignes</li>
+                            <li><strong>PC :</strong> Interface agrandie, éléments centrés, paniers plus petits</li>
+                            <li><strong>Navigation :</strong> Bouton retour en haut sur mobile uniquement</li>
+                        </ul>
+
+                        <h2 style={{ color: '#16a34a', fontSize: '22px', marginTop: '25px', marginBottom: '15px' }}>
+                            💡 Conseils d'utilisation
+                        </h2>
+                        <ul style={{ marginBottom: '15px', paddingLeft: '20px' }}>
+                            <li>Créez des paniers thématiques (animaux, couleurs, etc.)</li>
+                            <li>Le nom du panier doit commencer par la même lettre que la syllabe</li>
+                            <li>Utilisez les sons pour mémoriser les prononciations</li>
+                            <li>Organisez progressivement pour une meilleure mémorisation</li>
+                        </ul>
+
+                        <div style={{
+                            backgroundColor: '#f0f9ff',
+                            border: '2px solid #84cc16',
+                            borderRadius: '8px',
+                            padding: '15px',
+                            marginTop: '25px',
+                            textAlign: 'center'
+                        }}>
+                            <strong style={{ color: '#16a34a' }}>🎉 Bon apprentissage ! 🎉</strong>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        )}
 
             </div>
         </div>
