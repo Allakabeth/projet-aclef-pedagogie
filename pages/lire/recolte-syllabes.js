@@ -19,6 +19,7 @@ export default function RecolteSyllabes() {
     const [lettreSelectionnee, setLettreSelectionnee] = useState(null) // Lettre sélectionnée pour navigation
     const [jeuTermine, setJeuTermine] = useState(false) // État pour gérer la fin du jeu
     const [afficherFinRecolte, setAfficherFinRecolte] = useState(false) // État pour la fenêtre "fin de récolte"
+    const [motsInitiaux, setMotsInitiaux] = useState([]) // Variable state pour persister les mots initiaux
     const router = useRouter()
 
     useEffect(() => {
@@ -48,16 +49,13 @@ export default function RecolteSyllabes() {
         }
     }, [router.isReady, router.query.texte])
 
-    // Charger les paniers quand tous les mots sont chargés
+    // Charger les paniers quand les mots initiaux sont chargés
     useEffect(() => {
-        if (tousMots.length > 0) {
+        if (motsInitiaux.length > 0) {
             chargerPaniersExistants()
         }
-    }, [tousMots])
+    }, [motsInitiaux])
 
-    // Variable globale pour stocker les mots initiaux de façon stable
-    let motsInitiaux = []
-    
     const chargerMots = async () => {
         try {
             // Récupérer l'ID du texte depuis l'URL ou localStorage
@@ -81,7 +79,7 @@ export default function RecolteSyllabes() {
 
             if (response.ok) {
                 const data = await response.json()
-                motsInitiaux = data.mots || [] // Stocker de façon stable
+                setMotsInitiaux(data.mots || []) // Stocker de façon stable avec state
                 setTousMots(data.mots || []) // Stocker tous les mots initiaux
                 setMotsATraiter(data.mots || [])
                 console.log('Mots chargés:', data.mots?.length || 0)
