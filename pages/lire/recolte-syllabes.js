@@ -1599,6 +1599,7 @@ export default function RecolteSyllabes() {
                                 const syllabe = e.dataTransfer.getData('text/plain')
                                 if (syllabe) {
                                     jouerSon("On ne voit pas et on n'entend pas la même chose!")
+                                    classerDansSonsComplexes()
                                 }
                             }}
                             style={{
@@ -1659,6 +1660,7 @@ export default function RecolteSyllabes() {
                                 const syllabe = e.dataTransfer.getData('text/plain')
                                 if (syllabe) {
                                     jouerSon("ce mot est mal coupé!")
+                                    classerDansResegmentation()
                                 }
                             }}
                             style={{
@@ -1871,7 +1873,7 @@ export default function RecolteSyllabes() {
 
                 {/* 4 cadres en bas - cachés */}
                 <div style={{
-                    display: 'none',
+                    display: 'grid',
                     gridTemplateColumns: 'repeat(4, 1fr)',
                     gap: '15px',
                     marginTop: '30px'

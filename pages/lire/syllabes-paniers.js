@@ -506,6 +506,23 @@ export default function SyllabesPaniers() {
                         >
                             🗂️ Voir mes syllabes
                         </button>
+
+                        <button
+                            onClick={() => router.push('/lire')}
+                            style={{
+                                backgroundColor: '#6b7280',
+                                color: 'white',
+                                padding: 'clamp(12px, 3vw, 15px) clamp(20px, 5vw, 30px)',
+                                border: 'none',
+                                borderRadius: '8px',
+                                fontSize: 'clamp(16px, 4vw, 18px)',
+                                fontWeight: 'bold',
+                                cursor: 'pointer',
+                                transition: 'all 0.3s ease'
+                            }}
+                        >
+                            ← Retour au menu Lire
+                        </button>
                     </div>
                 </div>
             </div>
