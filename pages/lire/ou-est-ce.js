@@ -24,6 +24,7 @@ export default function OuEstCe() {
     const [availableVoices, setAvailableVoices] = useState([])
     const [gameFinished, setGameFinished] = useState(false)
     const [finalScore, setFinalScore] = useState({ correct: 0, total: 0, percentage: 0 })
+    const [tokenStatus, setTokenStatus] = useState('unknown') // 'available', 'exhausted', 'unknown'
     const router = useRouter()
 
     useEffect(() => {
@@ -185,6 +186,54 @@ export default function OuEstCe() {
         setFinalScore({ correct: 0, total: 0, percentage: 0 })
     }
 
+    // Fonctions de cache optimisées
+    const getCachedAudio = (text, voiceId) => {
+        // Normaliser le texte pour éviter les doublons dus aux espaces/ponctuation
+        const normalizedText = text.trim().toLowerCase().replace(/[^\w\s]/g, '')
+        const key = `elevenlabs_${voiceId}_${btoa(normalizedText).substring(0, 50)}`
+        return localStorage.getItem(key)
+    }
+
+    const setCachedAudio = (text, voiceId, audioData) => {
+        try {
+            const normalizedText = text.trim().toLowerCase().replace(/[^\w\s]/g, '')
+            const key = `elevenlabs_${voiceId}_${btoa(normalizedText).substring(0, 50)}`
+            localStorage.setItem(key, audioData)
+            // Mise en cache silencieuse
+        } catch (error) {
+            // Erreur cache silencieuse - tenter de libérer de l'espace
+            cleanOldCache()
+        }
+    }
+
+    // Nettoyer le cache ancien pour libérer de l'espace
+    const cleanOldCache = () => {
+        try {
+            const keys = Object.keys(localStorage)
+            const elevenLabsKeys = keys.filter(key => key.startsWith('elevenlabs_'))
+
+            // Supprimer les plus anciens si trop nombreux
+            if (elevenLabsKeys.length > 100) {
+                elevenLabsKeys.slice(0, 20).forEach(key => {
+                    localStorage.removeItem(key)
+                })
+                // Cache nettoyé silencieusement
+            }
+        } catch (error) {
+            // Erreur nettoyage silencieuse
+        }
+    }
+
+    // Compter les audios en cache (pour debug silencieux)
+    const getCacheCount = () => {
+        try {
+            const keys = Object.keys(localStorage)
+            return keys.filter(key => key.startsWith('elevenlabs_')).length
+        } catch (error) {
+            return 0
+        }
+    }
+
     const playAudio = async (texte) => {
         if (isPlaying && currentAudio) {
             currentAudio.pause()
@@ -194,78 +243,113 @@ export default function OuEstCe() {
         }
 
         setIsPlaying(true)
-        
-        // Essayer d'abord avec le cache
-        const getCachedAudio = (text, voiceId) => {
-            const key = `elevenlabs_${voiceId}_${btoa(text).substring(0, 50)}`
-            return localStorage.getItem(key)
-        }
-
-        const setCachedAudio = (text, voiceId, audioData) => {
-            try {
-                const key = `elevenlabs_${voiceId}_${btoa(text).substring(0, 50)}`
-                localStorage.setItem(key, audioData)
-            } catch (error) {
-                console.error('Erreur cache:', error)
-            }
-        }
 
         try {
-            // Vérifier le cache
+            // 1. TOUJOURS vérifier le cache en premier
             const cachedAudio = getCachedAudio(texte, selectedVoice)
             let audioData = null
 
             if (cachedAudio) {
+                // Utilisation silencieuse du cache - l'utilisateur ne voit rien
                 audioData = cachedAudio
-            } else {
-                // Générer via ElevenLabs
-                const token = localStorage.getItem('token')
-                const response = await fetch('/api/speech/elevenlabs', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                    },
-                    body: JSON.stringify({
-                        text: texte,
-                        voice_id: selectedVoice
+            } else if (tokenStatus !== 'exhausted') {
+                // Tentative ElevenLabs silencieuse
+                try {
+                    const token = localStorage.getItem('token')
+                    const response = await fetch('/api/speech/elevenlabs', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify({
+                            text: texte,
+                            voice_id: selectedVoice
+                        })
                     })
-                })
 
-                if (!response.ok) {
-                    // Fallback vers Web Speech API
-                    const utterance = new SpeechSynthesisUtterance(texte)
-                    utterance.lang = 'fr-FR'
-                    utterance.rate = 0.8
-                    utterance.onend = () => {
-                        setIsPlaying(false)
+                    if (response.ok) {
+                        const data = await response.json()
+                        audioData = data.audio
+                        setCachedAudio(texte, selectedVoice, audioData)
+                        setTokenStatus('available')
+                        // Succès silencieux - l'utilisateur entend juste une belle voix
+                    } else {
+                        // Échec silencieux - bascule vers Web Speech
+                        setTokenStatus('exhausted')
+                        fallbackToWebSpeech(texte)
+                        return
                     }
-                    window.speechSynthesis.speak(utterance)
+                } catch (error) {
+                    // Erreur silencieuse - bascule vers Web Speech
+                    setTokenStatus('exhausted')
+                    fallbackToWebSpeech(texte)
                     return
                 }
-
-                const data = await response.json()
-                audioData = data.audio
-                setCachedAudio(texte, selectedVoice, audioData)
+            } else {
+                // Tokens déjà épuisés - utilise Web Speech directement
+                fallbackToWebSpeech(texte)
+                return
             }
 
+            // Jouer l'audio ElevenLabs
             const audio = new Audio(audioData)
             setCurrentAudio(audio)
-            
+
             audio.onended = () => {
                 setIsPlaying(false)
                 setCurrentAudio(null)
             }
-            
+
             audio.onerror = () => {
+                // Erreur silencieuse - l'utilisateur ne voit rien
                 setIsPlaying(false)
                 setCurrentAudio(null)
+                fallbackToWebSpeech(texte)
             }
-            
+
             await audio.play()
-            
+
         } catch (error) {
-            console.error('Erreur lecture audio:', error)
+            // Erreur générale silencieuse
+            fallbackToWebSpeech(texte)
+        }
+    }
+
+    // Fonction fallback Web Speech optimisée
+    const fallbackToWebSpeech = (texte) => {
+        try {
+            const utterance = new SpeechSynthesisUtterance(texte)
+            utterance.lang = 'fr-FR'
+            utterance.rate = 0.8
+            utterance.pitch = 0.6 // Plus grave pour ressembler aux voix masculines
+
+            // Chercher une voix masculine française
+            const voices = window.speechSynthesis.getVoices()
+            const voixMasculine = voices.find(voice =>
+                voice.lang.includes('fr') &&
+                (voice.name.toLowerCase().includes('male') ||
+                 voice.name.toLowerCase().includes('homme') ||
+                 voice.name.toLowerCase().includes('thomas') ||
+                 voice.name.toLowerCase().includes('paul') ||
+                 voice.name.toLowerCase().includes('pierre'))
+            ) || voices.find(voice => voice.lang.includes('fr'))
+
+            if (voixMasculine) {
+                utterance.voice = voixMasculine
+            }
+
+            utterance.onend = () => {
+                setIsPlaying(false)
+            }
+
+            utterance.onerror = () => {
+                setIsPlaying(false)
+            }
+
+            window.speechSynthesis.speak(utterance)
+        } catch (error) {
+            // Erreur Web Speech silencieuse - juste arrêter
             setIsPlaying(false)
         }
     }
@@ -711,7 +795,7 @@ export default function OuEstCe() {
                     marginTop: '30px'
                 }}>
                     <button
-                        onClick={() => router.push('/lire/mes-textes-references')}
+                        onClick={() => router.push('/lire')}
                         style={{
                             backgroundColor: '#6b7280',
                             color: 'white',
@@ -723,7 +807,7 @@ export default function OuEstCe() {
                             cursor: 'pointer'
                         }}
                     >
-                        ← Retour aux textes références
+                        ← Retour au menu Lire
                     </button>
                 </div>
             </div>

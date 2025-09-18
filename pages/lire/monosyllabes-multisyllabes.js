@@ -19,8 +19,7 @@ export default function MonosyllabesMultisyllabes() {
     const [userChoices, setUserChoices] = useState([])
     const [showResults, setShowResults] = useState(false)
     const [availableVoices, setAvailableVoices] = useState([])
-    const [selectedVoice, setSelectedVoice] = useState('Paul (ElevenLabs)')
-    const [selectedVoiceType, setSelectedVoiceType] = useState('elevenlabs') // 'web' ou 'elevenlabs'
+    const [selectedVoice, setSelectedVoice] = useState('Paul')
     const [autoRead, setAutoRead] = useState(false)
     const router = useRouter()
 
@@ -45,48 +44,53 @@ export default function MonosyllabesMultisyllabes() {
 
         setIsLoading(false)
         
-        // Charger les voix disponibles
+        // Charger les voix disponibles avec système transparent
         const loadAllVoices = () => {
-            const allVoices = []
-            
-            // Voix ElevenLabs (seulement Paul et Julie)
-            const elevenLabsVoices = [
-                { name: 'Paul (ElevenLabs)', type: 'elevenlabs', id: 'AfbuxQ9DVtS4azaxN1W7', lang: 'fr-FR' },
-                { name: 'Julie (ElevenLabs)', type: 'elevenlabs', id: 'tMyQcCxfGDdIt7wJ2RQw', lang: 'fr-FR' }
+            const allVoices = [
+                {
+                    name: 'Paul',
+                    type: 'elevenlabs',
+                    id: 'AfbuxQ9DVtS4azaxN1W7',
+                    lang: 'fr-FR',
+                    fallback: null
+                },
+                {
+                    name: 'Julie',
+                    type: 'elevenlabs',
+                    id: 'tMyQcCxfGDdIt7wJ2RQw',
+                    lang: 'fr-FR',
+                    fallback: null
+                }
             ]
-            allVoices.push(...elevenLabsVoices)
-            
-            // Voix Web Speech API (seulement Paul et Julie, pas Hortense)
+
+            // Chercher des voix fallback Web Speech API
             if ('speechSynthesis' in window) {
                 const webVoices = speechSynthesis.getVoices()
-                    .filter(voice => {
-                        const voiceName = voice.name.toLowerCase()
-                        const isFrencVoice = voice.lang.startsWith('fr') || voice.lang.includes('FR')
-                        
-                        // Inclure seulement Paul et Julie, exclure Hortense
-                        const isPaulOrJulie = voiceName.includes('paul') || 
-                                            voiceName.includes('julie') || 
-                                            voiceName.includes('thomas') || 
-                                            voiceName.includes('amelie') ||
-                                            voiceName.includes('marie')
-                        
-                        const isNotHortense = !voiceName.includes('hortense')
-                        
-                        return isFrencVoice && isPaulOrJulie && isNotHortense
-                    })
-                    .map(voice => ({ 
-                        name: `${voice.name} (Système)`, 
-                        type: 'web', 
-                        voice: voice, 
-                        lang: voice.lang 
-                    }))
-                allVoices.push(...webVoices)
+
+                // Trouver les voix fallback
+                const paulFallback = webVoices.find(voice =>
+                    voice.lang.includes('fr') &&
+                    (voice.name.toLowerCase().includes('paul') ||
+                     voice.name.toLowerCase().includes('thomas') ||
+                     voice.name.toLowerCase().includes('male'))
+                ) || webVoices.find(voice => voice.lang.includes('fr'))
+
+                const julieFallback = webVoices.find(voice =>
+                    voice.lang.includes('fr') &&
+                    (voice.name.toLowerCase().includes('julie') ||
+                     voice.name.toLowerCase().includes('marie') ||
+                     voice.name.toLowerCase().includes('amelie') ||
+                     voice.name.toLowerCase().includes('female'))
+                ) || webVoices.find(voice => voice.lang.includes('fr'))
+
+                // Assigner les fallbacks
+                allVoices[0].fallback = paulFallback
+                allVoices[1].fallback = julieFallback
             }
-            
+
             setAvailableVoices(allVoices)
             if (allVoices.length > 0 && !selectedVoice) {
-                setSelectedVoice(allVoices[0].name)
-                setSelectedVoiceType(allVoices[0].type)
+                setSelectedVoice('Paul')
             }
         }
         
@@ -349,65 +353,83 @@ export default function MonosyllabesMultisyllabes() {
         }
     }
 
-    // Fonction TTS avec ElevenLabs + Web Speech API
+    // Fonction TTS intelligente Paul/Julie avec auto-détection ElevenLabs/Web Speech
     const speakText = async (text) => {
         if (!text.trim()) return
 
         const selectedVoiceObj = availableVoices.find(v => v.name === selectedVoice)
-        
-        if (selectedVoiceObj?.type === 'elevenlabs') {
-            // Utiliser ElevenLabs avec contexte français pour les mots isolés
-            try {
-                // Ajouter un contexte français si c'est un mot isolé (sans espace)
-                let textToSpeak = text
-                if (!text.includes(' ') && text.length >= 1) {
-                    // Ajouter un contexte français subtil pour améliorer la prononciation
-                    textToSpeak = `Le mot "${text}".`
-                }
-                
-                console.log('Envoi à ElevenLabs:', textToSpeak)
-                
-                const response = await fetch('/api/speech/elevenlabs', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${localStorage.getItem('token')}`
-                    },
-                    body: JSON.stringify({ 
-                        text: textToSpeak,
-                        voice_id: selectedVoiceObj.id 
-                    })
-                })
+        if (!selectedVoiceObj) return
 
-                if (response.ok) {
-                    const data = await response.json()
-                    console.log('Réponse ElevenLabs OK, lecture audio')
-                    const audio = new Audio(data.audio)
-                    audio.play()
-                    return
-                } else {
-                    console.log('Erreur ElevenLabs:', response.status, await response.text())
-                    throw new Error('ElevenLabs failed')
-                }
+        // Ajouter contexte français pour mots isolés
+        let textToSpeak = text
+        if (!text.includes(' ') && text.length >= 1) {
+            textToSpeak = `Le mot "${text}".`
+        }
+
+        // Créer clé de cache
+        const cacheKey = `voice_${selectedVoice}_${btoa(textToSpeak).replace(/[^a-zA-Z0-9]/g, '')}`
+
+        // Vérifier le cache ElevenLabs
+        const cachedAudio = localStorage.getItem(cacheKey)
+        if (cachedAudio) {
+            try {
+                const audio = new Audio(cachedAudio)
+                audio.play()
+                return
             } catch (error) {
-                console.log('ElevenLabs non disponible, fallback vers Web Speech API:', error.message)
+                localStorage.removeItem(cacheKey)
             }
         }
 
-        // Utiliser Web Speech API (par défaut ou en fallback)
+        // Essayer ElevenLabs en premier
+        try {
+            const response = await fetch('/api/speech/elevenlabs', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                },
+                body: JSON.stringify({
+                    text: textToSpeak,
+                    voice_id: selectedVoiceObj.id
+                })
+            })
+
+            if (response.ok) {
+                const data = await response.json()
+
+                // Sauvegarder en cache permanent
+                try {
+                    localStorage.setItem(cacheKey, data.audio)
+                } catch (storageError) {
+                    // Nettoyer les anciens caches si plein
+                    Object.keys(localStorage).forEach(key => {
+                        if (key.startsWith('voice_')) {
+                            localStorage.removeItem(key)
+                        }
+                    })
+                }
+
+                const audio = new Audio(data.audio)
+                audio.play()
+                return
+            }
+        } catch (error) {
+            // Fallback silencieux vers Web Speech API
+        }
+
+        // Utiliser Web Speech API en fallback
         if ('speechSynthesis' in window) {
             const utterance = new SpeechSynthesisUtterance(text)
             utterance.lang = 'fr-FR'
             utterance.rate = 0.8
-            
-            // Utiliser la voix Web Speech sélectionnée si disponible
-            if (selectedVoiceObj?.type === 'web' && selectedVoiceObj.voice) {
-                utterance.voice = selectedVoiceObj.voice
+
+            // Utiliser la voix fallback appropriée
+            if (selectedVoiceObj.fallback) {
+                utterance.voice = selectedVoiceObj.fallback
             }
-            
+
             window.speechSynthesis.speak(utterance)
-        } else {
-            alert('Fonction audio non disponible sur ce navigateur')
         }
     }
 
@@ -478,14 +500,8 @@ export default function MonosyllabesMultisyllabes() {
                                 📚 Comment jouer ?
                             </h3>
                             <p style={{ margin: 0, color: '#0369a1' }}>
-                                Pour chaque mot affiché, décidez s'il s'agit d'un <strong>monosyllabe</strong> (1 syllabe) 
-                                ou d'un <strong>multisyllabe</strong> (2+ syllabes)
+                                Pour chaque mot affiché, écoutez bien les mots et comptez les syllabes. Décidez s'il s'agit d'un mot avec une syllabe 🟢 ou d'un mot avec plusieurs syllabes 🔴
                             </p>
-                            <div style={{ marginTop: '15px', fontSize: '14px' }}>
-                                <strong>À vous de découvrir :</strong><br/>
-                                Écoutez bien les mots et comptez les syllabes !<br/>
-                                🟢 Une syllabe ou 🔴 Plusieurs syllabes ?
-                            </div>
                         </div>
 
                         {/* Paramètres audio */}
@@ -509,14 +525,7 @@ export default function MonosyllabesMultisyllabes() {
                                 </label>
                                 <select
                                     value={selectedVoice}
-                                    onChange={(e) => {
-                                        setSelectedVoice(e.target.value)
-                                        const voiceObj = availableVoices.find(v => v.name === e.target.value)
-                                        if (voiceObj) {
-                                            setSelectedVoiceType(voiceObj.type)
-                                        }
-                                    }}
-                                    disabled={availableVoices.length === 0}
+                                    onChange={(e) => setSelectedVoice(e.target.value)}
                                     style={{
                                         width: '100%',
                                         padding: '8px',
@@ -525,32 +534,11 @@ export default function MonosyllabesMultisyllabes() {
                                         fontSize: '14px'
                                     }}
                                 >
-                                    {availableVoices.length === 0 ? (
-                                        <option>Aucune voix disponible</option>
-                                    ) : (
-                                        <>
-                                            <optgroup label="🎵 Voix ElevenLabs (Qualité Premium)">
-                                                {availableVoices
-                                                    .filter(voice => voice.type === 'elevenlabs')
-                                                    .map(voice => (
-                                                        <option key={voice.name} value={voice.name}>
-                                                            {voice.name}
-                                                        </option>
-                                                    ))
-                                                }
-                                            </optgroup>
-                                            <optgroup label="🖥️ Voix Système">
-                                                {availableVoices
-                                                    .filter(voice => voice.type === 'web')
-                                                    .map(voice => (
-                                                        <option key={voice.name} value={voice.name}>
-                                                            {voice.name}
-                                                        </option>
-                                                    ))
-                                                }
-                                            </optgroup>
-                                        </>
-                                    )}
+                                    {availableVoices.map(voice => (
+                                        <option key={voice.name} value={voice.name}>
+                                            {voice.name}
+                                        </option>
+                                    ))}
                                 </select>
                             </div>
                             
@@ -967,7 +955,7 @@ export default function MonosyllabesMultisyllabes() {
                     marginTop: '30px'
                 }}>
                     <button
-                        onClick={() => router.push('/lire/mes-textes-references')}
+                        onClick={() => router.push('/lire')}
                         style={{
                             backgroundColor: '#6b7280',
                             color: 'white',

@@ -509,7 +509,7 @@ export default function RemettreEnOrdre() {
                     marginTop: '20px'
                 }}>
                     <button
-                        onClick={() => router.push('/lire/mes-textes-references')}
+                        onClick={() => router.push('/lire')}
                         style={{
                             backgroundColor: '#6b7280',
                             color: 'white',
@@ -521,7 +521,7 @@ export default function RemettreEnOrdre() {
                             cursor: 'pointer'
                         }}
                     >
-                        ← Retour au menu
+                        ← Retour au menu Lire
                     </button>
                 </div>
             </div>

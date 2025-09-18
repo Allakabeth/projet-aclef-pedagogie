@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
+import mammoth from 'mammoth'
+import JSZip from 'jszip'
 
 export default function SegmentationImport() {
     const [user, setUser] = useState(null)
@@ -22,18 +24,132 @@ export default function SegmentationImport() {
     const [motsRates, setMotsRates] = useState([])
     const [gameFinished, setGameFinished] = useState(false)
     const [signalementsEnvoyes, setSignalementsEnvoyes] = useState([])
+    const [availableVoices, setAvailableVoices] = useState([
+        { name: 'Paul', type: 'elevenlabs', id: 'AfbuxQ9DVtS4azaxN1W7' },
+        { name: 'Julie', type: 'elevenlabs', id: 'tMyQcCxfGDdIt7wJ2RQw' }
+    ])
+    const [selectedVoice, setSelectedVoice] = useState('Paul')
+    const [autoRead, setAutoRead] = useState(false)
     const router = useRouter()
 
-    const speakWord = (word) => {
+    // Fonction TTS intelligente Paul/Julie avec auto-détection ElevenLabs/Web Speech
+    const speakText = async (text) => {
+        if (!text.trim()) return
+
+        const selectedVoiceObj = availableVoices.find(v => v.name === selectedVoice)
+        if (!selectedVoiceObj) return
+
+        // Ajouter contexte français pour mots isolés
+        let textToSpeak = text
+        if (!text.includes(' ') && text.length >= 1) {
+            textToSpeak = `Le mot "${text}".`
+        }
+
+        // Créer clé de cache
+        const cacheKey = `voice_${selectedVoice}_${btoa(textToSpeak).replace(/[^a-zA-Z0-9]/g, '')}`
+
+        // Vérifier le cache ElevenLabs
+        const cachedAudio = localStorage.getItem(cacheKey)
+        if (cachedAudio) {
+            try {
+                const audio = new Audio(cachedAudio)
+                audio.play()
+                return
+            } catch (error) {
+                localStorage.removeItem(cacheKey)
+            }
+        }
+
+        // Essayer ElevenLabs en premier
+        try {
+            const response = await fetch('/api/speech/elevenlabs', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                },
+                body: JSON.stringify({
+                    text: textToSpeak,
+                    voice_id: selectedVoiceObj.id
+                })
+            })
+
+            if (response.ok) {
+                const data = await response.json()
+
+                // Sauvegarder en cache permanent
+                try {
+                    localStorage.setItem(cacheKey, data.audio)
+                } catch (storageError) {
+                    // Nettoyer les anciens caches si plein
+                    Object.keys(localStorage).forEach(key => {
+                        if (key.startsWith('voice_')) {
+                            localStorage.removeItem(key)
+                        }
+                    })
+                }
+
+                const audio = new Audio(data.audio)
+                audio.play()
+                return
+            }
+        } catch (error) {
+            // Fallback silencieux vers Web Speech API
+        }
+
+        // Utiliser Web Speech API en fallback
         if ('speechSynthesis' in window) {
-            window.speechSynthesis.cancel() // Arrêter toute synthèse en cours
-            const utterance = new SpeechSynthesisUtterance(`Le mot est: ${word}`)
+            const utterance = new SpeechSynthesisUtterance(text)
             utterance.lang = 'fr-FR'
             utterance.rate = 0.8
-            utterance.pitch = 1
+
+            // Utiliser la voix fallback appropriée
+            if (selectedVoiceObj.fallback) {
+                utterance.voice = selectedVoiceObj.fallback
+            }
+
             window.speechSynthesis.speak(utterance)
-        } else {
-            console.warn('Synthèse vocale non supportée par ce navigateur')
+        }
+    }
+
+    // Fonction de compatibilité pour l'ancien nom
+    const speakWord = (word) => speakText(word)
+
+    // Fonction pour extraire le texte des fichiers .docx
+    const extractTextFromDocx = async (file) => {
+        try {
+            const arrayBuffer = await file.arrayBuffer()
+            const result = await mammoth.extractRawText({ arrayBuffer })
+            return result.value
+        } catch (error) {
+            console.error('Erreur extraction .docx:', error)
+            throw new Error('Impossible de lire le fichier Word')
+        }
+    }
+
+    // Fonction pour extraire le texte des fichiers .odt
+    const extractTextFromOdt = async (file) => {
+        try {
+            const arrayBuffer = await file.arrayBuffer()
+            const zip = await JSZip.loadAsync(arrayBuffer)
+            const contentXml = await zip.file('content.xml').async('string')
+
+            // Parser le XML et extraire le texte
+            const parser = new DOMParser()
+            const xmlDoc = parser.parseFromString(contentXml, 'application/xml')
+
+            // Extraire tout le texte des éléments text:p (paragraphes)
+            const textNodes = xmlDoc.getElementsByTagName('text:p')
+            let extractedText = ''
+
+            for (let i = 0; i < textNodes.length; i++) {
+                extractedText += textNodes[i].textContent + '\n'
+            }
+
+            return extractedText.trim()
+        } catch (error) {
+            console.error('Erreur extraction .odt:', error)
+            throw new Error('Impossible de lire le fichier OpenDocument')
         }
     }
 
@@ -56,6 +172,64 @@ export default function SegmentationImport() {
         }
 
         setIsLoading(false)
+
+        // Charger les voix disponibles avec système transparent
+        const loadAllVoices = () => {
+            const allVoices = [
+                {
+                    name: 'Paul',
+                    type: 'elevenlabs',
+                    id: 'AfbuxQ9DVtS4azaxN1W7',
+                    lang: 'fr-FR',
+                    fallback: null
+                },
+                {
+                    name: 'Julie',
+                    type: 'elevenlabs',
+                    id: 'tMyQcCxfGDdIt7wJ2RQw',
+                    lang: 'fr-FR',
+                    fallback: null
+                }
+            ]
+
+            // Chercher des voix fallback Web Speech API
+            if ('speechSynthesis' in window) {
+                const webVoices = speechSynthesis.getVoices()
+
+                // Trouver les voix fallback
+                const paulFallback = webVoices.find(voice =>
+                    voice.lang.includes('fr') &&
+                    (voice.name.toLowerCase().includes('paul') ||
+                     voice.name.toLowerCase().includes('thomas') ||
+                     voice.name.toLowerCase().includes('male'))
+                ) || webVoices.find(voice => voice.lang.includes('fr'))
+
+                const julieFallback = webVoices.find(voice =>
+                    voice.lang.includes('fr') &&
+                    (voice.name.toLowerCase().includes('julie') ||
+                     voice.name.toLowerCase().includes('marie') ||
+                     voice.name.toLowerCase().includes('amelie') ||
+                     voice.name.toLowerCase().includes('female'))
+                ) || webVoices.find(voice => voice.lang.includes('fr'))
+
+                // Assigner les fallbacks
+                allVoices[0].fallback = paulFallback
+                allVoices[1].fallback = julieFallback
+            }
+
+            setAvailableVoices(allVoices)
+            if (allVoices.length > 0) {
+                setSelectedVoice('Paul')
+            }
+        }
+
+        loadAllVoices()
+        if ('speechSynthesis' in window) {
+            speechSynthesis.addEventListener('voiceschanged', loadAllVoices)
+            return () => {
+                speechSynthesis.removeEventListener('voiceschanged', loadAllVoices)
+            }
+        }
     }, [router])
 
     const handleDrag = (e) => {
@@ -88,32 +262,52 @@ export default function SegmentationImport() {
         if (!selectedFile) return
 
         setIsProcessing(true)
-        
+
         try {
-            // Pour l'instant, on traite seulement les fichiers texte
+            let text = ''
+
+            // Traitement selon le type de fichier
             if (selectedFile.type === 'text/plain') {
-                const text = await selectedFile.text()
-                setExtractedText(text)
-                
-                // Extraire les mots (supprimer ponctuation et espaces multiples)
-                const wordsArray = [...new Set(text // Utiliser Set pour supprimer les doublons
-                    .toLowerCase()
-                    .replace(/[^\w\sàâäéèêëïîôöùûüÿç]/g, ' ')
-                    .split(/\s+/)
-                    .filter(word => word.length > 2) // Mots d'au moins 3 lettres
-                )].slice(0, 50) // Limiter à 50 mots uniques pour l'exercice
-                
-                setWords(wordsArray)
-                setCurrentWordIndex(0)
-                setCurrentWord(wordsArray[0])
-                setCuts([])
-                setGameStarted(true)
+                text = await selectedFile.text()
+            } else if (selectedFile.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+                      selectedFile.name.endsWith('.docx')) {
+                text = await extractTextFromDocx(selectedFile)
+            } else if (selectedFile.type === 'application/vnd.oasis.opendocument.text' ||
+                      selectedFile.name.endsWith('.odt')) {
+                text = await extractTextFromOdt(selectedFile)
             } else {
-                alert('⚠️ Pour l\'instant, seuls les fichiers .txt sont supportés.\n\nLes formats Word (.docx) et OpenDocument (.odt) seront bientôt disponibles.')
+                alert('⚠️ Formats supportés :\n• Fichiers texte (.txt)\n• Documents Word (.docx)\n• Documents OpenDocument (.odt)')
+                return
+            }
+
+            setExtractedText(text)
+
+            // Extraire les mots (supprimer ponctuation et espaces multiples)
+            const wordsArray = [...new Set(text // Utiliser Set pour supprimer les doublons
+                .toLowerCase()
+                .replace(/[^\w\sàâäéèêëïîôöùûüÿç]/g, ' ')
+                .split(/\s+/)
+                .filter(word => word.length > 2) // Mots d'au moins 3 lettres
+            )].slice(0, 50) // Limiter à 50 mots uniques pour l'exercice
+
+            if (wordsArray.length === 0) {
+                alert('❌ Aucun mot exploitable trouvé dans le fichier.\nVérifiez que le document contient du texte.')
+                return
+            }
+
+            setWords(wordsArray)
+            setCurrentWordIndex(0)
+            setCurrentWord(wordsArray[0])
+            setCuts([])
+            setGameStarted(true)
+
+            // Lecture automatique du premier mot si activée
+            if (autoRead && wordsArray[0]) {
+                setTimeout(() => speakText(wordsArray[0]), 1000)
             }
         } catch (error) {
             console.error('Erreur traitement fichier:', error)
-            alert('❌ Erreur lors du traitement du fichier')
+            alert('❌ Erreur lors du traitement du fichier : ' + (error.message || 'Format non supporté'))
         } finally {
             setIsProcessing(false)
         }
@@ -223,9 +417,15 @@ export default function SegmentationImport() {
             // Passer au mot suivant
             if (currentWordIndex < words.length - 1) {
                 setCurrentWordIndex(currentWordIndex + 1)
-                setCurrentWord(words[currentWordIndex + 1])
+                const nextWord = words[currentWordIndex + 1]
+                setCurrentWord(nextWord)
                 setCuts([])
                 setFeedback('')
+
+                // Lecture automatique si activée
+                if (autoRead && nextWord) {
+                    setTimeout(() => speakText(nextWord), 1000)
+                }
             } else {
                 // Exercice terminé - afficher les résultats
                 setGameFinished(true)
@@ -838,8 +1038,93 @@ export default function SegmentationImport() {
                     marginBottom: '40px',
                     lineHeight: '1.5'
                 }}>
-                    Importez votre propre texte et entraînez-vous à découper ses mots avec les ciseaux ✂️
+                    Importez votre propre texte (.txt, .docx, .odt) et entraînez-vous à découper ses mots avec les ciseaux ✂️
                 </p>
+
+                {/* Paramètres audio */}
+                <div style={{
+                    background: '#f0f9ff',
+                    padding: '20px',
+                    borderRadius: '8px',
+                    marginBottom: '30px',
+                    textAlign: 'left'
+                }}>
+                    <h3 style={{ marginBottom: '15px', color: '#0284c7' }}>🔊 Paramètres audio</h3>
+
+                    {/* Choix de la voix */}
+                    <div style={{ marginBottom: '15px' }}>
+                        <label style={{
+                            display: 'block',
+                            marginBottom: '8px',
+                            fontSize: '14px',
+                            fontWeight: 'bold'
+                        }}>
+                            Voix de lecture :
+                        </label>
+                        <select
+                            value={selectedVoice}
+                            onChange={(e) => setSelectedVoice(e.target.value)}
+                            style={{
+                                width: '100%',
+                                padding: '8px',
+                                borderRadius: '4px',
+                                border: '1px solid #ddd',
+                                fontSize: '14px'
+                            }}
+                        >
+                            {availableVoices.map(voice => (
+                                <option key={voice.name} value={voice.name}>
+                                    {voice.name}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+
+                    {/* Lecture automatique */}
+                    <div style={{ marginBottom: '15px' }}>
+                        <label style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            fontSize: '14px',
+                            cursor: 'pointer'
+                        }}>
+                            <input
+                                type="checkbox"
+                                checked={autoRead}
+                                onChange={(e) => setAutoRead(e.target.checked)}
+                                style={{ transform: 'scale(1.2)' }}
+                            />
+                            <span>Lire automatiquement chaque mot</span>
+                        </label>
+                        <p style={{
+                            fontSize: '12px',
+                            color: '#666',
+                            marginLeft: '24px',
+                            marginTop: '4px'
+                        }}>
+                            Si coché, les mots seront prononcés automatiquement
+                        </p>
+                    </div>
+
+                    {/* Test de la voix */}
+                    <button
+                        onClick={() => speakText('Bonjour, ceci est un test de la voix sélectionnée')}
+                        disabled={availableVoices.length === 0}
+                        style={{
+                            backgroundColor: '#0284c7',
+                            color: 'white',
+                            padding: '8px 16px',
+                            border: 'none',
+                            borderRadius: '4px',
+                            fontSize: '14px',
+                            cursor: availableVoices.length > 0 ? 'pointer' : 'not-allowed',
+                            opacity: availableVoices.length > 0 ? 1 : 0.5
+                        }}
+                    >
+                        🎵 Tester la voix
+                    </button>
+                </div>
 
                 {/* Zone d'upload */}
                 <div
@@ -876,7 +1161,7 @@ export default function SegmentationImport() {
                         fontSize: '16px',
                         marginBottom: '20px'
                     }}>
-                        Formats supportés : .txt (Word et OpenDocument bientôt disponibles)
+                        Formats supportés : .txt, .docx (Word), .odt (OpenDocument)
                     </p>
                     <div style={{
                         background: dragActive ? '#f59e0b' : '#e5e7eb',

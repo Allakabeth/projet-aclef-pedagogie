@@ -774,7 +774,7 @@ export default function QuestCe() {
                     marginTop: '30px'
                 }}>
                     <button
-                        onClick={() => router.push('/lire/mes-textes-references')}
+                        onClick={() => router.push('/lire')}
                         style={{
                             backgroundColor: '#6b7280',
                             color: 'white',
@@ -786,7 +786,7 @@ export default function QuestCe() {
                             cursor: 'pointer'
                         }}
                     >
-                        ← Retour aux textes références
+                        ← Retour au menu Lire
                     </button>
                 </div>
             </div>

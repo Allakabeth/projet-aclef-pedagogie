@@ -10,6 +10,52 @@ export default function VoirMesTextes() {
     const [confirmSupprimer, setConfirmSupprimer] = useState(null) // ID du texte à confirmer
     const router = useRouter()
 
+    // Fonction pour lire le texte avec une voix masculine
+    const lireTexte = (texte) => {
+        if ('speechSynthesis' in window) {
+            // Arrêter toute lecture en cours
+            window.speechSynthesis.cancel()
+
+            const utterance = new SpeechSynthesisUtterance(texte)
+            utterance.lang = 'fr-FR'
+            utterance.rate = 0.8
+            utterance.pitch = 0.6  // Plus grave pour une voix masculine
+
+            // Chercher une voix masculine française
+            const voices = window.speechSynthesis.getVoices()
+            let voixMasculine = voices.find(voice =>
+                voice.lang.includes('fr') &&
+                (voice.name.toLowerCase().includes('male') ||
+                 voice.name.toLowerCase().includes('man') ||
+                 voice.name.toLowerCase().includes('homme') ||
+                 voice.name.toLowerCase().includes('masculin') ||
+                 voice.name.toLowerCase().includes('thomas') ||
+                 voice.name.toLowerCase().includes('paul') ||
+                 voice.name.toLowerCase().includes('pierre') ||
+                 voice.name.toLowerCase().includes('antoine') ||
+                 voice.name.toLowerCase().includes('nicolas'))
+            )
+
+            if (!voixMasculine) {
+                voixMasculine = voices.find(voice =>
+                    voice.lang.includes('fr') &&
+                    voice.name.toLowerCase().includes('male')
+                )
+            }
+
+            if (!voixMasculine) {
+                voixMasculine = voices.find(voice => voice.lang.includes('fr'))
+                utterance.pitch = 0.4
+            }
+
+            if (voixMasculine) {
+                utterance.voice = voixMasculine
+            }
+
+            window.speechSynthesis.speak(utterance)
+        }
+    }
+
     useEffect(() => {
         // Vérifier l'authentification
         const token = localStorage.getItem('token')
@@ -189,9 +235,10 @@ export default function VoirMesTextes() {
                     <div style={{
                         textAlign: 'center',
                         padding: '40px',
-                        background: '#f8f9fa',
-                        borderRadius: '8px',
-                        border: '2px dashed #dee2e6'
+                        background: 'linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%)',
+                        borderRadius: '20px',
+                        border: '2px dashed #0ea5e9',
+                        boxShadow: '0 4px 15px rgba(14, 165, 233, 0.1)'
                     }}>
                         <p style={{ fontSize: '18px', color: '#666', marginBottom: '20px' }}>
                             Aucun texte de référence créé
@@ -205,21 +252,49 @@ export default function VoirMesTextes() {
                         display: 'grid',
                         gap: '15px'
                     }}>
-                        {textes.map((texte, index) => (
+                        {textes.map((texte, index) => {
+                            const couleurs = [
+                                { bg: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', shadow: 'rgba(102, 126, 234, 0.3)' },
+                                { bg: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)', shadow: 'rgba(240, 147, 251, 0.3)' },
+                                { bg: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)', shadow: 'rgba(79, 172, 254, 0.3)' },
+                                { bg: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)', shadow: 'rgba(67, 233, 123, 0.3)' },
+                                { bg: 'linear-gradient(135deg, #fa709a 0%, #fee140 100%)', shadow: 'rgba(250, 112, 154, 0.3)' },
+                                { bg: 'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)', shadow: 'rgba(168, 237, 234, 0.3)' },
+                                { bg: 'linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%)', shadow: 'rgba(255, 154, 158, 0.3)' },
+                                { bg: 'linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%)', shadow: 'rgba(255, 236, 210, 0.3)' }
+                            ]
+                            const couleur = couleurs[index % couleurs.length]
+
+                            return (
                             <div key={texte.id} style={{
-                                background: '#f8f9fa',
-                                border: '1px solid #dee2e6',
-                                borderRadius: '8px',
-                                padding: '20px'
+                                background: couleur.bg,
+                                border: 'none',
+                                borderRadius: '20px',
+                                padding: '25px',
+                                boxShadow: `0 8px 25px ${couleur.shadow}`,
+                                color: 'white',
+                                position: 'relative',
+                                overflow: 'hidden',
+                                transform: 'translateY(0)',
+                                transition: 'all 0.3s ease'
+                            }}
+                            onMouseEnter={(e) => {
+                                e.currentTarget.style.transform = 'translateY(-5px)'
+                                e.currentTarget.style.boxShadow = `0 15px 35px ${couleur.shadow}`
+                            }}
+                            onMouseLeave={(e) => {
+                                e.currentTarget.style.transform = 'translateY(0)'
+                                e.currentTarget.style.boxShadow = `0 8px 25px ${couleur.shadow}`
                             }}>
                                 <div style={{
                                     marginBottom: '10px'
                                 }}>
                                     <h3 style={{
                                         margin: 0,
-                                        fontSize: 'clamp(16px, 4vw, 20px)',
-                                        color: '#333',
-                                        fontWeight: 'bold'
+                                        fontSize: 'clamp(18px, 4vw, 24px)',
+                                        color: 'white',
+                                        fontWeight: 'bold',
+                                        textShadow: '0 2px 4px rgba(0,0,0,0.3)'
                                     }}>
                                         {texte.titre}
                                     </h3>
@@ -230,8 +305,9 @@ export default function VoirMesTextes() {
                                     gap: '20px',
                                     flexWrap: 'wrap',
                                     fontSize: '14px',
-                                    color: '#666',
-                                    marginBottom: '10px'
+                                    color: 'rgba(255,255,255,0.9)',
+                                    marginBottom: '10px',
+                                    textShadow: '0 1px 2px rgba(0,0,0,0.2)'
                                 }}>
                                     <span>📊 {texte.nombre_groupes || 0} groupes</span>
                                     <span>📝 {texte.nombre_mots_total || 0} mots</span>
@@ -239,7 +315,8 @@ export default function VoirMesTextes() {
                                 
                                 <div style={{
                                     fontSize: '12px',
-                                    color: '#888'
+                                    color: 'rgba(255,255,255,0.8)',
+                                    textShadow: '0 1px 2px rgba(0,0,0,0.2)'
                                 }}>
                                     Créé le {new Date(texte.created_at).toLocaleDateString('fr-FR')}
                                 </div>
@@ -249,32 +326,98 @@ export default function VoirMesTextes() {
                                     marginTop: '15px',
                                     display: 'flex',
                                     gap: '10px',
-                                    flexWrap: 'wrap'
+                                    flexWrap: 'wrap',
+                                    position: 'relative'
                                 }}>
+                                    {/* Icône son */}
                                     <button
-                                        onClick={() => router.push(`/lire/texte/${texte.id}`)}
+                                        onClick={(e) => {
+                                            e.stopPropagation()
+                                            lireTexte(texte.titre)
+                                        }}
                                         style={{
-                                            backgroundColor: '#3b82f6',
-                                            color: 'white',
+                                            position: 'absolute',
+                                            top: '-40px',
+                                            right: '0px',
+                                            backgroundColor: 'rgba(255,255,255,0.2)',
                                             border: 'none',
-                                            borderRadius: '4px',
-                                            padding: '8px 12px',
+                                            borderRadius: '50%',
+                                            width: '35px',
+                                            height: '35px',
+                                            cursor: 'pointer',
+                                            fontSize: '16px',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            backdropFilter: 'blur(10px)',
+                                            transition: 'all 0.2s ease'
+                                        }}
+                                        onMouseEnter={(e) => {
+                                            e.target.style.backgroundColor = 'rgba(255,255,255,0.3)'
+                                            e.target.style.transform = 'scale(1.1)'
+                                        }}
+                                        onMouseLeave={(e) => {
+                                            e.target.style.backgroundColor = 'rgba(255,255,255,0.2)'
+                                            e.target.style.transform = 'scale(1)'
+                                        }}
+                                        title="Écouter le titre"
+                                    >
+                                        🔊
+                                    </button>
+                                    <button
+                                        onClick={(e) => {
+                                            lireTexte('Voir')
+                                            setTimeout(() => router.push(`/lire/texte/${texte.id}`), 800)
+                                        }}
+                                        style={{
+                                            backgroundColor: 'rgba(255,255,255,0.2)',
+                                            color: 'white',
+                                            border: '2px solid rgba(255,255,255,0.3)',
+                                            borderRadius: '25px',
+                                            padding: '10px 20px',
                                             fontSize: '14px',
-                                            cursor: 'pointer'
+                                            fontWeight: 'bold',
+                                            cursor: 'pointer',
+                                            backdropFilter: 'blur(10px)',
+                                            transition: 'all 0.2s ease',
+                                            textShadow: '0 1px 2px rgba(0,0,0,0.3)'
+                                        }}
+                                        onMouseEnter={(e) => {
+                                            e.target.style.backgroundColor = 'rgba(255,255,255,0.3)'
+                                            e.target.style.transform = 'translateY(-2px)'
+                                        }}
+                                        onMouseLeave={(e) => {
+                                            e.target.style.backgroundColor = 'rgba(255,255,255,0.2)'
+                                            e.target.style.transform = 'translateY(0)'
                                         }}
                                     >
                                         👁️ Voir
                                     </button>
                                     <button
-                                        onClick={() => router.push(`/lire/modifier-texte/${texte.id}`)}
+                                        onClick={(e) => {
+                                            lireTexte('Modifier')
+                                            setTimeout(() => router.push(`/lire/modifier-texte/${texte.id}`), 800)
+                                        }}
                                         style={{
-                                            backgroundColor: '#10b981',
+                                            backgroundColor: 'rgba(255,255,255,0.2)',
                                             color: 'white',
-                                            border: 'none',
-                                            borderRadius: '4px',
-                                            padding: '8px 12px',
+                                            border: '2px solid rgba(255,255,255,0.3)',
+                                            borderRadius: '25px',
+                                            padding: '10px 20px',
                                             fontSize: '14px',
-                                            cursor: 'pointer'
+                                            fontWeight: 'bold',
+                                            cursor: 'pointer',
+                                            backdropFilter: 'blur(10px)',
+                                            transition: 'all 0.2s ease',
+                                            textShadow: '0 1px 2px rgba(0,0,0,0.3)'
+                                        }}
+                                        onMouseEnter={(e) => {
+                                            e.target.style.backgroundColor = 'rgba(255,255,255,0.3)'
+                                            e.target.style.transform = 'translateY(-2px)'
+                                        }}
+                                        onMouseLeave={(e) => {
+                                            e.target.style.backgroundColor = 'rgba(255,255,255,0.2)'
+                                            e.target.style.transform = 'translateY(0)'
                                         }}
                                     >
                                         ✏️ Modifier
@@ -283,29 +426,59 @@ export default function VoirMesTextes() {
                                         // Mode confirmation
                                         <div style={{ display: 'flex', gap: '8px' }}>
                                             <button
-                                                onClick={() => confirmerSupprimer(texte.id)}
+                                                onClick={() => {
+                                                    lireTexte('Confirmer suppression')
+                                                    setTimeout(() => confirmerSupprimer(texte.id), 800)
+                                                }}
                                                 style={{
-                                                    backgroundColor: '#dc2626',
+                                                    backgroundColor: 'rgba(220, 38, 38, 0.9)',
                                                     color: 'white',
-                                                    border: 'none',
-                                                    borderRadius: '4px',
-                                                    padding: '8px 12px',
+                                                    border: '2px solid rgba(220, 38, 38, 0.6)',
+                                                    borderRadius: '25px',
+                                                    padding: '10px 20px',
                                                     fontSize: '14px',
-                                                    cursor: 'pointer'
+                                                    fontWeight: 'bold',
+                                                    cursor: 'pointer',
+                                                    backdropFilter: 'blur(10px)',
+                                                    transition: 'all 0.2s ease',
+                                                    textShadow: '0 1px 2px rgba(0,0,0,0.3)'
+                                                }}
+                                                onMouseEnter={(e) => {
+                                                    e.target.style.backgroundColor = 'rgba(220, 38, 38, 1)'
+                                                    e.target.style.transform = 'translateY(-2px)'
+                                                }}
+                                                onMouseLeave={(e) => {
+                                                    e.target.style.backgroundColor = 'rgba(220, 38, 38, 0.9)'
+                                                    e.target.style.transform = 'translateY(0)'
                                                 }}
                                             >
                                                 ✅ CONFIRMER
                                             </button>
                                             <button
-                                                onClick={annulerSupprimer}
+                                                onClick={() => {
+                                                    lireTexte('Annuler')
+                                                    setTimeout(() => annulerSupprimer(), 600)
+                                                }}
                                                 style={{
-                                                    backgroundColor: '#6b7280',
+                                                    backgroundColor: 'rgba(107, 114, 128, 0.9)',
                                                     color: 'white',
-                                                    border: 'none',
-                                                    borderRadius: '4px',
-                                                    padding: '8px 12px',
+                                                    border: '2px solid rgba(107, 114, 128, 0.6)',
+                                                    borderRadius: '25px',
+                                                    padding: '10px 20px',
                                                     fontSize: '14px',
-                                                    cursor: 'pointer'
+                                                    fontWeight: 'bold',
+                                                    cursor: 'pointer',
+                                                    backdropFilter: 'blur(10px)',
+                                                    transition: 'all 0.2s ease',
+                                                    textShadow: '0 1px 2px rgba(0,0,0,0.3)'
+                                                }}
+                                                onMouseEnter={(e) => {
+                                                    e.target.style.backgroundColor = 'rgba(107, 114, 128, 1)'
+                                                    e.target.style.transform = 'translateY(-2px)'
+                                                }}
+                                                onMouseLeave={(e) => {
+                                                    e.target.style.backgroundColor = 'rgba(107, 114, 128, 0.9)'
+                                                    e.target.style.transform = 'translateY(0)'
                                                 }}
                                             >
                                                 ❌ ANNULER
@@ -314,15 +487,30 @@ export default function VoirMesTextes() {
                                     ) : (
                                         // Mode normal
                                         <button
-                                            onClick={() => demanderConfirmationSupprimer(texte.id)}
+                                            onClick={() => {
+                                                lireTexte('Supprimer')
+                                                setTimeout(() => demanderConfirmationSupprimer(texte.id), 800)
+                                            }}
                                             style={{
-                                                backgroundColor: '#ef4444',
+                                                backgroundColor: 'rgba(239, 68, 68, 0.8)',
                                                 color: 'white',
-                                                border: 'none',
-                                                borderRadius: '4px',
-                                                padding: '8px 12px',
+                                                border: '2px solid rgba(239, 68, 68, 0.6)',
+                                                borderRadius: '25px',
+                                                padding: '10px 20px',
                                                 fontSize: '14px',
-                                                cursor: 'pointer'
+                                                fontWeight: 'bold',
+                                                cursor: 'pointer',
+                                                backdropFilter: 'blur(10px)',
+                                                transition: 'all 0.2s ease',
+                                                textShadow: '0 1px 2px rgba(0,0,0,0.3)'
+                                            }}
+                                            onMouseEnter={(e) => {
+                                                e.target.style.backgroundColor = 'rgba(239, 68, 68, 1)'
+                                                e.target.style.transform = 'translateY(-2px)'
+                                            }}
+                                            onMouseLeave={(e) => {
+                                                e.target.style.backgroundColor = 'rgba(239, 68, 68, 0.8)'
+                                                e.target.style.transform = 'translateY(0)'
                                             }}
                                         >
                                             🗑️ Supprimer
@@ -330,7 +518,8 @@ export default function VoirMesTextes() {
                                     )}
                                 </div>
                             </div>
-                        ))}
+                            )
+                        })}
                     </div>
                 )}
 
@@ -340,16 +529,29 @@ export default function VoirMesTextes() {
                     marginTop: '30px'
                 }}>
                     <button
-                        onClick={() => router.push('/lire/mes-textes-references')}
+                        onClick={() => {
+                            lireTexte('Retour aux textes références')
+                            setTimeout(() => router.push('/lire/mes-textes-references'), 1200)
+                        }}
                         style={{
-                            backgroundColor: '#6b7280',
+                            background: 'linear-gradient(135deg, #6b7280 0%, #4b5563 100%)',
                             color: 'white',
                             padding: '12px 30px',
                             border: 'none',
-                            borderRadius: '8px',
+                            borderRadius: '25px',
                             fontSize: '14px',
                             fontWeight: 'bold',
-                            cursor: 'pointer'
+                            cursor: 'pointer',
+                            boxShadow: '0 4px 15px rgba(107, 114, 128, 0.4)',
+                            transition: 'all 0.3s ease'
+                        }}
+                        onMouseEnter={(e) => {
+                            e.target.style.transform = 'translateY(-3px)'
+                            e.target.style.boxShadow = '0 8px 25px rgba(107, 114, 128, 0.5)'
+                        }}
+                        onMouseLeave={(e) => {
+                            e.target.style.transform = 'translateY(0)'
+                            e.target.style.boxShadow = '0 4px 15px rgba(107, 114, 128, 0.4)'
                         }}
                     >
                         ← Retour aux textes références

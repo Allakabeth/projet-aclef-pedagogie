@@ -22,6 +22,12 @@ export default function SegmentationSyllabes() {
     const [correctSyllables, setCorrectSyllables] = useState([])
     const [motsReussis, setMotsReussis] = useState([]) // Mots correctement segmentés
     const [motsRates, setMotsRates] = useState([]) // Mots incorrectement segmentés avec détails
+    const [availableVoices, setAvailableVoices] = useState([
+        { name: 'Paul', type: 'elevenlabs', id: 'AfbuxQ9DVtS4azaxN1W7' },
+        { name: 'Julie', type: 'elevenlabs', id: 'tMyQcCxfGDdIt7wJ2RQw' }
+    ])
+    const [selectedVoice, setSelectedVoice] = useState('Paul')
+    const [autoRead, setAutoRead] = useState(false)
     const router = useRouter()
 
     useEffect(() => {
@@ -43,6 +49,65 @@ export default function SegmentationSyllabes() {
         }
 
         setIsLoading(false)
+
+        // Charger les voix disponibles avec système transparent
+        const loadAllVoices = () => {
+            const allVoices = [
+                {
+                    name: 'Paul',
+                    type: 'elevenlabs',
+                    id: 'AfbuxQ9DVtS4azaxN1W7',
+                    lang: 'fr-FR',
+                    fallback: null
+                },
+                {
+                    name: 'Julie',
+                    type: 'elevenlabs',
+                    id: 'tMyQcCxfGDdIt7wJ2RQw',
+                    lang: 'fr-FR',
+                    fallback: null
+                }
+            ]
+
+            // Chercher des voix fallback Web Speech API
+            if ('speechSynthesis' in window) {
+                const webVoices = speechSynthesis.getVoices()
+
+                // Trouver les voix fallback
+                const paulFallback = webVoices.find(voice =>
+                    voice.lang.includes('fr') &&
+                    (voice.name.toLowerCase().includes('paul') ||
+                     voice.name.toLowerCase().includes('thomas') ||
+                     voice.name.toLowerCase().includes('male'))
+                ) || webVoices.find(voice => voice.lang.includes('fr'))
+
+                const julieFallback = webVoices.find(voice =>
+                    voice.lang.includes('fr') &&
+                    (voice.name.toLowerCase().includes('julie') ||
+                     voice.name.toLowerCase().includes('marie') ||
+                     voice.name.toLowerCase().includes('amelie') ||
+                     voice.name.toLowerCase().includes('female'))
+                ) || webVoices.find(voice => voice.lang.includes('fr'))
+
+                // Assigner les fallbacks
+                allVoices[0].fallback = paulFallback
+                allVoices[1].fallback = julieFallback
+            }
+
+            console.log('Voix chargées:', allVoices)
+            setAvailableVoices(allVoices)
+            if (allVoices.length > 0) {
+                setSelectedVoice('Paul')
+            }
+        }
+
+        loadAllVoices()
+        if ('speechSynthesis' in window) {
+            speechSynthesis.addEventListener('voiceschanged', loadAllVoices)
+            return () => {
+                speechSynthesis.removeEventListener('voiceschanged', loadAllVoices)
+            }
+        }
     }, [router])
 
     const loadTextes = async () => {
@@ -194,9 +259,14 @@ export default function SegmentationSyllabes() {
         setCorrectSyllables(nextMot.syllables)
         setCuts([])
         setFeedback('')
-        
+
         console.log('Mot:', nextMot.contenu, 'Syllabes attendues:', nextMot.syllables)
         console.log(`Mots restants: ${reallyRemainingMots.length}, Mots complétés: ${completed.length}`)
+
+        // Lecture automatique si activée
+        if (autoRead && nextMot) {
+            setTimeout(() => speakText(nextMot.contenu), 1000)
+        }
     }
 
     const handleLetterClick = (index) => {
@@ -385,6 +455,86 @@ export default function SegmentationSyllabes() {
         setMotsRates([])
     }
 
+    // Fonction TTS intelligente Paul/Julie avec auto-détection ElevenLabs/Web Speech
+    const speakText = async (text) => {
+        if (!text.trim()) return
+
+        const selectedVoiceObj = availableVoices.find(v => v.name === selectedVoice)
+        if (!selectedVoiceObj) return
+
+        // Ajouter contexte français pour mots isolés
+        let textToSpeak = text
+        if (!text.includes(' ') && text.length >= 1) {
+            textToSpeak = `Le mot "${text}".`
+        }
+
+        // Créer clé de cache
+        const cacheKey = `voice_${selectedVoice}_${btoa(textToSpeak).replace(/[^a-zA-Z0-9]/g, '')}`
+
+        // Vérifier le cache ElevenLabs
+        const cachedAudio = localStorage.getItem(cacheKey)
+        if (cachedAudio) {
+            try {
+                const audio = new Audio(cachedAudio)
+                audio.play()
+                return
+            } catch (error) {
+                localStorage.removeItem(cacheKey)
+            }
+        }
+
+        // Essayer ElevenLabs en premier
+        try {
+            const response = await fetch('/api/speech/elevenlabs', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                },
+                body: JSON.stringify({
+                    text: textToSpeak,
+                    voice_id: selectedVoiceObj.id
+                })
+            })
+
+            if (response.ok) {
+                const data = await response.json()
+
+                // Sauvegarder en cache permanent
+                try {
+                    localStorage.setItem(cacheKey, data.audio)
+                } catch (storageError) {
+                    // Nettoyer les anciens caches si plein
+                    Object.keys(localStorage).forEach(key => {
+                        if (key.startsWith('voice_')) {
+                            localStorage.removeItem(key)
+                        }
+                    })
+                }
+
+                const audio = new Audio(data.audio)
+                audio.play()
+                return
+            }
+        } catch (error) {
+            // Fallback silencieux vers Web Speech API
+        }
+
+        // Utiliser Web Speech API en fallback
+        if ('speechSynthesis' in window) {
+            const utterance = new SpeechSynthesisUtterance(text)
+            utterance.lang = 'fr-FR'
+            utterance.rate = 0.8
+
+            // Utiliser la voix fallback appropriée
+            if (selectedVoiceObj.fallback) {
+                utterance.voice = selectedVoiceObj.fallback
+            }
+
+            window.speechSynthesis.speak(utterance)
+        }
+    }
+
     const envoyerSignalementAdmin = async (motRate) => {
         try {
             const token = localStorage.getItem('token')
@@ -481,14 +631,98 @@ export default function SegmentationSyllabes() {
 
                 {!gameStarted ? (
                     <div>
-                        <p style={{ 
-                            textAlign: 'center', 
-                            marginBottom: '30px', 
+                        <p style={{
+                            textAlign: 'center',
+                            marginBottom: '30px',
                             color: '#666',
                             fontSize: '16px'
                         }}>
                             Découpez les mots en syllabes avec les ciseaux
                         </p>
+
+                        {/* Paramètres audio */}
+                        <div style={{
+                            background: '#f0f9ff',
+                            padding: '20px',
+                            borderRadius: '8px',
+                            marginBottom: '20px'
+                        }}>
+                            <h3 style={{ marginBottom: '15px', color: '#0284c7' }}>🔊 Paramètres audio</h3>
+
+                            {/* Choix de la voix */}
+                            <div style={{ marginBottom: '15px' }}>
+                                <label style={{
+                                    display: 'block',
+                                    marginBottom: '8px',
+                                    fontSize: '14px',
+                                    fontWeight: 'bold'
+                                }}>
+                                    Voix de lecture :
+                                </label>
+                                <select
+                                    value={selectedVoice}
+                                    onChange={(e) => setSelectedVoice(e.target.value)}
+                                    style={{
+                                        width: '100%',
+                                        padding: '8px',
+                                        borderRadius: '4px',
+                                        border: '1px solid #ddd',
+                                        fontSize: '14px'
+                                    }}
+                                >
+                                    {availableVoices.map(voice => (
+                                        <option key={voice.name} value={voice.name}>
+                                            {voice.name}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            {/* Lecture automatique */}
+                            <div style={{ marginBottom: '15px' }}>
+                                <label style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '8px',
+                                    fontSize: '14px',
+                                    cursor: 'pointer'
+                                }}>
+                                    <input
+                                        type="checkbox"
+                                        checked={autoRead}
+                                        onChange={(e) => setAutoRead(e.target.checked)}
+                                        style={{ transform: 'scale(1.2)' }}
+                                    />
+                                    <span>Lire automatiquement chaque mot</span>
+                                </label>
+                                <p style={{
+                                    fontSize: '12px',
+                                    color: '#666',
+                                    marginLeft: '24px',
+                                    marginTop: '4px'
+                                }}>
+                                    Si coché, les mots seront prononcés automatiquement
+                                </p>
+                            </div>
+
+                            {/* Test de la voix */}
+                            <button
+                                onClick={() => speakText('Bonjour, ceci est un test de la voix sélectionnée')}
+                                disabled={availableVoices.length === 0}
+                                style={{
+                                    backgroundColor: '#0284c7',
+                                    color: 'white',
+                                    padding: '8px 16px',
+                                    border: 'none',
+                                    borderRadius: '4px',
+                                    fontSize: '14px',
+                                    cursor: availableVoices.length > 0 ? 'pointer' : 'not-allowed',
+                                    opacity: availableVoices.length > 0 ? 1 : 0.5
+                                }}
+                            >
+                                🎵 Tester la voix
+                            </button>
+                        </div>
 
                         <div style={{
                             background: '#f8f9fa',
@@ -819,13 +1053,40 @@ export default function SegmentationSyllabes() {
                                 marginBottom: '30px',
                                 textAlign: 'center'
                             }}>
-                                <h2 style={{ 
-                                    color: '#ea580c',
+                                <div style={{
+                                    display: 'flex',
+                                    justifyContent: 'center',
+                                    alignItems: 'center',
+                                    gap: '15px',
                                     marginBottom: '30px',
-                                    fontSize: '24px'
+                                    flexWrap: 'wrap'
                                 }}>
-                                    Découpez ce mot :
-                                </h2>
+                                    <h2 style={{
+                                        color: '#ea580c',
+                                        margin: '0',
+                                        fontSize: '24px'
+                                    }}>
+                                        Découpez ce mot :
+                                    </h2>
+                                    <button
+                                        onClick={() => speakText(currentMot.contenu)}
+                                        style={{
+                                            backgroundColor: '#3b82f6',
+                                            color: 'white',
+                                            padding: '8px 12px',
+                                            border: 'none',
+                                            borderRadius: '6px',
+                                            fontSize: '14px',
+                                            cursor: 'pointer',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '5px'
+                                        }}
+                                        title="Écouter le mot"
+                                    >
+                                        🔊 Écouter
+                                    </button>
+                                </div>
                                 
                                 <div style={{
                                     display: 'flex',

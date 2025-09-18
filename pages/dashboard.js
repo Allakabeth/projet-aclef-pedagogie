@@ -225,6 +225,46 @@ export default function Dashboard() {
                     </button>
 
                     <button
+                        onClick={() => router.push('/parler')}
+                        style={{
+                            backgroundColor: '#ec4899',
+                            color: 'white',
+                            padding: 'clamp(15px, 4vw, 20px) clamp(10px, 3vw, 15px)',
+                            borderRadius: '15px',
+                            border: 'none',
+                            fontSize: 'clamp(14px, 3vw, 16px)',
+                            fontWeight: 'bold',
+                            cursor: 'pointer',
+                            boxShadow: '0 4px 15px rgba(236, 72, 153, 0.3)',
+                            transition: 'transform 0.2s ease'
+                        }}
+                        onMouseOver={(e) => e.target.style.transform = 'translateY(-2px)'}
+                        onMouseOut={(e) => e.target.style.transform = 'translateY(0)'}
+                    >
+                        🗣️ Parler en français
+                    </button>
+
+                    <button
+                        onClick={() => router.push('/imagiers')}
+                        style={{
+                            backgroundColor: '#14b8a6',
+                            color: 'white',
+                            padding: 'clamp(15px, 4vw, 20px) clamp(10px, 3vw, 15px)',
+                            borderRadius: '15px',
+                            border: 'none',
+                            fontSize: 'clamp(14px, 3vw, 16px)',
+                            fontWeight: 'bold',
+                            cursor: 'pointer',
+                            boxShadow: '0 4px 15px rgba(20, 184, 166, 0.3)',
+                            transition: 'transform 0.2s ease'
+                        }}
+                        onMouseOver={(e) => e.target.style.transform = 'translateY(-2px)'}
+                        onMouseOut={(e) => e.target.style.transform = 'translateY(0)'}
+                    >
+                        🖼️ Imagiers
+                    </button>
+
+                    <button
                         onClick={() => router.push('/change-password')}
                         style={{
                             backgroundColor: '#ef4444',

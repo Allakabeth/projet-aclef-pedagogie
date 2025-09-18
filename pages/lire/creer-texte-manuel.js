@@ -77,6 +77,52 @@ export default function CreerTexteManuel() {
     const [textSize, setTextSize] = useState('22')
     const router = useRouter()
 
+    // Fonction pour lire le texte avec une voix masculine
+    const lireTexte = (texte) => {
+        if ('speechSynthesis' in window) {
+            // Arrêter toute lecture en cours
+            window.speechSynthesis.cancel()
+
+            const utterance = new SpeechSynthesisUtterance(texte)
+            utterance.lang = 'fr-FR'
+            utterance.rate = 0.8
+            utterance.pitch = 0.6  // Plus grave pour une voix masculine
+
+            // Chercher une voix masculine française
+            const voices = window.speechSynthesis.getVoices()
+            let voixMasculine = voices.find(voice =>
+                voice.lang.includes('fr') &&
+                (voice.name.toLowerCase().includes('male') ||
+                 voice.name.toLowerCase().includes('man') ||
+                 voice.name.toLowerCase().includes('homme') ||
+                 voice.name.toLowerCase().includes('masculin') ||
+                 voice.name.toLowerCase().includes('thomas') ||
+                 voice.name.toLowerCase().includes('paul') ||
+                 voice.name.toLowerCase().includes('pierre') ||
+                 voice.name.toLowerCase().includes('antoine') ||
+                 voice.name.toLowerCase().includes('nicolas'))
+            )
+
+            if (!voixMasculine) {
+                voixMasculine = voices.find(voice =>
+                    voice.lang.includes('fr') &&
+                    voice.name.toLowerCase().includes('male')
+                )
+            }
+
+            if (!voixMasculine) {
+                voixMasculine = voices.find(voice => voice.lang.includes('fr'))
+                utterance.pitch = 0.4
+            }
+
+            if (voixMasculine) {
+                utterance.voice = voixMasculine
+            }
+
+            window.speechSynthesis.speak(utterance)
+        }
+    }
+
     useEffect(() => {
         // Vérifier l'authentification
         const token = localStorage.getItem('token')
@@ -420,7 +466,10 @@ export default function CreerTexteManuel() {
                         justifyContent: 'center'
                     }}>
                         <button
-                            onClick={addGroup}
+                            onClick={() => {
+                                lireTexte('Ajouter groupe')
+                                setTimeout(() => addGroup(), 800)
+                            }}
                             style={{
                                 padding: '10px 15px',
                                 backgroundColor: '#10b981',
@@ -434,7 +483,10 @@ export default function CreerTexteManuel() {
                             ➕ Ajouter groupe
                         </button>
                         <button
-                            onClick={addLineBreak}
+                            onClick={() => {
+                                lireTexte('Saut de ligne')
+                                setTimeout(() => addLineBreak(), 800)
+                            }}
                             style={{
                                 padding: '10px 15px',
                                 backgroundColor: '#6c757d',
@@ -448,7 +500,10 @@ export default function CreerTexteManuel() {
                             ↵ Saut de ligne
                         </button>
                         <button
-                            onClick={removeLastGroup}
+                            onClick={() => {
+                                lireTexte('Supprimer dernier')
+                                setTimeout(() => removeLastGroup(), 800)
+                            }}
                             style={{
                                 padding: '10px 15px',
                                 backgroundColor: '#ef4444',
@@ -472,7 +527,12 @@ export default function CreerTexteManuel() {
                         flexWrap: 'wrap'
                     }}>
                         <button
-                            onClick={saveText}
+                            onClick={() => {
+                                if (!isSaving) {
+                                    lireTexte('Enregistrer le texte')
+                                    setTimeout(() => saveText(), 1000)
+                                }
+                            }}
                             disabled={isSaving}
                             style={{
                                 padding: '15px 25px',
@@ -509,7 +569,10 @@ export default function CreerTexteManuel() {
                     {/* Bouton retour */}
                     <div style={{ textAlign: 'center', marginTop: '30px' }}>
                         <button
-                            onClick={() => router.push('/lire/mes-textes-references')}
+                            onClick={() => {
+                                lireTexte('Retour aux textes références')
+                                setTimeout(() => router.push('/lire/mes-textes-references'), 1200)
+                            }}
                             style={{
                                 backgroundColor: '#6b7280',
                                 color: 'white',
