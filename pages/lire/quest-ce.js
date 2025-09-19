@@ -1,6 +1,15 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
 
+// Styles pour masquer les éléments sur mobile
+const mobileStyles = `
+    @media (max-width: 768px) {
+        .desktop-only {
+            display: none !important;
+        }
+    }
+`
+
 export default function QuestCe() {
     const [user, setUser] = useState(null)
     const [isLoading, setIsLoading] = useState(true)
@@ -285,11 +294,8 @@ export default function QuestCe() {
                     const nextGroupe = shuffledGroupes[currentIndex + 1]
                     setCurrentGroupe(nextGroupe)
                     
-                    // Garder tous les groupes audio, juste mélanger si mode aléatoire
-                    if (displayMode === 'random') {
-                        setDisplayedGroupes([...allGroupes].sort(() => Math.random() - 0.5))
-                    }
-                    // Si mode séquentiel, on garde l'ordre initial des groupes affichés
+                    // Les groupes audio restent dans la même position
+                    // Ne pas remélanger les displayedGroupes pour garder la cohérence
                     
                     setFeedback('')
                     setIsPlaying(null)
@@ -356,22 +362,88 @@ export default function QuestCe() {
             background: 'white',
             padding: '15px'
         }}>
+            <style dangerouslySetInnerHTML={{ __html: mobileStyles }} />
             <div style={{
                 maxWidth: '1000px',
                 margin: '0 auto'
             }}>
                 {/* Titre */}
-                <h1 style={{
-                    fontSize: 'clamp(22px, 5vw, 28px)',
-                    fontWeight: 'bold',
-                    marginBottom: '20px',
-                    background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                    WebkitBackgroundClip: 'text',
-                    WebkitTextFillColor: 'transparent',
-                    textAlign: 'center'
-                }}>
-                    🔊 Qu'est-ce ? - Reconnaissance audio
-                </h1>
+                {!gameStarted ? (
+                    <h1 style={{
+                        fontSize: 'clamp(22px, 5vw, 28px)',
+                        fontWeight: 'bold',
+                        marginBottom: '20px',
+                        background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                        WebkitBackgroundClip: 'text',
+                        WebkitTextFillColor: 'transparent',
+                        textAlign: 'center'
+                    }}>
+                        🔊 Qu'est-ce ?<span className="desktop-only"> - Reconnaissance audio</span>
+                    </h1>
+                ) : (
+                    /* Titre avec boutons de navigation pendant le jeu */
+                    <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        marginBottom: '20px',
+                        flexWrap: 'wrap',
+                        gap: '10px'
+                    }}>
+                        {/* Bouton arrêter à gauche */}
+                        <button
+                            onClick={resetGame}
+                            style={{
+                                backgroundColor: '#ef4444',
+                                color: 'white',
+                                padding: window.innerWidth <= 768 ? '8px' : '10px 20px',
+                                border: 'none',
+                                borderRadius: '8px',
+                                fontSize: window.innerWidth <= 768 ? '16px' : '14px',
+                                cursor: 'pointer',
+                                minWidth: window.innerWidth <= 768 ? '36px' : 'auto',
+                                flexShrink: 0
+                            }}
+                            title="Arrêter l'exercice"
+                        >
+                            {window.innerWidth <= 768 ? '⏹️' : '⏹️ Arrêter l\'exercice'}
+                        </button>
+
+                        {/* Titre au centre */}
+                        <h1 style={{
+                            fontSize: 'clamp(18px, 4vw, 24px)',
+                            fontWeight: 'bold',
+                            background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                            WebkitBackgroundClip: 'text',
+                            WebkitTextFillColor: 'transparent',
+                            textAlign: 'center',
+                            margin: 0,
+                            flex: 1
+                        }}>
+                            🔊 Qu'est-ce ?<span className="desktop-only"> - Reconnaissance audio</span>
+                        </h1>
+
+                        {/* Bouton retour à droite */}
+                        <button
+                            onClick={() => router.push('/lire')}
+                            style={{
+                                backgroundColor: '#6b7280',
+                                color: 'white',
+                                padding: window.innerWidth <= 768 ? '8px' : '12px 30px',
+                                border: 'none',
+                                borderRadius: '8px',
+                                fontSize: window.innerWidth <= 768 ? '16px' : '14px',
+                                fontWeight: 'bold',
+                                cursor: 'pointer',
+                                minWidth: window.innerWidth <= 768 ? '36px' : 'auto',
+                                flexShrink: 0
+                            }}
+                            title="Retour au menu Lire"
+                        >
+                            {window.innerWidth <= 768 ? '←' : '← Retour au menu Lire'}
+                        </button>
+                    </div>
+                )}
 
                 {!gameStarted ? (
                     <>
@@ -382,11 +454,11 @@ export default function QuestCe() {
                             borderRadius: '8px',
                             marginBottom: '20px'
                         }}>
-                            <h3 style={{ marginBottom: '15px' }}>⚙️ Configuration</h3>
+                            <h3 className="desktop-only" style={{ marginBottom: '15px' }}>⚙️ Configuration</h3>
                             
                             {/* Options de jeu */}
                             <div style={{ marginBottom: '20px' }}>
-                                <div style={{ marginBottom: '15px' }}>
+                                <div className="desktop-only" style={{ marginBottom: '15px' }}>
                                     <label style={{ fontWeight: 'bold', marginRight: '10px' }}>
                                         Ordre de progression:
                                     </label>
@@ -404,7 +476,7 @@ export default function QuestCe() {
                                     </select>
                                 </div>
                                 
-                                <div style={{ marginBottom: '15px' }}>
+                                <div className="desktop-only" style={{ marginBottom: '15px' }}>
                                     <label style={{ fontWeight: 'bold', marginRight: '10px' }}>
                                         Disposition des boutons:
                                     </label>
@@ -516,13 +588,10 @@ export default function QuestCe() {
                     <>
                         {/* Zone de jeu */}
                         <div style={{
-                            background: '#f8f9fa',
-                            padding: '20px',
-                            borderRadius: '8px',
                             marginBottom: '20px'
                         }}>
-                            {/* Score et progression */}
-                            <div style={{
+                            {/* Score et progression - masqué sur mobile */}
+                            <div className="desktop-only" style={{
                                 display: 'flex',
                                 justifyContent: 'space-between',
                                 marginBottom: '20px',
@@ -532,16 +601,13 @@ export default function QuestCe() {
                                 <span>📝 Progression: {completedGroupes.length}/{shuffledGroupes.length}</span>
                             </div>
 
+
                             {/* Groupe de sens affiché */}
                             <div style={{
                                 textAlign: 'center',
-                                marginBottom: '30px',
-                                padding: '30px',
-                                background: 'white',
-                                borderRadius: '12px',
-                                boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+                                marginBottom: '30px'
                             }}>
-                                <h2 style={{
+                                <h2 className="desktop-only" style={{
                                     fontSize: '24px',
                                     color: '#333',
                                     marginBottom: '10px'
@@ -577,9 +643,9 @@ export default function QuestCe() {
 
                             {/* Choix audio avec boutons séparés */}
                             <div style={{
-                                marginTop: '30px'
+                                marginTop: window.innerWidth <= 768 ? '10px' : '30px'
                             }}>
-                                <h3 style={{
+                                <h3 className="desktop-only" style={{
                                     textAlign: 'center',
                                     marginBottom: '20px',
                                     color: '#666'
@@ -589,99 +655,102 @@ export default function QuestCe() {
                                 
                                 <div style={{
                                     display: 'grid',
-                                    gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
-                                    gap: '20px'
+                                    gridTemplateColumns: window.innerWidth <= 768 ?
+                                        (displayedGroupes.length <= 4 ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)') :
+                                        'repeat(auto-fit, minmax(250px, 1fr))',
+                                    gap: window.innerWidth <= 768 ? '6px' : '20px'
                                 }}>
-                                    {displayedGroupes.map((groupe, index) => (
+                                    {displayedGroupes.map((groupe, index) => {
+                                        // Numérotation stable basée sur l'ID du groupe
+                                        const stableIndex = allGroupes.findIndex(g => g.id === groupe.id) + 1
+                                        return (
                                         <div key={groupe.id} style={{
-                                            background: completedGroupes.includes(currentGroupe?.id) && groupe.id === currentGroupe?.id ? '#d1fae5' : '#fff',
-                                            border: '2px solid',
-                                            borderColor: completedGroupes.includes(currentGroupe?.id) && groupe.id === currentGroupe?.id ? '#10b981' : '#dee2e6',
-                                            borderRadius: '8px',
-                                            padding: '15px',
+                                            background: '#fff',
+                                            border: window.innerWidth <= 768 ? '1px solid' : '2px solid',
+                                            borderColor: '#dee2e6',
+                                            borderRadius: window.innerWidth <= 768 ? '6px' : '8px',
+                                            padding: window.innerWidth <= 768 ? '8px' : '15px',
                                             transition: 'all 0.3s'
                                         }}>
+                                            {/* Titre "Son X" en haut */}
                                             <div style={{
-                                                display: 'flex',
-                                                justifyContent: 'space-between',
-                                                alignItems: 'center',
-                                                marginBottom: '10px'
+                                                textAlign: 'center',
+                                                marginBottom: window.innerWidth <= 768 ? '8px' : '12px'
                                             }}>
                                                 <span style={{
-                                                    fontSize: '16px',
+                                                    fontSize: window.innerWidth <= 768 ? '12px' : '16px',
                                                     fontWeight: 'bold',
                                                     color: '#333'
                                                 }}>
-                                                    Audio {index + 1}
+                                                    {stableIndex}
                                                 </span>
-                                                
+                                            </div>
+
+                                            {/* Boutons côte à côte */}
+                                            <div style={{
+                                                display: 'flex',
+                                                gap: window.innerWidth <= 768 ? '6px' : '10px'
+                                            }}>
+                                                {/* Bouton écouter à gauche - juste l'icône */}
                                                 <button
                                                     onClick={() => playAudio(groupe)}
                                                     style={{
                                                         backgroundColor: isPlaying === groupe.id ? '#f59e0b' : '#3b82f6',
                                                         color: 'white',
                                                         border: 'none',
-                                                        borderRadius: '6px',
-                                                        padding: '8px 16px',
-                                                        fontSize: '14px',
+                                                        borderRadius: '4px',
+                                                        padding: window.innerWidth <= 768 ? '8px' : '12px',
+                                                        fontSize: window.innerWidth <= 768 ? '14px' : '16px',
                                                         cursor: 'pointer',
-                                                        transition: 'all 0.2s'
+                                                        transition: 'all 0.2s',
+                                                        flex: 1,
+                                                        minHeight: window.innerWidth <= 768 ? '36px' : '44px'
                                                     }}
                                                 >
-                                                    {isPlaying === groupe.id ? '⏸️ Pause' : '🔊 Écouter'}
+                                                    {isPlaying === groupe.id ? '⏸️' : '🔊'}
+                                                </button>
+
+                                                {/* Bouton validation à droite - bordure verte avec coche */}
+                                                <button
+                                                    onClick={() => handleValidation(groupe)}
+                                                    disabled={completedGroupes.includes(currentGroupe?.id)}
+                                                    style={{
+                                                        backgroundColor: (completedGroupes.includes(currentGroupe?.id) && groupe.id === currentGroupe?.id) ? '#10b981' : 'transparent',
+                                                        color: (completedGroupes.includes(currentGroupe?.id) && groupe.id === currentGroupe?.id) ? 'white' : '#10b981',
+                                                        border: '2px solid #10b981',
+                                                        borderRadius: '4px',
+                                                        padding: window.innerWidth <= 768 ? '8px' : '12px',
+                                                        fontSize: window.innerWidth <= 768 ? '14px' : '16px',
+                                                        fontWeight: 'bold',
+                                                        cursor: completedGroupes.includes(currentGroupe?.id) ? 'not-allowed' : 'pointer',
+                                                        opacity: completedGroupes.includes(currentGroupe?.id) ? 0.7 : 1,
+                                                        transition: 'all 0.2s',
+                                                        flex: 1,
+                                                        minHeight: window.innerWidth <= 768 ? '36px' : '44px'
+                                                    }}
+                                                    onMouseEnter={(e) => {
+                                                        if (!completedGroupes.includes(currentGroupe?.id)) {
+                                                            e.target.style.backgroundColor = '#10b981'
+                                                            e.target.style.color = 'white'
+                                                        }
+                                                    }}
+                                                    onMouseLeave={(e) => {
+                                                        if (!(completedGroupes.includes(currentGroupe?.id) && groupe.id === currentGroupe?.id)) {
+                                                            e.target.style.backgroundColor = 'transparent'
+                                                            e.target.style.color = '#10b981'
+                                                        }
+                                                    }}
+                                                >
+                                                    ✅
                                                 </button>
                                             </div>
-                                            
-                                            <button
-                                                onClick={() => handleValidation(groupe)}
-                                                disabled={completedGroupes.includes(currentGroupe?.id)}
-                                                style={{
-                                                    width: '100%',
-                                                    backgroundColor: completedGroupes.includes(currentGroupe?.id) && groupe.id === currentGroupe?.id ? '#10b981' : '#10b981',
-                                                    color: 'white',
-                                                    border: 'none',
-                                                    borderRadius: '6px',
-                                                    padding: '10px',
-                                                    fontSize: '14px',
-                                                    fontWeight: 'bold',
-                                                    cursor: completedGroupes.includes(currentGroupe?.id) ? 'not-allowed' : 'pointer',
-                                                    opacity: completedGroupes.includes(currentGroupe?.id) ? 0.5 : 1,
-                                                    transition: 'all 0.2s'
-                                                }}
-                                                onMouseEnter={(e) => {
-                                                    if (!completedGroupes.includes(currentGroupe?.id)) {
-                                                        e.target.style.transform = 'scale(1.02)'
-                                                    }
-                                                }}
-                                                onMouseLeave={(e) => {
-                                                    e.target.style.transform = 'scale(1)'
-                                                }}
-                                            >
-                                                ✅ C'est celui-ci !
-                                            </button>
                                         </div>
-                                    ))}
+                                        )
+                                    })}
                                 </div>
                             </div>
                         </div>
 
-                        {/* Bouton arrêter */}
-                        <div style={{ textAlign: 'center' }}>
-                            <button
-                                onClick={resetGame}
-                                style={{
-                                    backgroundColor: '#ef4444',
-                                    color: 'white',
-                                    padding: '10px 20px',
-                                    border: 'none',
-                                    borderRadius: '8px',
-                                    fontSize: '14px',
-                                    cursor: 'pointer'
-                                }}
-                            >
-                                ⏹️ Arrêter l'exercice
-                            </button>
-                        </div>
                     </>
                 )}
 
@@ -768,27 +837,6 @@ export default function QuestCe() {
                     </div>
                 )}
 
-                {/* Bouton retour */}
-                <div style={{
-                    textAlign: 'center',
-                    marginTop: '30px'
-                }}>
-                    <button
-                        onClick={() => router.push('/lire')}
-                        style={{
-                            backgroundColor: '#6b7280',
-                            color: 'white',
-                            padding: '12px 30px',
-                            border: 'none',
-                            borderRadius: '8px',
-                            fontSize: '14px',
-                            fontWeight: 'bold',
-                            cursor: 'pointer'
-                        }}
-                    >
-                        ← Retour au menu Lire
-                    </button>
-                </div>
             </div>
         </div>
     )

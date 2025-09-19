@@ -1,6 +1,15 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
 
+// Styles pour masquer les éléments sur mobile
+const mobileStyles = `
+    @media (max-width: 768px) {
+        .desktop-only {
+            display: none !important;
+        }
+    }
+`
+
 export default function JeJoueSyllabes() {
     const [user, setUser] = useState(null)
     const [isLoading, setIsLoading] = useState(true)
@@ -222,6 +231,7 @@ export default function JeJoueSyllabes() {
             padding: window.innerWidth <= 768 ? '10px' : '20px',
             overflow: window.innerWidth <= 768 ? 'hidden' : 'auto'
         }}>
+            <style dangerouslySetInnerHTML={{ __html: mobileStyles }} />
             <div style={{
                 maxWidth: '1200px',
                 margin: '0 auto',
@@ -316,8 +326,8 @@ export default function JeJoueSyllabes() {
                 ) : (
                     // Interface de jeu
                     <>
-                        {/* Score et progression */}
-                        <div style={{
+                        {/* Score et progression - masqué sur mobile */}
+                        <div className="desktop-only" style={{
                             display: 'flex',
                             justifyContent: 'space-between',
                             alignItems: 'center',

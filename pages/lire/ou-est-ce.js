@@ -1,6 +1,15 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
 
+// Styles pour masquer les éléments sur mobile
+const mobileStyles = `
+    @media (max-width: 768px) {
+        .desktop-only {
+            display: none !important;
+        }
+    }
+`
+
 export default function OuEstCe() {
     const [user, setUser] = useState(null)
     const [isLoading, setIsLoading] = useState(true)
@@ -434,6 +443,7 @@ export default function OuEstCe() {
             background: 'white',
             padding: '15px'
         }}>
+            <style dangerouslySetInnerHTML={{ __html: mobileStyles }} />
             <div style={{
                 maxWidth: '1000px',
                 margin: '0 auto'
@@ -448,7 +458,7 @@ export default function OuEstCe() {
                     WebkitTextFillColor: 'transparent',
                     textAlign: 'center'
                 }}>
-                    🎯 Où est-ce ? - Reconnaissance des groupes de sens
+                    🎯 Où est-ce ?<span className="desktop-only"> - Reconnaissance des groupes de sens</span>
                 </h1>
 
                 {!gameStarted ? (
@@ -460,11 +470,11 @@ export default function OuEstCe() {
                             borderRadius: '8px',
                             marginBottom: '20px'
                         }}>
-                            <h3 style={{ marginBottom: '15px' }}>⚙️ Configuration</h3>
+                            <h3 className="desktop-only" style={{ marginBottom: '15px' }}>⚙️ Configuration</h3>
                             
                             {/* Options de jeu */}
                             <div style={{ marginBottom: '20px' }}>
-                                <div style={{ marginBottom: '15px' }}>
+                                <div className="desktop-only" style={{ marginBottom: '15px' }}>
                                     <label style={{ fontWeight: 'bold', marginRight: '10px' }}>
                                         Ordre de lecture:
                                     </label>
@@ -482,7 +492,7 @@ export default function OuEstCe() {
                                     </select>
                                 </div>
                                 
-                                <div style={{ marginBottom: '15px' }}>
+                                <div className="desktop-only" style={{ marginBottom: '15px' }}>
                                     <label style={{ fontWeight: 'bold', marginRight: '10px' }}>
                                         Affichage étiquettes:
                                     </label>
@@ -599,8 +609,8 @@ export default function OuEstCe() {
                             borderRadius: '8px',
                             marginBottom: '20px'
                         }}>
-                            {/* Score et progression */}
-                            <div style={{
+                            {/* Score et progression - masqué sur mobile */}
+                            <div className="desktop-only" style={{
                                 display: 'flex',
                                 justifyContent: 'space-between',
                                 marginBottom: '20px',
@@ -610,23 +620,67 @@ export default function OuEstCe() {
                                 <span>📝 Progression: {completedGroupes.length}/{shuffledGroupes.length}</span>
                             </div>
 
-                            {/* Bouton écouter */}
-                            <div style={{ textAlign: 'center', marginBottom: '30px' }}>
+                            {/* Boutons d'action - optimisés pour mobile */}
+                            <div style={{
+                                display: 'flex',
+                                justifyContent: 'center',
+                                alignItems: 'center',
+                                gap: window.innerWidth <= 768 ? '10px' : '20px',
+                                marginBottom: '30px',
+                                flexWrap: 'wrap'
+                            }}>
                                 <button
                                     onClick={() => playAudio(currentGroupe.contenu)}
                                     disabled={isPlaying}
                                     style={{
                                         backgroundColor: isPlaying ? '#f59e0b' : '#3b82f6',
                                         color: 'white',
-                                        padding: '15px 30px',
+                                        padding: window.innerWidth <= 768 ? '10px 15px' : '15px 30px',
                                         border: 'none',
                                         borderRadius: '8px',
-                                        fontSize: '18px',
+                                        fontSize: window.innerWidth <= 768 ? '14px' : '18px',
                                         fontWeight: 'bold',
                                         cursor: 'pointer'
                                     }}
                                 >
-                                    {isPlaying ? '⏸️ Pause' : '🔊 Écouter le groupe de sens'}
+                                    {isPlaying ? '⏸️ Pause' : '🔊 Écouter'}
+                                </button>
+
+                                {/* Bouton arrêter - version mobile avec icône uniquement */}
+                                <button
+                                    onClick={resetGame}
+                                    style={{
+                                        backgroundColor: '#ef4444',
+                                        color: 'white',
+                                        padding: window.innerWidth <= 768 ? '10px' : '10px 20px',
+                                        border: 'none',
+                                        borderRadius: '8px',
+                                        fontSize: window.innerWidth <= 768 ? '16px' : '14px',
+                                        cursor: 'pointer',
+                                        minWidth: window.innerWidth <= 768 ? '40px' : 'auto'
+                                    }}
+                                    title="Arrêter l'exercice"
+                                >
+                                    {window.innerWidth <= 768 ? '⏹️' : '⏹️ Arrêter l\'exercice'}
+                                </button>
+
+                                {/* Bouton retour - version mobile avec icône uniquement */}
+                                <button
+                                    onClick={() => router.push('/lire')}
+                                    style={{
+                                        backgroundColor: '#6b7280',
+                                        color: 'white',
+                                        padding: window.innerWidth <= 768 ? '10px' : '12px 30px',
+                                        border: 'none',
+                                        borderRadius: '8px',
+                                        fontSize: window.innerWidth <= 768 ? '16px' : '14px',
+                                        fontWeight: 'bold',
+                                        cursor: 'pointer',
+                                        minWidth: window.innerWidth <= 768 ? '40px' : 'auto'
+                                    }}
+                                    title="Retour au menu Lire"
+                                >
+                                    {window.innerWidth <= 768 ? '←' : '← Retour au menu Lire'}
                                 </button>
                             </div>
 
@@ -686,23 +740,6 @@ export default function OuEstCe() {
                             </div>
                         </div>
 
-                        {/* Bouton arrêter */}
-                        <div style={{ textAlign: 'center' }}>
-                            <button
-                                onClick={resetGame}
-                                style={{
-                                    backgroundColor: '#ef4444',
-                                    color: 'white',
-                                    padding: '10px 20px',
-                                    border: 'none',
-                                    borderRadius: '8px',
-                                    fontSize: '14px',
-                                    cursor: 'pointer'
-                                }}
-                            >
-                                ⏹️ Arrêter l'exercice
-                            </button>
-                        </div>
                     </>
                 )}
 
@@ -789,27 +826,6 @@ export default function OuEstCe() {
                     </div>
                 )}
 
-                {/* Bouton retour */}
-                <div style={{
-                    textAlign: 'center',
-                    marginTop: '30px'
-                }}>
-                    <button
-                        onClick={() => router.push('/lire')}
-                        style={{
-                            backgroundColor: '#6b7280',
-                            color: 'white',
-                            padding: '12px 30px',
-                            border: 'none',
-                            borderRadius: '8px',
-                            fontSize: '14px',
-                            fontWeight: 'bold',
-                            cursor: 'pointer'
-                        }}
-                    >
-                        ← Retour au menu Lire
-                    </button>
-                </div>
             </div>
         </div>
     )
