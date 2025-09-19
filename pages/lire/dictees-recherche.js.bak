@@ -141,7 +141,7 @@ export default function DicteesRecherche() {
 
         // Sauvegarder la sélection de textes
         localStorage.setItem('dictee-recherche-textes', JSON.stringify(Array.from(selectedTextes)))
-
+        
         // Rediriger vers la page du mode choisi
         if (mode === 'evaluation') {
             router.push('/lire/dictees-recherche/evaluation')
@@ -212,7 +212,7 @@ export default function DicteesRecherche() {
                     }}>
                         📚 Choisissez vos textes ({selectedTextes.size} sélectionné{selectedTextes.size > 1 ? 's' : ''})
                     </h2>
-
+                    
                     {textes.length === 0 ? (
                         <div style={{
                             textAlign: 'center',
@@ -250,8 +250,8 @@ export default function DicteesRecherche() {
                                         }}
                                     />
                                     <div>
-                                        <div style={{
-                                            fontSize: '18px',
+                                        <div style={{ 
+                                            fontSize: '18px', 
                                             fontWeight: 'bold',
                                             marginBottom: '5px'
                                         }}>
@@ -292,13 +292,13 @@ export default function DicteesRecherche() {
                             {/* Mode Auto-évaluation */}
                             <div
                                 onClick={() => {
-                                    if (window.innerWidth <= 768) {
-                                        speakModeDescription('auto-evaluation')
-                                        setSelectedModeForMobile('auto-evaluation')
-                                    } else {
-                                        speakModeDescription('auto-evaluation')
-                                    }
-                                }}
+                                if (window.innerWidth <= 768) {
+                                    speakModeDescription('auto-evaluation')
+                                    setSelectedModeForMobile('auto-evaluation')
+                                } else {
+                                    speakModeDescription('auto-evaluation')
+                                }
+                            }}
                                 style={{
                                     background: 'white',
                                     padding: window.innerWidth <= 768 ? '15px' : '25px',
@@ -314,8 +314,7 @@ export default function DicteesRecherche() {
                                     display: window.innerWidth <= 768 ? 'flex' : 'block',
                                     flexDirection: window.innerWidth <= 768 ? 'column' : 'initial',
                                     justifyContent: window.innerWidth <= 768 ? 'center' : 'initial'
-                                }}
-                            >
+                                }}>
                                 <div style={{
                                     fontSize: window.innerWidth <= 768 ? '32px' : '48px',
                                     marginBottom: window.innerWidth <= 768 ? '8px' : '15px'
@@ -358,18 +357,18 @@ export default function DicteesRecherche() {
                                 >
                                     ✅ Je choisis le mode tranquille
                                 </button>
-                            </div>
+                                </div>
 
                             {/* Mode Évaluation */}
                             <div
                                 onClick={() => {
-                                    if (window.innerWidth <= 768) {
-                                        speakModeDescription('evaluation')
-                                        setSelectedModeForMobile('evaluation')
-                                    } else {
-                                        speakModeDescription('evaluation')
-                                    }
-                                }}
+                                if (window.innerWidth <= 768) {
+                                    speakModeDescription('evaluation')
+                                    setSelectedModeForMobile('evaluation')
+                                } else {
+                                    speakModeDescription('evaluation')
+                                }
+                            }}
                                 style={{
                                     background: 'white',
                                     padding: window.innerWidth <= 768 ? '15px' : '25px',
@@ -385,8 +384,7 @@ export default function DicteesRecherche() {
                                     display: window.innerWidth <= 768 ? 'flex' : 'block',
                                     flexDirection: window.innerWidth <= 768 ? 'column' : 'initial',
                                     justifyContent: window.innerWidth <= 768 ? 'center' : 'initial'
-                                }}
-                            >
+                                }}>
                                 <div style={{
                                     fontSize: window.innerWidth <= 768 ? '32px' : '48px',
                                     marginBottom: window.innerWidth <= 768 ? '8px' : '15px'
@@ -430,7 +428,6 @@ export default function DicteesRecherche() {
                                     🎤 Je choisis le mode défi
                                 </button>
                             </div>
-                        </div>
 
                         {/* Bouton valider pour mobile */}
                         {selectedModeForMobile && window.innerWidth <= 768 && (

@@ -2,6 +2,15 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
 import { countSyllables, isMonosyllabic, syllabifyWord } from '../../utils/syllabify'
 
+// Styles pour masquer les éléments sur mobile
+const mobileStyles = `
+    @media (max-width: 768px) {
+        .desktop-only {
+            display: none !important;
+        }
+    }
+`
+
 export default function MonosyllabesMultisyllabes() {
     const [user, setUser] = useState(null)
     const [isLoading, setIsLoading] = useState(true)
@@ -40,6 +49,11 @@ export default function MonosyllabesMultisyllabes() {
             console.error('Erreur parsing user data:', error)
             router.push('/login')
             return
+        }
+
+        // Forcer la lecture auto sur mobile
+        if (window.innerWidth <= 768) {
+            setAutoRead(true)
         }
 
         setIsLoading(false)
@@ -332,7 +346,7 @@ export default function MonosyllabesMultisyllabes() {
                     texteId: parseInt(selectedTexte),
                     classificationActuelle: classificationActuelle,
                     correctionProposee: correctionProposee,
-                    raison: `L'utilisateur pense que "${mot.clean}" devrait être classé comme ${correctionProposee}syllabe plutôt que ${classificationActuelle}syllabe`
+                    raison: `L'utilisateur pense que "${mot.clean}" devrait être classé comme ${correctionProposee === 'mono' ? '1 son' : 'plusieurs sons'} plutôt que ${classificationActuelle === 'mono' ? '1 son' : 'plusieurs sons'}`
                 })
             })
 
@@ -469,6 +483,7 @@ export default function MonosyllabesMultisyllabes() {
             background: 'white',
             padding: '15px'
         }}>
+            <style dangerouslySetInnerHTML={{ __html: mobileStyles }} />
             <div style={{
                 maxWidth: '800px',
                 margin: '0 auto'
@@ -483,13 +498,13 @@ export default function MonosyllabesMultisyllabes() {
                     WebkitTextFillColor: 'transparent',
                     textAlign: 'center'
                 }}>
-                    🔤 Monosyllabes ou Multisyllabes ?
+                    🔤 Trouver mes syllabes-mot
                 </h1>
 
                 {!gameStarted ? (
                     <>
                         {/* Instructions */}
-                        <div style={{
+                        <div className="desktop-only" style={{
                             background: '#e0f2fe',
                             padding: '20px',
                             borderRadius: '8px',
@@ -543,7 +558,7 @@ export default function MonosyllabesMultisyllabes() {
                             </div>
                             
                             {/* Lecture automatique */}
-                            <div style={{ marginBottom: '15px' }}>
+                            <div className="desktop-only" style={{ marginBottom: '15px' }}>
                                 <label style={{
                                     display: 'flex',
                                     alignItems: 'center',
@@ -559,11 +574,11 @@ export default function MonosyllabesMultisyllabes() {
                                     />
                                     <span>Lire automatiquement chaque mot</span>
                                 </label>
-                                <p style={{ 
-                                    fontSize: '12px', 
-                                    color: '#666', 
-                                    marginLeft: '24px', 
-                                    marginTop: '4px' 
+                                <p style={{
+                                    fontSize: '12px',
+                                    color: '#666',
+                                    marginLeft: '24px',
+                                    marginTop: '4px'
                                 }}>
                                     Si coché, les mots seront prononcés automatiquement
                                 </p>
@@ -571,6 +586,7 @@ export default function MonosyllabesMultisyllabes() {
                             
                             {/* Test de la voix */}
                             <button
+                                className="desktop-only"
                                 onClick={() => speakText('Bonjour, ceci est un test de la voix sélectionnée')}
                                 disabled={availableVoices.length === 0}
                                 style={{
@@ -595,7 +611,7 @@ export default function MonosyllabesMultisyllabes() {
                             borderRadius: '8px',
                             marginBottom: '20px'
                         }}>
-                            <h3 style={{ marginBottom: '15px' }}>📚 Choisir un texte</h3>
+                            <h3 className="desktop-only" style={{ marginBottom: '15px' }}>📚 Choisir un texte</h3>
                             
                             {isLoadingTexte ? (
                                 <div>Chargement des textes...</div>
@@ -905,7 +921,7 @@ export default function MonosyllabesMultisyllabes() {
                                         minWidth: '200px'
                                     }}
                                 >
-                                    🟢 Monosyllabe
+                                    🟢 1 son
                                 </button>
 
                                 <button
@@ -924,7 +940,7 @@ export default function MonosyllabesMultisyllabes() {
                                         minWidth: '200px'
                                     }}
                                 >
-                                    🔴 Multisyllabe
+                                    🔴 Plusieurs sons
                                 </button>
                             </div>
                         </div>

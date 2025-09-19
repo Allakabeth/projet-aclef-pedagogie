@@ -2,6 +2,15 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
 import { syllabifyWord } from '../../lib/wordAnalyzer'
 
+// Styles pour masquer les éléments sur mobile
+const mobileStyles = `
+    @media (max-width: 768px) {
+        .desktop-only {
+            display: none !important;
+        }
+    }
+`
+
 export default function SegmentationSyllabes() {
     const [user, setUser] = useState(null)
     const [isLoading, setIsLoading] = useState(true)
@@ -46,6 +55,11 @@ export default function SegmentationSyllabes() {
             console.error('Erreur parsing user data:', error)
             router.push('/login')
             return
+        }
+
+        // Forcer la lecture auto sur mobile
+        if (window.innerWidth <= 768) {
+            setAutoRead(true)
         }
 
         setIsLoading(false)
@@ -613,6 +627,7 @@ export default function SegmentationSyllabes() {
             background: 'white',
             padding: '15px'
         }}>
+            <style dangerouslySetInnerHTML={{ __html: mobileStyles }} />
             <div style={{
                 maxWidth: '800px',
                 margin: '0 auto'
@@ -631,112 +646,50 @@ export default function SegmentationSyllabes() {
 
                 {!gameStarted ? (
                     <div>
-                        <p style={{
-                            textAlign: 'center',
-                            marginBottom: '30px',
-                            color: '#666',
-                            fontSize: '16px'
-                        }}>
-                            Découpez les mots en syllabes avec les ciseaux
-                        </p>
 
-                        {/* Paramètres audio */}
+                        {/* Sélection de voix simplifiée */}
                         <div style={{
-                            background: '#f0f9ff',
-                            padding: '20px',
-                            borderRadius: '8px',
-                            marginBottom: '20px'
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '10px',
+                            marginBottom: '20px',
+                            justifyContent: 'center'
                         }}>
-                            <h3 style={{ marginBottom: '15px', color: '#0284c7' }}>🔊 Paramètres audio</h3>
-
-                            {/* Choix de la voix */}
-                            <div style={{ marginBottom: '15px' }}>
-                                <label style={{
-                                    display: 'block',
-                                    marginBottom: '8px',
-                                    fontSize: '14px',
-                                    fontWeight: 'bold'
-                                }}>
-                                    Voix de lecture :
-                                </label>
-                                <select
-                                    value={selectedVoice}
-                                    onChange={(e) => setSelectedVoice(e.target.value)}
-                                    style={{
-                                        width: '100%',
-                                        padding: '8px',
-                                        borderRadius: '4px',
-                                        border: '1px solid #ddd',
-                                        fontSize: '14px'
-                                    }}
-                                >
-                                    {availableVoices.map(voice => (
-                                        <option key={voice.name} value={voice.name}>
-                                            {voice.name}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            {/* Lecture automatique */}
-                            <div style={{ marginBottom: '15px' }}>
-                                <label style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '8px',
-                                    fontSize: '14px',
-                                    cursor: 'pointer'
-                                }}>
-                                    <input
-                                        type="checkbox"
-                                        checked={autoRead}
-                                        onChange={(e) => setAutoRead(e.target.checked)}
-                                        style={{ transform: 'scale(1.2)' }}
-                                    />
-                                    <span>Lire automatiquement chaque mot</span>
-                                </label>
-                                <p style={{
-                                    fontSize: '12px',
-                                    color: '#666',
-                                    marginLeft: '24px',
-                                    marginTop: '4px'
-                                }}>
-                                    Si coché, les mots seront prononcés automatiquement
-                                </p>
-                            </div>
-
-                            {/* Test de la voix */}
-                            <button
-                                onClick={() => speakText('Bonjour, ceci est un test de la voix sélectionnée')}
-                                disabled={availableVoices.length === 0}
+                            <span style={{ fontSize: '20px' }}>🔊</span>
+                            <select
+                                value={selectedVoice}
+                                onChange={(e) => setSelectedVoice(e.target.value)}
                                 style={{
-                                    backgroundColor: '#0284c7',
-                                    color: 'white',
-                                    padding: '8px 16px',
-                                    border: 'none',
-                                    borderRadius: '4px',
+                                    padding: '8px 12px',
+                                    borderRadius: '6px',
+                                    border: '2px solid #ddd',
                                     fontSize: '14px',
-                                    cursor: availableVoices.length > 0 ? 'pointer' : 'not-allowed',
-                                    opacity: availableVoices.length > 0 ? 1 : 0.5
+                                    fontWeight: 'bold',
+                                    background: 'white',
+                                    cursor: 'pointer'
                                 }}
                             >
-                                🎵 Tester la voix
-                            </button>
+                                {availableVoices.map(voice => (
+                                    <option key={voice.name} value={voice.name}>
+                                        {voice.name}
+                                    </option>
+                                ))}
+                            </select>
                         </div>
 
                         <div style={{
-                            background: '#f8f9fa',
-                            padding: '30px',
-                            borderRadius: '12px',
+                            background: window.innerWidth <= 768 ? 'transparent' : '#f8f9fa',
+                            padding: window.innerWidth <= 768 ? '0' : '30px',
+                            borderRadius: window.innerWidth <= 768 ? '0' : '12px',
                             marginBottom: '30px'
                         }}>
-                            <h2 style={{ 
-                                marginBottom: '20px', 
+                            <h2 style={{
+                                marginBottom: '20px',
                                 color: '#333',
                                 fontSize: '20px',
                                 textAlign: 'center'
                             }}>
-                                📚 Choisissez un ou plusieurs textes
+                                Choisissez un ou plusieurs textes
                             </h2>
                             
                             {textes.length === 0 ? (
@@ -760,22 +713,38 @@ export default function SegmentationSyllabes() {
                                         gap: '15px',
                                         marginBottom: '25px'
                                     }}>
-                                        {textes.map(texte => {
+                                        {textes.map((texte, index) => {
                                             const isSelected = selectedTextes.includes(texte.id)
                                             const details = textesDetails[texte.id]
-                                            
+
+                                            // Couleurs alternées pour les cartes
+                                            const colors = [
+                                                { bg: '#f0f9ff', border: '#0ea5e9' }, // Bleu clair
+                                                { bg: '#f0fdf4', border: '#22c55e' }, // Vert clair
+                                                { bg: '#fef3c7', border: '#f59e0b' }, // Jaune clair
+                                                { bg: '#fce7f3', border: '#ec4899' }, // Rose clair
+                                                { bg: '#f3e8ff', border: '#a855f7' }, // Violet clair
+                                                { bg: '#fff1f2', border: '#ef4444' }  // Rouge clair
+                                            ]
+                                            const colorScheme = colors[index % colors.length]
+
                                             return (
                                                 <div
                                                     key={texte.id}
                                                     style={{
                                                         padding: '20px',
-                                                        background: 'white',
-                                                        borderRadius: '8px',
-                                                        border: '1px solid #ddd',
+                                                        background: colorScheme.bg,
+                                                        borderRadius: '12px',
+                                                        border: `2px solid ${isSelected ? colorScheme.border : '#e5e7eb'}`,
                                                         display: 'flex',
                                                         alignItems: 'center',
-                                                        gap: '15px'
+                                                        gap: '15px',
+                                                        cursor: 'pointer',
+                                                        transition: 'all 0.2s ease',
+                                                        transform: isSelected ? 'scale(1.02)' : 'scale(1)',
+                                                        boxShadow: isSelected ? `0 4px 12px ${colorScheme.border}20` : '0 2px 4px rgba(0,0,0,0.1)'
                                                     }}
+                                                    onClick={() => toggleTexteSelection(texte.id)}
                                                 >
                                                     <input
                                                         type="checkbox"
@@ -796,33 +765,17 @@ export default function SegmentationSyllabes() {
                                                         }}>
                                                             {texte.titre}
                                                         </div>
-                                                        <div style={{ fontSize: '14px', color: '#666' }}>
-                                                            {details ? 
-                                                                `${details.nombreMultisyllabes} mots multisyllabes` :
-                                                                'Chargement...'
-                                                            }
-                                                        </div>
                                                     </div>
                                                 </div>
                                             )
                                         })}
                                     </div>
-                                    
-                                    <div style={{ 
+
+                                    <div style={{
                                         textAlign: 'center',
-                                        padding: '20px',
-                                        background: '#fef3c7',
-                                        borderRadius: '8px'
+                                        marginTop: '20px'
                                     }}>
-                                        {selectedTextes.length > 0 && (
-                                            <div style={{ marginBottom: '15px' }}>
-                                                <strong style={{ color: '#d97706' }}>
-                                                    {selectedTextes.length} texte{selectedTextes.length > 1 ? 's' : ''} sélectionné{selectedTextes.length > 1 ? 's' : ''} • 
-                                                    {getTotalMultisyllabes()} mots multisyllabes au total
-                                                </strong>
-                                            </div>
-                                        )}
-                                        
+
                                         <div style={{ display: 'flex', gap: '15px', justifyContent: 'center', flexWrap: 'wrap' }}>
                                             <button
                                                 onClick={startGame}
@@ -835,31 +788,29 @@ export default function SegmentationSyllabes() {
                                                     borderRadius: '8px',
                                                     fontSize: '16px',
                                                     fontWeight: 'bold',
-                                                    cursor: selectedTextes.length > 0 ? 'pointer' : 'not-allowed',
-                                                    minWidth: '180px'
+                                                    cursor: selectedTextes.length > 0 ? 'pointer' : 'not-allowed'
                                                 }}
                                             >
-                                                🚀 Commencer l'exercice
+                                                ✅ Valider
                                             </button>
-                                            
-                                            {selectedTextes.length > 0 && (
-                                                <button
-                                                    onClick={() => setSelectedTextes([])}
-                                                    style={{
-                                                        backgroundColor: '#6b7280',
-                                                        color: 'white',
-                                                        padding: '8px 20px',
-                                                        border: 'none',
-                                                        borderRadius: '6px',
-                                                        fontSize: '14px',
-                                                        cursor: 'pointer',
-                                                        minWidth: '140px'
-                                                    }}
-                                                >
-                                                    🗑️ Tout décocher
-                                                </button>
-                                            )}
+
+                                            <button
+                                                onClick={() => router.push('/lire')}
+                                                style={{
+                                                    backgroundColor: '#6b7280',
+                                                    color: 'white',
+                                                    padding: '12px 30px',
+                                                    border: 'none',
+                                                    borderRadius: '8px',
+                                                    fontSize: '16px',
+                                                    fontWeight: 'bold',
+                                                    cursor: 'pointer'
+                                                }}
+                                            >
+                                                ← Retour
+                                            </button>
                                         </div>
+
                                     </div>
                                 </div>
                             )}
@@ -1012,7 +963,7 @@ export default function SegmentationSyllabes() {
                 ) : (
                     <div>
                         {/* En-tête de jeu */}
-                        <div style={{
+                        <div className="desktop-only" style={{
                             background: '#fef3c7',
                             padding: '20px',
                             borderRadius: '12px',
@@ -1020,7 +971,7 @@ export default function SegmentationSyllabes() {
                             textAlign: 'center'
                         }}>
                             <h3 style={{ color: '#d97706', marginBottom: '10px' }}>
-                                📊 Score : {score}/{attempts} ({attempts > 0 ? Math.round((score/attempts)*100) : 0}%)
+                                📈 Score : {score}/{attempts} ({attempts > 0 ? Math.round((score/attempts)*100) : 0}%)
                             </h3>
                             <p style={{ color: '#666', fontSize: '14px' }}>
                                 Mots restants : {Math.max(0, allMots.length - completedMots.length)}
@@ -1028,14 +979,14 @@ export default function SegmentationSyllabes() {
                         </div>
 
                         {/* Instructions */}
-                        <div style={{
+                        <div className="desktop-only" style={{
                             background: '#f0f9ff',
                             padding: '20px',
                             borderRadius: '12px',
                             marginBottom: '30px',
                             textAlign: 'center'
                         }}>
-                            <p style={{ 
+                            <p style={{
                                 color: '#1d4ed8',
                                 fontSize: '16px',
                                 margin: '0'
@@ -1044,12 +995,13 @@ export default function SegmentationSyllabes() {
                             </p>
                         </div>
 
+
                         {/* Mot à découper */}
                         {currentMot && (
                             <div style={{
-                                background: '#fff7ed',
-                                padding: '40px',
-                                borderRadius: '12px',
+                                background: window.innerWidth <= 768 ? 'transparent' : '#fff7ed',
+                                padding: window.innerWidth <= 768 ? '20px' : '40px',
+                                borderRadius: window.innerWidth <= 768 ? '0' : '12px',
                                 marginBottom: '30px',
                                 textAlign: 'center'
                             }}>
@@ -1066,7 +1018,7 @@ export default function SegmentationSyllabes() {
                                         margin: '0',
                                         fontSize: '24px'
                                     }}>
-                                        Découpez ce mot :
+                                        {window.innerWidth <= 768 ? '✂️ ' : ''}Découpez ce mot :
                                     </h2>
                                     <button
                                         onClick={() => speakText(currentMot.contenu)}
@@ -1120,16 +1072,18 @@ export default function SegmentationSyllabes() {
                                     ✅ Valider la segmentation
                                 </button>
 
-                                {cuts.length === 0 && (
-                                    <p style={{
-                                        color: '#6b7280',
-                                        fontSize: '14px',
-                                        marginTop: '10px',
-                                        fontStyle: 'italic'
-                                    }}>
-                                        Faites au moins une coupure pour valider
-                                    </p>
-                                )}
+                                <div className="desktop-only">
+                                    {cuts.length === 0 && (
+                                        <p style={{
+                                            color: '#6b7280',
+                                            fontSize: '14px',
+                                            marginTop: '10px',
+                                            fontStyle: 'italic'
+                                        }}>
+                                            Faites au moins une coupure pour valider
+                                        </p>
+                                    )}
+                                </div>
                             </div>
                         )}
 
@@ -1173,24 +1127,6 @@ export default function SegmentationSyllabes() {
                     </div>
                 )}
 
-                {/* Bouton retour */}
-                <div style={{ textAlign: 'center', marginTop: '40px' }}>
-                    <button
-                        onClick={() => router.push('/lire')}
-                        style={{
-                            backgroundColor: '#6b7280',
-                            color: 'white',
-                            padding: '12px 30px',
-                            border: 'none',
-                            borderRadius: '8px',
-                            fontSize: '14px',
-                            fontWeight: 'bold',
-                            cursor: 'pointer'
-                        }}
-                    >
-                        ← Retour au menu Lire
-                    </button>
-                </div>
             </div>
         </div>
     )
