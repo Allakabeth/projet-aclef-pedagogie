@@ -2,7 +2,7 @@ import { useState } from 'react';
 
 export default function AIQuizModifier({ currentQuiz, onModificationComplete, onCancel }) {
   const [modificationRequest, setModificationRequest] = useState('');
-  const [apiKey, setApiKey] = useState('AIzaSyDuSYWa7d2wKjmflh1Vwu1DsRWaIh-fDfA'); // Pré-rempli
+  const [apiKey, setApiKey] = useState(''); // Saisir votre clé API Google
   const [isModifying, setIsModifying] = useState(false);
   const [error, setError] = useState('');
 

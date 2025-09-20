@@ -39,14 +39,10 @@ export default function CSVCreator() {
       const isExcelFile = file.name.toLowerCase().endsWith('.xlsx') || file.name.toLowerCase().endsWith('.xls');
       
       if (isExcelFile) {
-        // Traitement des fichiers Excel
-        parsed = await parseExcelFile(file);
-        setCsvData(parsed);
-        validation = validateExcelData(parsed);
-        setValidationResult(validation);
-        if (validation.isValid) {
-          converted = convertExcelToQuizFormat(parsed, validation);
-        }
+        // Traitement des fichiers Excel (non supporté actuellement)
+        setError('Format Excel non supporté actuellement. Veuillez utiliser un fichier CSV.');
+        setProcessing(false);
+        return;
       } else {
         // Traitement des fichiers CSV selon le format choisi
         const text = await file.text();
