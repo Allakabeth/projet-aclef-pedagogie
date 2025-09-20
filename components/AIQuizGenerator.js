@@ -11,7 +11,7 @@ export default function AIQuizGenerator({ onGenerate, processing }) {
     includeImages: false,
     includeAudio: false,
     provider: 'gemini',
-    apiKey: 'AIzaSyDuSYWa7d2wKjmflh1Vwu1DsRWaIh-fDfA',
+    apiKey: '',
     customInstructions: ''
   });
 
