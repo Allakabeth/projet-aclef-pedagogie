@@ -1,0 +1,434 @@
+import { useState } from 'react';
+import { useRouter } from 'next/router';
+
+export default function QuizEditor() {
+  const router = useRouter();
+  
+  const [quiz, setQuiz] = useState({
+    title: '',
+    description: '',
+    questions: []
+  });
+
+  const addQuestion = () => {
+    const newQuestion = {
+      id: Date.now(),
+      text: '',
+      type: 'multiple-choice',
+      answers: [],
+      correctAnswer: ''
+    };
+    
+    setQuiz(prev => ({
+      ...prev,
+      questions: [...prev.questions, newQuestion]
+    }));
+  };
+
+  const removeQuestion = (questionId) => {
+    setQuiz(prev => ({
+      ...prev,
+      questions: prev.questions.filter(q => q.id !== questionId)
+    }));
+  };
+
+  const updateQuestion = (questionId, field, value) => {
+    setQuiz(prev => ({
+      ...prev,
+      questions: prev.questions.map(q => 
+        q.id === questionId ? { ...q, [field]: value } : q
+      )
+    }));
+  };
+
+  const addAnswer = (questionId) => {
+    const newAnswer = {
+      id: Date.now(),
+      text: '',
+      isCorrect: false
+    };
+    
+    setQuiz(prev => ({
+      ...prev,
+      questions: prev.questions.map(q => 
+        q.id === questionId 
+          ? { ...q, answers: [...(q.answers || []), newAnswer] }
+          : q
+      )
+    }));
+  };
+
+  const removeAnswer = (questionId, answerId) => {
+    setQuiz(prev => ({
+      ...prev,
+      questions: prev.questions.map(q => 
+        q.id === questionId 
+          ? { ...q, answers: q.answers.filter(a => a.id !== answerId) }
+          : q
+      )
+    }));
+  };
+
+  const updateAnswer = (questionId, answerId, field, value) => {
+    setQuiz(prev => ({
+      ...prev,
+      questions: prev.questions.map(q => 
+        q.id === questionId 
+          ? {
+              ...q,
+              answers: q.answers.map(a => 
+                a.id === answerId ? { ...a, [field]: value } : a
+              )
+            }
+          : q
+      )
+    }));
+  };
+
+  const handleSave = () => {
+    console.log('Quiz à sauvegarder:', quiz);
+    alert('Quiz sauvegardé (voir console)');
+  };
+
+  const handleBack = () => {
+    router.push('/admin/quiz');
+  };
+
+  return (
+    <div style={{ padding: '20px', maxWidth: '1200px', margin: '0 auto' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
+        <h1 style={{ margin: 0 }}>Éditeur de Quiz</h1>
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <button 
+            onClick={handleBack}
+            style={{
+              padding: '10px 20px',
+              backgroundColor: '#6c757d',
+              color: 'white',
+              border: 'none',
+              borderRadius: '5px',
+              cursor: 'pointer',
+              fontSize: '16px'
+            }}
+          >
+            Retour
+          </button>
+          <button 
+            onClick={handleSave}
+            style={{
+              padding: '10px 20px',
+              backgroundColor: '#28a745',
+              color: 'white',
+              border: 'none',
+              borderRadius: '5px',
+              cursor: 'pointer',
+              fontSize: '16px'
+            }}
+          >
+            Sauvegarder
+          </button>
+        </div>
+      </div>
+
+      <div style={{ backgroundColor: '#f8f9fa', padding: '20px', borderRadius: '10px', marginBottom: '30px' }}>
+        <h2>Informations du Quiz</h2>
+        <div style={{ marginBottom: '20px' }}>
+          <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
+            Titre du Quiz
+          </label>
+          <input
+            type="text"
+            value={quiz.title}
+            onChange={(e) => setQuiz(prev => ({ ...prev, title: e.target.value }))}
+            placeholder="Entrez le titre du quiz"
+            style={{
+              width: '100%',
+              padding: '10px',
+              border: '1px solid #ddd',
+              borderRadius: '5px',
+              fontSize: '16px'
+            }}
+          />
+        </div>
+        
+        <div>
+          <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
+            Description
+          </label>
+          <textarea
+            value={quiz.description}
+            onChange={(e) => setQuiz(prev => ({ ...prev, description: e.target.value }))}
+            placeholder="Entrez la description du quiz"
+            rows={3}
+            style={{
+              width: '100%',
+              padding: '10px',
+              border: '1px solid #ddd',
+              borderRadius: '5px',
+              fontSize: '16px',
+              resize: 'vertical'
+            }}
+          />
+        </div>
+      </div>
+
+      <div style={{ marginBottom: '30px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+          <h2>Questions ({quiz.questions.length})</h2>
+          <button
+            onClick={addQuestion}
+            style={{
+              padding: '10px 20px',
+              backgroundColor: '#007bff',
+              color: 'white',
+              border: 'none',
+              borderRadius: '5px',
+              cursor: 'pointer',
+              fontSize: '16px'
+            }}
+          >
+            + Ajouter une question
+          </button>
+        </div>
+
+        {quiz.questions.map((question, qIndex) => (
+          <div 
+            key={question.id} 
+            style={{
+              backgroundColor: 'white',
+              padding: '20px',
+              borderRadius: '10px',
+              marginBottom: '20px',
+              border: '1px solid #e9ecef'
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '15px' }}>
+              <h3 style={{ margin: 0 }}>Question {qIndex + 1}</h3>
+              <button
+                onClick={() => removeQuestion(question.id)}
+                style={{
+                  padding: '5px 15px',
+                  backgroundColor: '#dc3545',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '5px',
+                  cursor: 'pointer',
+                  fontSize: '14px'
+                }}
+              >
+                Supprimer
+              </button>
+            </div>
+
+            <div style={{ marginBottom: '15px' }}>
+              <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
+                Type de question
+              </label>
+              <select
+                value={question.type}
+                onChange={(e) => updateQuestion(question.id, 'type', e.target.value)}
+                style={{
+                  width: '200px',
+                  padding: '8px',
+                  border: '1px solid #ddd',
+                  borderRadius: '5px',
+                  fontSize: '16px'
+                }}
+              >
+                <option value="multiple-choice">QCM</option>
+                <option value="true-false">Vrai/Faux</option>
+                <option value="open-ended">Réponse libre</option>
+              </select>
+            </div>
+
+            <div style={{ marginBottom: '15px' }}>
+              <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
+                Texte de la question
+              </label>
+              <input
+                type="text"
+                value={question.text}
+                onChange={(e) => updateQuestion(question.id, 'text', e.target.value)}
+                placeholder="Entrez votre question"
+                style={{
+                  width: '100%',
+                  padding: '10px',
+                  border: '1px solid #ddd',
+                  borderRadius: '5px',
+                  fontSize: '16px'
+                }}
+              />
+            </div>
+
+            {question.type === 'multiple-choice' && (
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                  <label style={{ fontWeight: 'bold' }}>Réponses</label>
+                  <button
+                    onClick={() => addAnswer(question.id)}
+                    style={{
+                      padding: '5px 15px',
+                      backgroundColor: '#17a2b8',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '5px',
+                      cursor: 'pointer',
+                      fontSize: '14px'
+                    }}
+                  >
+                    + Ajouter une réponse
+                  </button>
+                </div>
+                
+                {question.answers && question.answers.map((answer, aIndex) => (
+                  <div 
+                    key={answer.id}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px',
+                      marginBottom: '10px',
+                      padding: '10px',
+                      backgroundColor: '#f8f9fa',
+                      borderRadius: '5px'
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={answer.isCorrect}
+                      onChange={(e) => updateAnswer(question.id, answer.id, 'isCorrect', e.target.checked)}
+                      style={{ width: '20px', height: '20px' }}
+                    />
+                    <input
+                      type="text"
+                      value={answer.text}
+                      onChange={(e) => updateAnswer(question.id, answer.id, 'text', e.target.value)}
+                      placeholder={`Réponse ${aIndex + 1}`}
+                      style={{
+                        flex: 1,
+                        padding: '8px',
+                        border: '1px solid #ddd',
+                        borderRadius: '5px',
+                        fontSize: '16px'
+                      }}
+                    />
+                    <button
+                      onClick={() => removeAnswer(question.id, answer.id)}
+                      style={{
+                        padding: '5px 10px',
+                        backgroundColor: '#dc3545',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '5px',
+                        cursor: 'pointer',
+                        fontSize: '14px'
+                      }}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {question.type === 'true-false' && (
+              <div style={{ marginTop: '15px' }}>
+                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
+                  Réponse correcte
+                </label>
+                <select
+                  value={question.correctAnswer}
+                  onChange={(e) => updateQuestion(question.id, 'correctAnswer', e.target.value)}
+                  style={{
+                    width: '150px',
+                    padding: '8px',
+                    border: '1px solid #ddd',
+                    borderRadius: '5px',
+                    fontSize: '16px'
+                  }}
+                >
+                  <option value="">Choisir</option>
+                  <option value="true">Vrai</option>
+                  <option value="false">Faux</option>
+                </select>
+              </div>
+            )}
+
+            {question.type === 'open-ended' && (
+              <div style={{ marginTop: '15px' }}>
+                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
+                  Réponse attendue (guide)
+                </label>
+                <textarea
+                  value={question.correctAnswer}
+                  onChange={(e) => updateQuestion(question.id, 'correctAnswer', e.target.value)}
+                  placeholder="Entrez la réponse attendue ou les éléments clés"
+                  rows={3}
+                  style={{
+                    width: '100%',
+                    padding: '10px',
+                    border: '1px solid #ddd',
+                    borderRadius: '5px',
+                    fontSize: '16px',
+                    resize: 'vertical'
+                  }}
+                />
+              </div>
+            )}
+          </div>
+        ))}
+
+        {quiz.questions.length === 0 && (
+          <div style={{
+            backgroundColor: '#f8f9fa',
+            padding: '40px',
+            borderRadius: '10px',
+            textAlign: 'center',
+            color: '#6c757d'
+          }}>
+            <p style={{ margin: 0, fontSize: '18px' }}>
+              Aucune question ajoutée. Cliquez sur "Ajouter une question" pour commencer.
+            </p>
+          </div>
+        )}
+      </div>
+
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'flex-end', 
+        gap: '10px',
+        borderTop: '2px solid #e9ecef',
+        paddingTop: '20px'
+      }}>
+        <button 
+          onClick={handleBack}
+          style={{
+            padding: '12px 30px',
+            backgroundColor: '#6c757d',
+            color: 'white',
+            border: 'none',
+            borderRadius: '5px',
+            cursor: 'pointer',
+            fontSize: '16px'
+          }}
+        >
+          Annuler
+        </button>
+        <button 
+          onClick={handleSave}
+          style={{
+            padding: '12px 30px',
+            backgroundColor: '#28a745',
+            color: 'white',
+            border: 'none',
+            borderRadius: '5px',
+            cursor: 'pointer',
+            fontSize: '16px'
+          }}
+        >
+          Sauvegarder le Quiz
+        </button>
+      </div>
+    </div>
+  );
+}

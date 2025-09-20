@@ -22,5 +22,8 @@
     "pdfjs-dist": "^5.4.149",
     "react": "19.1.0",
     "react-dom": "19.1.0"
+  },
+  "devDependencies": {
+    "supabase": "^2.40.7"
   }
 }

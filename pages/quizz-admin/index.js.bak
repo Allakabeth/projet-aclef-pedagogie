@@ -1,0 +1,157 @@
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/router'
+
+export default function QuizzAdmin() {
+    const [user, setUser] = useState(null)
+    const [isLoading, setIsLoading] = useState(true)
+    const router = useRouter()
+
+    useEffect(() => {
+        // Vérifier l'authentification admin quiz
+        const token = localStorage.getItem('quiz-admin-token')
+        const userData = localStorage.getItem('quiz-admin-user')
+
+        if (!token || !userData) {
+            router.push('/quizz-admin/login')
+            return
+        }
+
+        try {
+            const parsedUser = JSON.parse(userData)
+            setUser(parsedUser)
+
+            // Vérifier si l'utilisateur est bien admin ou salarié
+            if (parsedUser.role !== 'admin' && parsedUser.role !== 'salarié') {
+                localStorage.removeItem('quiz-admin-token')
+                localStorage.removeItem('quiz-admin-user')
+                router.push('/quizz-admin/login')
+                return
+            }
+        } catch (error) {
+            console.error('Erreur parsing user data:', error)
+            localStorage.removeItem('quiz-admin-token')
+            localStorage.removeItem('quiz-admin-user')
+            router.push('/quizz-admin/login')
+            return
+        }
+
+        setIsLoading(false)
+    }, [router])
+
+    const handleLogout = () => {
+        localStorage.removeItem('quiz-admin-token')
+        localStorage.removeItem('quiz-admin-user')
+        router.push('/quizz-admin/login')
+    }
+
+    if (isLoading) {
+        return (
+            <div style={{
+                minHeight: '100vh',
+                background: 'white',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '15px'
+            }}>
+                <div style={{
+                    padding: '40px',
+                    textAlign: 'center'
+                }}>
+                    <div style={{ color: '#ef4444', fontSize: '18px' }}>Chargement...</div>
+                </div>
+            </div>
+        )
+    }
+
+    if (!user) {
+        return null
+    }
+
+    return (
+        <div style={{
+            minHeight: '100vh',
+            background: 'white',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '15px'
+        }}>
+            <div style={{
+                backgroundColor: 'white',
+                padding: 'clamp(15px, 4vw, 25px)',
+                maxWidth: '600px',
+                width: '100%',
+                textAlign: 'center'
+            }}>
+                {/* Titre */}
+                <h1 style={{
+                    fontSize: 'clamp(22px, 5vw, 28px)',
+                    fontWeight: 'bold',
+                    marginBottom: '10px',
+                    background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent'
+                }}>
+                    🛠️ ACLEF-Pédagogie-Admin
+                </h1>
+
+                {/* Message de bienvenue */}
+                <p style={{
+                    fontSize: 'clamp(16px, 3vw, 18px)',
+                    color: '#666',
+                    marginBottom: 'clamp(20px, 5vw, 35px)',
+                    lineHeight: '1.4'
+                }}>
+                    Bonjour <strong>{user.prenom}</strong>,<br />
+                    Que souhaitez-vous faire ?
+                </p>
+
+                {/* Contenu à définir par l'utilisateur */}
+                <div style={{
+                    padding: '40px',
+                    backgroundColor: '#f8fafc',
+                    borderRadius: '12px',
+                    marginBottom: '20px'
+                }}>
+                    <p style={{ color: '#64748b', fontSize: '16px' }}>
+                        Interface d'administration en cours de configuration...
+                    </p>
+                </div>
+
+                {/* Bouton Déconnexion */}
+                <button
+                    onClick={handleLogout}
+                    style={{
+                        backgroundColor: '#6b7280',
+                        color: 'white',
+                        padding: '12px 30px',
+                        border: 'none',
+                        borderRadius: '12px',
+                        fontSize: '14px',
+                        fontWeight: 'bold',
+                        cursor: 'pointer',
+                        transition: 'all 0.3s ease',
+                        marginTop: '10px'
+                    }}
+                    onMouseOver={(e) => e.target.style.backgroundColor = '#4b5563'}
+                    onMouseOut={(e) => e.target.style.backgroundColor = '#6b7280'}
+                >
+                    🚪 Se déconnecter
+                </button>
+
+                {/* Informations utilisateur */}
+                <div style={{
+                    marginTop: '25px',
+                    padding: '15px',
+                    backgroundColor: '#f8fafc',
+                    borderRadius: '12px',
+                    fontSize: '12px',
+                    color: '#64748b'
+                }}>
+                    ACLEF-Pédagogie-Admin - Connecté : <strong>{user.email}</strong> ({user.prenom} {user.nom})
+                </div>
+            </div>
+        </div>
+    )
+}

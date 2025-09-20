@@ -12,30 +12,29 @@ export default function ValiderCorrections() {
 
     useEffect(() => {
         // Vérifier l'authentification et les droits admin
-        const token = localStorage.getItem('token')
-        const userData = localStorage.getItem('user')
+        const token = localStorage.getItem('quiz-admin-token')
+        const userData = localStorage.getItem('quiz-admin-user')
 
         if (!token || !userData) {
-            router.push('/login')
+            router.push('/aclef-pedagogie-admin')
             return
         }
 
         try {
             const user = JSON.parse(userData)
             setUser(user)
-            
-            // Vérifier si l'utilisateur est admin (role = 'admin')
-            // TEMPORAIRE : désactivé pour test
-            // if (user.role !== 'admin') {
-            //     alert('Accès refusé. Cette page est réservée aux administrateurs.')
-            //     router.push('/tableau-de-bord')
-            //     return
-            // }
+
+            // Vérifier si l'utilisateur est admin ou salarié
+            if (user.role !== 'admin' && user.role !== 'salarié') {
+                alert('Accès refusé. Cette page est réservée aux administrateurs et salariés.')
+                router.push('/aclef-pedagogie-admin')
+                return
+            }
 
             loadCorrections()
         } catch (error) {
             console.error('Erreur parsing user data:', error)
-            router.push('/login')
+            router.push('/aclef-pedagogie-admin')
             return
         }
 
@@ -430,7 +429,7 @@ export default function ValiderCorrections() {
                     marginTop: '30px'
                 }}>
                     <button
-                        onClick={() => router.push('/tableau-de-bord')}
+                        onClick={() => router.push('/admin/lire')}
                         style={{
                             backgroundColor: '#6b7280',
                             color: 'white',

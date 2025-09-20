@@ -10,11 +10,11 @@ export default function RegenereSyllabes() {
     const router = useRouter()
 
     useEffect(() => {
-        const token = localStorage.getItem('token')
-        const userData = localStorage.getItem('user')
+        const token = localStorage.getItem('quiz-admin-token')
+        const userData = localStorage.getItem('quiz-admin-user')
 
         if (!token || !userData) {
-            router.push('/login')
+            router.push('/aclef-pedagogie-admin')
             return
         }
 
@@ -23,7 +23,7 @@ export default function RegenereSyllabes() {
             loadTextes()
         } catch (error) {
             console.error('Erreur parsing user data:', error)
-            router.push('/login')
+            router.push('/aclef-pedagogie-admin')
             return
         }
 

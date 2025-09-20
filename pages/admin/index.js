@@ -1,78 +1,96 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
 
-export default function AdminDashboard() {
+export default function QuizzAdmin() {
     const [user, setUser] = useState(null)
     const [isLoading, setIsLoading] = useState(true)
     const router = useRouter()
 
+    // Fonction pour lire le texte avec une voix masculine
+    const lireTexte = (texte) => {
+        if ('speechSynthesis' in window) {
+            // Arrêter toute lecture en cours
+            window.speechSynthesis.cancel()
+
+            const utterance = new SpeechSynthesisUtterance(texte)
+            utterance.lang = 'fr-FR'
+            utterance.rate = 0.8
+            utterance.pitch = 0.6  // Plus grave pour une voix masculine
+
+            // Chercher une voix masculine française avec plus de critères
+            const voices = window.speechSynthesis.getVoices()
+
+            // Essayer de trouver une voix masculine spécifiquement
+            let voixMasculine = voices.find(voice =>
+                voice.lang.includes('fr') &&
+                (voice.name.toLowerCase().includes('male') ||
+                 voice.name.toLowerCase().includes('man') ||
+                 voice.name.toLowerCase().includes('homme') ||
+                 voice.name.toLowerCase().includes('masculin') ||
+                 voice.name.toLowerCase().includes('thomas') ||
+                 voice.name.toLowerCase().includes('paul') ||
+                 voice.name.toLowerCase().includes('pierre') ||
+                 voice.name.toLowerCase().includes('antoine') ||
+                 voice.name.toLowerCase().includes('nicolas'))
+            )
+
+            // Si pas trouvé, chercher les voix avec "male" dans le nom
+            if (!voixMasculine) {
+                voixMasculine = voices.find(voice =>
+                    voice.lang.includes('fr') &&
+                    voice.name.toLowerCase().includes('male')
+                )
+            }
+
+            // Si toujours pas trouvé, utiliser une voix française avec pitch plus grave
+            if (!voixMasculine) {
+                voixMasculine = voices.find(voice => voice.lang.includes('fr'))
+                utterance.pitch = 0.4  // Encore plus grave si pas de voix masculine disponible
+            }
+
+            if (voixMasculine) {
+                utterance.voice = voixMasculine
+                console.log('Voix utilisée:', voixMasculine.name)
+            }
+
+            window.speechSynthesis.speak(utterance)
+        }
+    }
+
     useEffect(() => {
-        const token = localStorage.getItem('token')
-        const userData = localStorage.getItem('user')
+        // Vérifier l'authentification admin quiz
+        const token = localStorage.getItem('quiz-admin-token')
+        const userData = localStorage.getItem('quiz-admin-user')
 
         if (!token || !userData) {
-            router.push('/login')
+            router.push('/aclef-pedagogie-admin')
             return
         }
 
         try {
-            setUser(JSON.parse(userData))
+            const parsedUser = JSON.parse(userData)
+            setUser(parsedUser)
+
+            // Vérifier si l'utilisateur est admin ou salarié
+            if (parsedUser.role !== 'admin' && parsedUser.role !== 'salarié') {
+                alert('Accès non autorisé. Cette section est réservée aux administrateurs et salariés.')
+                router.push('/aclef-pedagogie-admin')
+                return
+            }
         } catch (error) {
             console.error('Erreur parsing user data:', error)
-            router.push('/login')
+            router.push('/aclef-pedagogie-admin')
             return
         }
 
         setIsLoading(false)
     }, [router])
 
-    const adminTools = [
-        {
-            title: '🔢 Validation Syllabes-Mots',
-            description: 'Valider les corrections de classification mono/multisyllabique et autres',
-            href: '/admin/valider-corrections',
-            color: '#dc2626'
-        },
-        {
-            title: '📋 Validation Segmentation',
-            description: 'Consulter les signalements d\'erreurs de syllabification envoyés par les utilisateurs',
-            href: '/admin/signalements-syllabification',
-            color: '#f59e0b'
-        },
-        {
-            title: '🔍 Données Apprenants',
-            description: 'Visualiser les textes, groupes de sens et mots classifiés par apprenant',
-            href: '/admin/visualiser-donnees-apprenant',
-            color: '#3b82f6'
-        },
-        {
-            title: '📊 Vue Tabulaire Apprenant',
-            description: 'Vue en tableau avec colonnes: textes, groupes de sens, mono, multi',
-            href: '/admin/vue-donnees-apprenant',
-            color: '#059669'
-        },
-        {
-            title: '📊 Statistiques d\'utilisation',
-            description: 'Voir les statistiques d\'utilisation des exercices',
-            href: '#',
-            color: '#10b981',
-            disabled: true
-        },
-        {
-            title: '⚙️ Configuration système',
-            description: 'Paramétrer les options globales de l\'application',
-            href: '#',
-            color: '#6366f1',
-            disabled: true
-        },
-        {
-            title: '👥 Gestion des utilisateurs',
-            description: 'Administrer les comptes utilisateurs',
-            href: '#',
-            color: '#8b5cf6',
-            disabled: true
-        }
-    ]
+    const handleLogout = () => {
+        localStorage.removeItem('quiz-admin-token')
+        localStorage.removeItem('quiz-admin-user')
+        router.push('/aclef-pedagogie-admin')
+    }
 
     if (isLoading) {
         return (
@@ -81,174 +99,496 @@ export default function AdminDashboard() {
                 background: 'white',
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center'
+                justifyContent: 'center',
+                padding: '15px'
             }}>
-                <div style={{ color: '#f59e0b', fontSize: '18px' }}>Chargement...</div>
+                <div style={{
+                    padding: '40px',
+                    textAlign: 'center'
+                }}>
+                    <div style={{ color: '#667eea', fontSize: '18px' }}>Chargement...</div>
+                </div>
             </div>
         )
     }
 
-    if (!user) return null
+    if (!user) {
+        return null
+    }
 
     return (
         <div style={{
             minHeight: '100vh',
-            background: '#f8f9fa',
-            padding: '20px'
+            background: 'white',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '15px'
         }}>
             <div style={{
+                backgroundColor: 'white',
+                padding: 'clamp(20px, 4vw, 30px)',
                 maxWidth: '1000px',
-                margin: '0 auto'
+                width: '100%',
+                textAlign: 'center',
+                borderRadius: '20px',
+                boxShadow: '0 20px 60px rgba(0, 0, 0, 0.1)'
             }}>
+                {/* Titre */}
                 <h1 style={{
-                    fontSize: '32px',
+                    fontSize: 'clamp(22px, 5vw, 28px)',
                     fontWeight: 'bold',
                     marginBottom: '10px',
-                    color: '#333',
-                    textAlign: 'center'
+                    background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent'
                 }}>
-                    ⚡ Tableau de bord administrateur
+                    🛠️ Administration ACLEF-Pédagogie
                 </h1>
-                
+
+                {/* Message */}
                 <p style={{
-                    textAlign: 'center',
+                    fontSize: 'clamp(16px, 3vw, 18px)',
                     color: '#666',
-                    marginBottom: '40px',
-                    fontSize: '16px'
+                    marginBottom: 'clamp(20px, 5vw, 35px)',
+                    lineHeight: '1.4'
                 }}>
-                    Bonjour {user.identifiant || user.email} - Gestion et supervision de l'application ACLEF
+                    Gestion des formations et modules pédagogiques :
                 </p>
 
+                {/* Grille de boutons - Section Principale */}
                 <div style={{
                     display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
-                    gap: '20px',
-                    marginBottom: '40px'
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                    gap: 'clamp(10px, 3vw, 15px)',
+                    marginBottom: 'clamp(20px, 4vw, 30px)'
                 }}>
-                    {adminTools.map((tool, index) => (
-                        <div
-                            key={index}
-                            onClick={() => !tool.disabled && router.push(tool.href)}
+                    {/* Gérer la Formation */}
+                    <div style={{ position: 'relative', display: 'inline-block', width: '100%' }}>
+                        <button
+                            onClick={() => router.push('/admin/formation')}
                             style={{
-                                background: 'white',
-                                padding: '25px',
+                                backgroundColor: '#ef4444',
+                                color: 'white',
+                                padding: 'clamp(15px, 4vw, 20px) clamp(10px, 3vw, 15px)',
+                                border: 'none',
                                 borderRadius: '12px',
-                                boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-                                cursor: tool.disabled ? 'not-allowed' : 'pointer',
-                                opacity: tool.disabled ? 0.5 : 1,
-                                borderLeft: `4px solid ${tool.color}`,
-                                transition: 'transform 0.2s ease, box-shadow 0.2s ease',
-                                ':hover': !tool.disabled ? {
-                                    transform: 'translateY(-2px)',
-                                    boxShadow: '0 6px 20px rgba(0,0,0,0.15)'
-                                } : {}
+                                fontSize: 'clamp(13px, 3vw, 15px)',
+                                fontWeight: 'bold',
+                                cursor: 'pointer',
+                                transition: 'transform 0.2s ease',
+                                width: '100%'
                             }}
-                            onMouseEnter={(e) => {
-                                if (!tool.disabled) {
-                                    e.target.style.transform = 'translateY(-2px)'
-                                    e.target.style.boxShadow = '0 6px 20px rgba(0,0,0,0.15)'
-                                }
-                            }}
-                            onMouseLeave={(e) => {
-                                if (!tool.disabled) {
-                                    e.target.style.transform = 'translateY(0)'
-                                    e.target.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)'
-                                }
-                            }}
+                            onMouseOver={(e) => e.target.style.transform = 'translateY(-2px)'}
+                            onMouseOut={(e) => e.target.style.transform = 'translateY(0)'}
                         >
-                            <h3 style={{
-                                color: tool.color,
-                                marginBottom: '10px',
-                                fontSize: '18px',
-                                fontWeight: 'bold'
-                            }}>
-                                {tool.title}
-                                {tool.disabled && <span style={{ fontSize: '12px', marginLeft: '8px' }}>(Bientôt)</span>}
-                            </h3>
-                            <p style={{
-                                color: '#666',
-                                fontSize: '14px',
-                                lineHeight: '1.5',
-                                margin: 0
-                            }}>
-                                {tool.description}
-                            </p>
-                        </div>
-                    ))}
-                </div>
-
-                {/* Informations système */}
-                <div style={{
-                    background: 'white',
-                    padding: '20px',
-                    borderRadius: '8px',
-                    boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-                    marginBottom: '20px'
-                }}>
-                    <h3 style={{ color: '#333', marginBottom: '15px' }}>ℹ️ Informations système</h3>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '15px' }}>
-                        <div>
-                            <strong style={{ color: '#4b5563' }}>Version :</strong>
-                            <span style={{ marginLeft: '8px', color: '#6b7280' }}>1.0.0-dev</span>
-                        </div>
-                        <div>
-                            <strong style={{ color: '#4b5563' }}>Environnement :</strong>
-                            <span style={{ marginLeft: '8px', color: '#6b7280' }}>Développement</span>
-                        </div>
-                        <div>
-                            <strong style={{ color: '#4b5563' }}>Base de données :</strong>
-                            <span style={{ marginLeft: '8px', color: '#10b981' }}>✅ Connectée</span>
-                        </div>
-                        <div>
-                            <strong style={{ color: '#4b5563' }}>Dernière mise à jour :</strong>
-                            <span style={{ marginLeft: '8px', color: '#6b7280' }}>Aujourd'hui</span>
-                        </div>
+                            🎓 Gérer la Formation
+                        </button>
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation()
+                                lireTexte('Gérer la Formation')
+                            }}
+                            style={{
+                                position: 'absolute',
+                                top: '5px',
+                                right: '5px',
+                                backgroundColor: 'rgba(255,255,255,0.2)',
+                                border: 'none',
+                                borderRadius: '50%',
+                                width: '25px',
+                                height: '25px',
+                                cursor: 'pointer',
+                                fontSize: '12px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                            }}
+                            title="Écouter"
+                        >
+                            🔊
+                        </button>
                     </div>
                 </div>
 
-                {/* Navigation */}
-                <div style={{ 
-                    textAlign: 'center',
-                    display: 'flex',
-                    gap: '15px',
-                    justifyContent: 'center',
-                    flexWrap: 'wrap'
+                {/* Section Modules Pédagogiques */}
+                <h3 style={{
+                    fontSize: 'clamp(18px, 4vw, 22px)',
+                    fontWeight: 'bold',
+                    marginBottom: '15px',
+                    color: '#333',
+                    textAlign: 'center'
                 }}>
-                    <button
-                        onClick={() => router.push('/')}
-                        style={{
-                            backgroundColor: '#6b7280',
-                            color: 'white',
-                            padding: '12px 24px',
-                            border: 'none',
-                            borderRadius: '8px',
-                            cursor: 'pointer',
-                            fontSize: '14px',
-                            fontWeight: 'bold'
-                        }}
-                    >
-                        🏠 Retour à l'accueil
-                    </button>
-                    
-                    <button
-                        onClick={() => {
-                            localStorage.removeItem('token')
-                            localStorage.removeItem('user')
-                            router.push('/login')
-                        }}
-                        style={{
-                            backgroundColor: '#ef4444',
-                            color: 'white',
-                            padding: '12px 24px',
-                            border: 'none',
-                            borderRadius: '8px',
-                            cursor: 'pointer',
-                            fontSize: '14px',
-                            fontWeight: 'bold'
-                        }}
-                    >
-                        🚪 Déconnexion
-                    </button>
+                    📚 Modules Pédagogiques
+                </h3>
+
+                <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+                    gap: 'clamp(10px, 3vw, 15px)',
+                    marginBottom: 'clamp(20px, 4vw, 30px)'
+                }}>
+                    {/* Module Lire */}
+                    <div style={{ position: 'relative', display: 'inline-block', width: '100%' }}>
+                        <button
+                            onClick={() => router.push('/admin/lire')}
+                            style={{
+                                backgroundColor: '#3b82f6',
+                                color: 'white',
+                                padding: 'clamp(15px, 4vw, 20px) clamp(10px, 3vw, 15px)',
+                                border: 'none',
+                                borderRadius: '12px',
+                                fontSize: 'clamp(13px, 3vw, 15px)',
+                                fontWeight: 'bold',
+                                cursor: 'pointer',
+                                transition: 'transform 0.2s ease',
+                                width: '100%'
+                            }}
+                            onMouseOver={(e) => e.target.style.transform = 'translateY(-2px)'}
+                            onMouseOut={(e) => e.target.style.transform = 'translateY(0)'}
+                        >
+                            📖 Module Lire
+                        </button>
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation()
+                                lireTexte('Module Lire')
+                            }}
+                            style={{
+                                position: 'absolute',
+                                top: '5px',
+                                right: '5px',
+                                backgroundColor: 'rgba(255,255,255,0.2)',
+                                border: 'none',
+                                borderRadius: '50%',
+                                width: '25px',
+                                height: '25px',
+                                cursor: 'pointer',
+                                fontSize: '12px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                            }}
+                            title="Écouter"
+                        >
+                            🔊
+                        </button>
+                    </div>
+
+                    {/* Module Écrire */}
+                    <div style={{ position: 'relative', display: 'inline-block', width: '100%' }}>
+                        <button
+                            onClick={() => router.push('/admin/ecrire')}
+                            style={{
+                                backgroundColor: '#8b5cf6',
+                                color: 'white',
+                                padding: 'clamp(15px, 4vw, 20px) clamp(10px, 3vw, 15px)',
+                                border: 'none',
+                                borderRadius: '12px',
+                                fontSize: 'clamp(13px, 3vw, 15px)',
+                                fontWeight: 'bold',
+                                cursor: 'pointer',
+                                transition: 'transform 0.2s ease',
+                                width: '100%'
+                            }}
+                            onMouseOver={(e) => e.target.style.transform = 'translateY(-2px)'}
+                            onMouseOut={(e) => e.target.style.transform = 'translateY(0)'}
+                        >
+                            ✍️ Module Écrire
+                        </button>
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation()
+                                lireTexte('Module Écrire')
+                            }}
+                            style={{
+                                position: 'absolute',
+                                top: '5px',
+                                right: '5px',
+                                backgroundColor: 'rgba(255,255,255,0.2)',
+                                border: 'none',
+                                borderRadius: '50%',
+                                width: '25px',
+                                height: '25px',
+                                cursor: 'pointer',
+                                fontSize: '12px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                            }}
+                            title="Écouter"
+                        >
+                            🔊
+                        </button>
+                    </div>
+
+                    {/* Module Compter */}
+                    <div style={{ position: 'relative', display: 'inline-block', width: '100%' }}>
+                        <button
+                            onClick={() => router.push('/admin/compter')}
+                            style={{
+                                backgroundColor: '#f59e0b',
+                                color: 'white',
+                                padding: 'clamp(15px, 4vw, 20px) clamp(10px, 3vw, 15px)',
+                                border: 'none',
+                                borderRadius: '12px',
+                                fontSize: 'clamp(13px, 3vw, 15px)',
+                                fontWeight: 'bold',
+                                cursor: 'pointer',
+                                transition: 'transform 0.2s ease',
+                                width: '100%'
+                            }}
+                            onMouseOver={(e) => e.target.style.transform = 'translateY(-2px)'}
+                            onMouseOut={(e) => e.target.style.transform = 'translateY(0)'}
+                        >
+                            🔢 Module Compter
+                        </button>
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation()
+                                lireTexte('Module Compter')
+                            }}
+                            style={{
+                                position: 'absolute',
+                                top: '5px',
+                                right: '5px',
+                                backgroundColor: 'rgba(255,255,255,0.2)',
+                                border: 'none',
+                                borderRadius: '50%',
+                                width: '25px',
+                                height: '25px',
+                                cursor: 'pointer',
+                                fontSize: '12px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                            }}
+                            title="Écouter"
+                        >
+                            🔊
+                        </button>
+                    </div>
+
+                    {/* Module Code de la Route */}
+                    <div style={{ position: 'relative', display: 'inline-block', width: '100%' }}>
+                        <button
+                            onClick={() => router.push('/admin/code-route')}
+                            style={{
+                                backgroundColor: '#dc2626',
+                                color: 'white',
+                                padding: 'clamp(15px, 4vw, 20px) clamp(10px, 3vw, 15px)',
+                                border: 'none',
+                                borderRadius: '12px',
+                                fontSize: 'clamp(13px, 3vw, 15px)',
+                                fontWeight: 'bold',
+                                cursor: 'pointer',
+                                transition: 'transform 0.2s ease',
+                                width: '100%'
+                            }}
+                            onMouseOver={(e) => e.target.style.transform = 'translateY(-2px)'}
+                            onMouseOut={(e) => e.target.style.transform = 'translateY(0)'}
+                        >
+                            🚗 Code de la Route
+                        </button>
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation()
+                                lireTexte('Code de la Route')
+                            }}
+                            style={{
+                                position: 'absolute',
+                                top: '5px',
+                                right: '5px',
+                                backgroundColor: 'rgba(255,255,255,0.2)',
+                                border: 'none',
+                                borderRadius: '50%',
+                                width: '25px',
+                                height: '25px',
+                                cursor: 'pointer',
+                                fontSize: '12px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                            }}
+                            title="Écouter"
+                        >
+                            🔊
+                        </button>
+                    </div>
+
+                    {/* Module Quiz */}
+                    <div style={{ position: 'relative', display: 'inline-block', width: '100%' }}>
+                        <button
+                            onClick={() => router.push('/admin/quizz')}
+                            style={{
+                                backgroundColor: '#059669',
+                                color: 'white',
+                                padding: 'clamp(15px, 4vw, 20px) clamp(10px, 3vw, 15px)',
+                                border: 'none',
+                                borderRadius: '12px',
+                                fontSize: 'clamp(13px, 3vw, 15px)',
+                                fontWeight: 'bold',
+                                cursor: 'pointer',
+                                transition: 'transform 0.2s ease',
+                                width: '100%'
+                            }}
+                            onMouseOver={(e) => e.target.style.transform = 'translateY(-2px)'}
+                            onMouseOut={(e) => e.target.style.transform = 'translateY(0)'}
+                        >
+                            📋 Module Quiz
+                        </button>
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation()
+                                lireTexte('Module Quiz')
+                            }}
+                            style={{
+                                position: 'absolute',
+                                top: '5px',
+                                right: '5px',
+                                backgroundColor: 'rgba(255,255,255,0.2)',
+                                border: 'none',
+                                borderRadius: '50%',
+                                width: '25px',
+                                height: '25px',
+                                cursor: 'pointer',
+                                fontSize: '12px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                            }}
+                            title="Écouter"
+                        >
+                            🔊
+                        </button>
+                    </div>
+
+                    {/* Module FLE */}
+                    <div style={{ position: 'relative', display: 'inline-block', width: '100%' }}>
+                        <button
+                            onClick={() => router.push('/admin/fle')}
+                            style={{
+                                backgroundColor: '#0891b2',
+                                color: 'white',
+                                padding: 'clamp(15px, 4vw, 20px) clamp(10px, 3vw, 15px)',
+                                border: 'none',
+                                borderRadius: '12px',
+                                fontSize: 'clamp(13px, 3vw, 15px)',
+                                fontWeight: 'bold',
+                                cursor: 'pointer',
+                                transition: 'transform 0.2s ease',
+                                width: '100%'
+                            }}
+                            onMouseOver={(e) => e.target.style.transform = 'translateY(-2px)'}
+                            onMouseOut={(e) => e.target.style.transform = 'translateY(0)'}
+                        >
+                            🌍 Module FLE
+                        </button>
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation()
+                                lireTexte('Module FLE')
+                            }}
+                            style={{
+                                position: 'absolute',
+                                top: '5px',
+                                right: '5px',
+                                backgroundColor: 'rgba(255,255,255,0.2)',
+                                border: 'none',
+                                borderRadius: '50%',
+                                width: '25px',
+                                height: '25px',
+                                cursor: 'pointer',
+                                fontSize: '12px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                            }}
+                            title="Écouter"
+                        >
+                            🔊
+                        </button>
+                    </div>
+
+                    {/* Gérer les Imagiers */}
+                    <div style={{ position: 'relative', display: 'inline-block', width: '100%' }}>
+                        <button
+                            onClick={() => router.push('/admin/imagiers')}
+                            style={{
+                                backgroundColor: '#be185d',
+                                color: 'white',
+                                padding: 'clamp(15px, 4vw, 20px) clamp(10px, 3vw, 15px)',
+                                border: 'none',
+                                borderRadius: '12px',
+                                fontSize: 'clamp(13px, 3vw, 15px)',
+                                fontWeight: 'bold',
+                                cursor: 'pointer',
+                                transition: 'transform 0.2s ease',
+                                width: '100%'
+                            }}
+                            onMouseOver={(e) => e.target.style.transform = 'translateY(-2px)'}
+                            onMouseOut={(e) => e.target.style.transform = 'translateY(0)'}
+                        >
+                            🖼️ Gérer les Imagiers
+                        </button>
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation()
+                                lireTexte('Gérer les Imagiers')
+                            }}
+                            style={{
+                                position: 'absolute',
+                                top: '5px',
+                                right: '5px',
+                                backgroundColor: 'rgba(255,255,255,0.2)',
+                                border: 'none',
+                                borderRadius: '50%',
+                                width: '25px',
+                                height: '25px',
+                                cursor: 'pointer',
+                                fontSize: '12px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                            }}
+                            title="Écouter"
+                        >
+                            🔊
+                        </button>
+                    </div>
+                </div>
+
+                {/* Bouton Déconnexion */}
+                <button
+                    onClick={handleLogout}
+                    style={{
+                        backgroundColor: '#6b7280',
+                        color: 'white',
+                        padding: '12px 30px',
+                        border: 'none',
+                        borderRadius: '12px',
+                        fontSize: '14px',
+                        fontWeight: 'bold',
+                        cursor: 'pointer',
+                        transition: 'all 0.3s ease',
+                        marginTop: '10px'
+                    }}
+                    onMouseOver={(e) => e.target.style.backgroundColor = '#4b5563'}
+                    onMouseOut={(e) => e.target.style.backgroundColor = '#6b7280'}
+                >
+                    🚪 Se déconnecter
+                </button>
+
+                {/* Informations utilisateur */}
+                <div style={{
+                    marginTop: '25px',
+                    padding: '15px',
+                    backgroundColor: '#f8fafc',
+                    borderRadius: '12px',
+                    fontSize: '12px',
+                    color: '#64748b'
+                }}>
+                    Administration ACLEF-Pédagogie - Connecté : <strong>{user.email}</strong> ({user.prenom} {user.nom})
                 </div>
             </div>
         </div>

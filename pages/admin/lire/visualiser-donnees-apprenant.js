@@ -170,7 +170,7 @@ export default function VisualiserDonneesApprenant() {
 
                     <div style={{ display: 'flex', gap: '10px' }}>
                         <button
-                            onClick={() => router.push('/admin')}
+                            onClick={() => router.push('/admin/lire')}
                             style={{
                                 backgroundColor: '#6b7280',
                                 color: 'white',

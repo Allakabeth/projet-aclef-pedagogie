@@ -711,7 +711,7 @@ export default function SignalementsSyllabification() {
                     </button>
                     
                     <button
-                        onClick={() => router.push('/admin')}
+                        onClick={() => router.push('/admin/lire')}
                         style={{
                             backgroundColor: '#6b7280',
                             color: 'white',
