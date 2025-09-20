@@ -100,3 +100,18 @@ pids
 # Claude settings (sensible data)
 .claude/
 .vercel
+
+# Supabase temporary files
+supabase/.temp/
+supabase/functions/.vscode/
+
+# Environment files
+.env
+
+# Test and temporary files with potential secrets
+test-*.js
+examine-*.js
+create-tables-*.js
+execute-*.js
+*-temp.js
+*-test.js
