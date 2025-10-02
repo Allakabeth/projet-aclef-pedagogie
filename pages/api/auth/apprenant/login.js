@@ -51,10 +51,8 @@ export default async function handler(req, res) {
                 // Si un hash existe, utiliser bcrypt
                 passwordValid = await bcrypt.compare(password, apprenantExact.password_hash)
             } else {
-                // Sinon utiliser le nom de famille (normalisé)
-                const nomNormalized = normalizeText(apprenantExact.nom)
-                const passwordNormalized = normalizeText(password)
-                passwordValid = (passwordNormalized === nomNormalized)
+                // Sinon utiliser le nom de famille exact (sensible à la casse)
+                passwordValid = (password === apprenantExact.nom)
             }
             
             if (passwordValid) {
@@ -110,16 +108,12 @@ export default async function handler(req, res) {
             
             console.log(`🔐 [LOGIN-APPRENANT] ${apprenantsPotentiels.length} apprenants potentiels trouvés`)
             
-            // Vérifier si le mot de passe correspond à l'un des noms
-            const passwordNormalized = normalizeText(password)
-            
+            // Vérifier si le mot de passe correspond à l'un des noms (exact, sensible à la casse)
             for (const apprenant of apprenantsPotentiels) {
-                const nomNormalized = normalizeText(apprenant.nom)
-                
-                if (nomNormalized === passwordNormalized) {
+                if (password === apprenant.nom) {
                     // On a trouvé l'apprenant !
                     console.log(`🔐 [LOGIN-APPRENANT] Apprenant identifié: ${apprenant.prenom} ${apprenant.nom}`)
-                    
+
                     // Message d'aide intelligent
                     return res.status(401).json({
                         error: 'Identifiants incorrects',
@@ -147,7 +141,7 @@ export default async function handler(req, res) {
                         message: `L'identifiant ${identifiants[0]} existe.`,
                         suggestion: {
                             text: 'Vérifiez votre mot de passe',
-                            hint: 'Le mot de passe initial est votre nom de famille'
+                            hint: 'Le mot de passe initial est votre nom de famille (respectez les majuscules/minuscules)'
                         }
                     })
                 } else {
@@ -157,7 +151,7 @@ export default async function handler(req, res) {
                         message: `Plusieurs identifiants possibles trouvés.`,
                         suggestion: {
                             text: `Essayez avec : ${identifiants.join(', ')}`,
-                            hint: 'Utilisez votre nom de famille comme mot de passe'
+                            hint: 'Utilisez votre nom de famille comme mot de passe (respectez les majuscules/minuscules)'
                         }
                     })
                 }

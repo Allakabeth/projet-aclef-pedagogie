@@ -188,7 +188,8 @@ export default function ChangePassword() {
                             🔐 Première connexion
                         </div>
                         <div style={{ color: '#78350f' }}>
-                            Votre mot de passe actuel est votre nom de famille : <strong>{user.nom}</strong>
+                            Votre mot de passe actuel est votre nom de famille : <strong>{user.nom}</strong><br/>
+                            <small>(Respectez les majuscules et minuscules)</small>
                         </div>
                     </div>
                 )}
