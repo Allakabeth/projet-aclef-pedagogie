@@ -167,26 +167,29 @@ export default function QuizPlayerOrdering({ quiz, onComplete }) {
   }
 
   const handleValidate = () => {
-    // Vérifier si l'ordre est correct
-    let isCorrect = true
+    // Compter combien d'items sont bien placés
+    let correctCount = 0
     userOrder.forEach((item, index) => {
-      if (item.correctPosition !== index + 1) {
-        isCorrect = false
+      if (item.correctPosition === index + 1) {
+        correctCount++
       }
     })
 
-    const newScore = isCorrect ? score + 1 : score
+    const newScore = score + correctCount
 
     // Si c'est la dernière question
     if (currentQuestionIndex === quiz.quiz_data.questions.length - 1) {
       setScore(newScore)
       setIsComplete(true)
 
+      // Calculer le total possible (somme de tous les items de toutes les questions)
+      const totalItems = quiz.quiz_data.questions.reduce((sum, q) => sum + (q.items?.length || 0), 0)
+
       if (onComplete) {
         onComplete({
           score: newScore,
-          totalQuestions: quiz.quiz_data.questions.length,
-          percentage: Math.round((newScore / quiz.quiz_data.questions.length) * 100)
+          totalQuestions: totalItems,
+          percentage: Math.round((newScore / totalItems) * 100)
         })
       }
     } else {
@@ -210,8 +213,8 @@ export default function QuizPlayerOrdering({ quiz, onComplete }) {
 
   // Écran de résultats final
   if (isComplete) {
-    const totalQuestions = quiz.quiz_data.questions.length
-    const percentage = Math.round((score / totalQuestions) * 100)
+    const totalItems = quiz.quiz_data.questions.reduce((sum, q) => sum + (q.items?.length || 0), 0)
+    const percentage = Math.round((score / totalItems) * 100)
     const passed = percentage >= 50
 
     return (
@@ -254,7 +257,7 @@ export default function QuizPlayerOrdering({ quiz, onComplete }) {
               fontSize: isMobile ? '16px' : '18px',
               color: passed ? '#065f46' : '#991b1b'
             }}>
-              {score} / {totalQuestions} question{totalQuestions > 1 ? 's' : ''} correcte{score > 1 ? 's' : ''}
+              {score} / {totalItems} élément{totalItems > 1 ? 's' : ''} bien placé{score > 1 ? 's' : ''}
             </p>
           </div>
 
