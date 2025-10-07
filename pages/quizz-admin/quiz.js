@@ -102,11 +102,11 @@ export default function QuizManagement() {
   };
 
   const handleCreateQuiz = () => {
-    router.push('/admin/quiz/editor');
+    router.push('/quizz-admin/quiz/editor-advanced');
   };
 
   const handleEditQuiz = (quizId) => {
-    router.push(`/admin/quiz/editor-advanced?id=${quizId}`);
+    router.push(`/quizz-admin/quiz/editor-advanced?id=${quizId}`);
   };
 
   const handlePreviewQuiz = (quizId) => {

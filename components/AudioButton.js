@@ -48,20 +48,45 @@ const AudioButton = ({ text, audioUrl, autoPlay = false, size = 'normal', disabl
       window.speechSynthesis.cancel();
 
       const utterance = new SpeechSynthesisUtterance(text);
-      
+
       // Configuration pour francais
       utterance.lang = 'fr-FR';
       utterance.rate = 0.8; // Vitesse plus lente pour apprenants
       utterance.pitch = 1;
       utterance.volume = 1;
 
-      // Essayer de trouver une voix francaise
+      // Essayer de trouver une voix masculine française
       const voices = window.speechSynthesis.getVoices();
-      const frenchVoice = voices.find(voice => 
+
+      // Debug : afficher toutes les voix françaises disponibles
+      console.log('Voix françaises disponibles:', voices.filter(v => v.lang.includes('fr')).map(v => v.name));
+
+      // Priorité : voix masculines (Henri, Paul, Thomas)
+      const maleVoice = voices.find(voice =>
+        (voice.name.includes('Henri') || voice.name.includes('Paul') || voice.name.includes('Thomas')) &&
+        voice.lang.includes('fr')
+      );
+
+      // Sinon, chercher une autre voix française (mais pas Hortense)
+      const otherFrenchVoice = voices.find(voice =>
+        (voice.lang.includes('fr') || voice.name.includes('French')) &&
+        !voice.name.includes('Hortense')
+      );
+
+      // Fallback sur n'importe quelle voix française
+      const anyFrenchVoice = voices.find(voice =>
         voice.lang.includes('fr') || voice.name.includes('French')
       );
-      if (frenchVoice) {
-        utterance.voice = frenchVoice;
+
+      if (maleVoice) {
+        utterance.voice = maleVoice;
+        console.log('Voix utilisée:', maleVoice.name);
+      } else if (otherFrenchVoice) {
+        utterance.voice = otherFrenchVoice;
+        console.log('Voix utilisée:', otherFrenchVoice.name);
+      } else if (anyFrenchVoice) {
+        utterance.voice = anyFrenchVoice;
+        console.log('Voix utilisée (fallback):', anyFrenchVoice.name);
       }
 
       utterance.onend = () => setIsPlaying(false);

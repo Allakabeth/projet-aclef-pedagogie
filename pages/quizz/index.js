@@ -33,64 +33,23 @@ export default function QuizzHome() {
       setLoading(true);
       setError(null);
 
-      // Données temporaires en attendant la base de données
-      const tempQuizzes = [
-        {
-          id: '1',
-          title: 'Quiz de Démonstration',
-          description: 'Un quiz test pour découvrir les fonctionnalités de la plateforme',
-          quiz_data: {
-            questions: [
-              {
-                id: '1',
-                question: 'Quelle est la capitale de la France ?',
-                type: 'multiple-choice',
-                answers: ['Paris', 'Lyon', 'Marseille', 'Bordeaux'],
-                correct: 0
-              },
-              {
-                id: '2',
-                question: 'La Terre tourne autour du Soleil.',
-                type: 'true-false',
-                answers: ['Vrai', 'Faux'],
-                correct: 0
-              },
-              {
-                id: '3',
-                question: 'Combien font 2 + 2 ?',
-                type: 'multiple-choice',
-                answers: ['3', '4', '5', '6'],
-                correct: 1
-              }
-            ]
-          }
-        },
-        {
-          id: '2',
-          title: 'Quiz Culture Générale',
-          description: 'Testez vos connaissances en culture générale',
-          quiz_data: {
-            questions: [
-              {
-                id: '1',
-                question: 'Qui a peint la Joconde ?',
-                type: 'multiple-choice',
-                answers: ['Michel-Ange', 'Léonard de Vinci', 'Picasso', 'Van Gogh'],
-                correct: 1
-              },
-              {
-                id: '2',
-                question: 'L\'eau bout à 100°C.',
-                type: 'true-false',
-                answers: ['Vrai', 'Faux'],
-                correct: 0
-              }
-            ]
-          }
-        }
-      ];
+      const token = localStorage.getItem('token')
+      const userData = localStorage.getItem('user')
 
-      setQuizzes(tempQuizzes);
+      const response = await fetch('/api/quiz/assigned-to-user', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'X-User-Data': encodeURIComponent(userData)
+        }
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Erreur lors du chargement des quiz')
+      }
+
+      setQuizzes(data.quizzes || []);
     } catch (err) {
       console.error('Erreur chargement quiz:', err);
       setError('Impossible de charger les quiz. Réessayez plus tard.');
@@ -101,7 +60,7 @@ export default function QuizzHome() {
 
   const handleQuizSelect = (quizId) => {
     // Navigation vers le quiz sélectionné
-    router.push(`/quizz/quiz/${quizId}`);
+    router.push(`/quizz/play/${quizId}`);
   };
 
   const getQuestionCount = (quizData) => {
@@ -245,32 +204,50 @@ export default function QuizzHome() {
           }}>
             {quizzes.map((quiz, index) => {
               const questionCount = getQuestionCount(quiz.quiz_data);
+              const isCompleted = quiz.isCompleted;
 
               return (
                 <div
                   key={quiz.id}
                   style={{
-                    backgroundColor: '#f8fafc',
+                    backgroundColor: isCompleted ? '#f0fdf4' : '#f8fafc',
                     padding: '20px',
                     borderRadius: '12px',
-                    border: '2px solid #e2e8f0',
+                    border: `2px solid ${isCompleted ? '#86efac' : '#e2e8f0'}`,
                     transition: 'all 0.3s ease',
                     position: 'relative'
                   }}
                   onMouseOver={(e) => {
-                    e.currentTarget.style.borderColor = '#8b5cf6'
+                    e.currentTarget.style.borderColor = isCompleted ? '#4ade80' : '#8b5cf6'
                     e.currentTarget.style.transform = 'translateY(-2px)'
                   }}
                   onMouseOut={(e) => {
-                    e.currentTarget.style.borderColor = '#e2e8f0'
+                    e.currentTarget.style.borderColor = isCompleted ? '#86efac' : '#e2e8f0'
                     e.currentTarget.style.transform = 'translateY(0)'
                   }}
                 >
+                  {isCompleted && (
+                    <div style={{
+                      position: 'absolute',
+                      top: '10px',
+                      right: '10px',
+                      padding: '4px 12px',
+                      background: '#10b981',
+                      color: 'white',
+                      borderRadius: '12px',
+                      fontSize: '11px',
+                      fontWeight: 'bold'
+                    }}>
+                      ✅ Terminé
+                    </div>
+                  )}
+
                   <h3 style={{
                     fontSize: '18px',
                     fontWeight: 'bold',
                     color: '#1e293b',
-                    marginBottom: '10px'
+                    marginBottom: '10px',
+                    paddingRight: isCompleted ? '80px' : '0'
                   }}>
                     {quiz.title}
                   </h3>

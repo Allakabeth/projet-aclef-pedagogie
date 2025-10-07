@@ -18,6 +18,12 @@ const QuizPlayer = ({ quiz, onComplete }) => {
   const totalQuestions = questions.length;
   const progress = ((currentQuestionIndex + 1) / totalQuestions) * 100;
 
+  // Vérification de sécurité : s'assurer que currentQuestion.answers existe
+  if (currentQuestion && !currentQuestion.answers) {
+    console.error('Question sans réponses:', currentQuestion);
+    currentQuestion.answers = [];
+  }
+
   useEffect(() => {
     // Reset states when quiz changes
     if (quiz) {
@@ -239,7 +245,7 @@ const QuizPlayer = ({ quiz, onComplete }) => {
 
         {/* Réponses */}
         <div className={styles.answersGrid}>
-          {currentQuestion.answers.map((answer, index) => (
+          {(currentQuestion.answers || []).map((answer, index) => (
             <button
               key={answer.id}
               className={getAnswerButtonClass(answer.id)}
