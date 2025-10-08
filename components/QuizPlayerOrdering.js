@@ -10,6 +10,7 @@ export default function QuizPlayerOrdering({ quiz, onComplete }) {
   const [isComplete, setIsComplete] = useState(false)
   const [score, setScore] = useState(0)
   const [isMobile, setIsMobile] = useState(false)
+  const [userAnswers, setUserAnswers] = useState([]) // Stocker les réponses de l'utilisateur
 
   // States pour le touch drag mobile
   const [touchStartY, setTouchStartY] = useState(null)
@@ -263,6 +264,15 @@ export default function QuizPlayerOrdering({ quiz, onComplete }) {
 
     const newScore = score + correctCount
 
+    // Sauvegarder la réponse de l'utilisateur pour cette question
+    const newAnswers = [...userAnswers, {
+      questionIndex: currentQuestionIndex,
+      questionText: currentQuestion.text,
+      userOrder: [...userOrder],
+      correctOrder: getCorrectOrder()
+    }]
+    setUserAnswers(newAnswers)
+
     // Si c'est la dernière question
     if (currentQuestionIndex === quiz.quiz_data.questions.length - 1) {
       setScore(newScore)
@@ -345,6 +355,82 @@ export default function QuizPlayerOrdering({ quiz, onComplete }) {
             }}>
               {score} / {totalItems} élément{totalItems > 1 ? 's' : ''} bien placé{score > 1 ? 's' : ''}
             </p>
+          </div>
+
+          {/* Correction détaillée */}
+          <div style={{ marginBottom: '30px' }}>
+            <h2 style={{
+              fontSize: isMobile ? '20px' : '24px',
+              fontWeight: 'bold',
+              marginBottom: '20px',
+              color: '#1f2937',
+              textAlign: 'center'
+            }}>
+              📋 Correction
+            </h2>
+
+            {userAnswers.map((answer, qIndex) => (
+              <div key={qIndex} style={{
+                background: '#f8fafc',
+                borderRadius: '12px',
+                padding: isMobile ? '15px' : '20px',
+                marginBottom: '20px'
+              }}>
+                <h3 style={{
+                  fontSize: isMobile ? '16px' : '18px',
+                  fontWeight: 'bold',
+                  marginBottom: '15px',
+                  color: '#475569'
+                }}>
+                  Question {qIndex + 1}: {answer.questionText}
+                </h3>
+
+                {answer.userOrder.map((item, index) => {
+                  const isCorrect = item.correctPosition === index + 1
+                  return (
+                    <div key={item.id} style={{
+                      background: isCorrect ? '#d1fae5' : '#fee2e2',
+                      border: `2px solid ${isCorrect ? '#10b981' : '#ef4444'}`,
+                      borderRadius: '8px',
+                      padding: isMobile ? '10px' : '12px',
+                      marginBottom: '8px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px'
+                    }}>
+                      <div style={{
+                        width: '28px',
+                        height: '28px',
+                        background: isCorrect ? '#10b981' : '#ef4444',
+                        color: 'white',
+                        borderRadius: '50%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '14px',
+                        fontWeight: 'bold',
+                        flexShrink: 0
+                      }}>
+                        {index + 1}
+                      </div>
+                      <div style={{
+                        flex: 1,
+                        fontSize: isMobile ? '14px' : '16px',
+                        color: '#1f2937'
+                      }}>
+                        {item.text}
+                      </div>
+                      <div style={{
+                        fontSize: '20px',
+                        flexShrink: 0
+                      }}>
+                        {isCorrect ? '✅' : '❌'}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            ))}
           </div>
 
           {/* Bouton retour */}
