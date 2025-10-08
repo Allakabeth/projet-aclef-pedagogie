@@ -15,7 +15,7 @@ export default function QuizPlayerOrdering({ quiz, onComplete }) {
   const [touchStartY, setTouchStartY] = useState(null)
   const [touchDraggedItem, setTouchDraggedItem] = useState(null)
   const [touchDraggedIndex, setTouchDraggedIndex] = useState(null)
-  const [touchCurrentY, setTouchCurrentY] = useState(null)
+  const [touchTargetIndex, setTouchTargetIndex] = useState(null)
 
   const currentQuestion = quiz.quiz_data?.questions?.[currentQuestionIndex]
 
@@ -176,45 +176,57 @@ export default function QuizPlayerOrdering({ quiz, onComplete }) {
   const handleTouchStart = (e, item, index) => {
     const touch = e.touches[0]
     setTouchStartY(touch.clientY)
-    setTouchCurrentY(touch.clientY)
     setTouchDraggedItem(item)
     setTouchDraggedIndex(index)
+    setTouchTargetIndex(index)
   }
 
   const handleTouchMove = (e) => {
     if (touchDraggedItem === null) return
 
     const touch = e.touches[0]
-    setTouchCurrentY(touch.clientY)
 
     // Empêcher le scroll pendant le drag
     e.preventDefault()
+
+    // Trouver l'élément sous le doigt
+    const elementAtPoint = document.elementFromPoint(touch.clientX, touch.clientY)
+    if (!elementAtPoint) return
+
+    // Trouver le div parent qui contient l'attribut data-index
+    let currentElement = elementAtPoint
+    let foundIndex = null
+
+    while (currentElement && !foundIndex) {
+      const dataIndex = currentElement.getAttribute('data-item-index')
+      if (dataIndex !== null) {
+        foundIndex = parseInt(dataIndex)
+        break
+      }
+      currentElement = currentElement.parentElement
+    }
+
+    if (foundIndex !== null && foundIndex !== touchTargetIndex) {
+      setTouchTargetIndex(foundIndex)
+    }
   }
 
   const handleTouchEnd = (e) => {
     if (touchDraggedItem === null) return
 
-    // Calculer le déplacement
-    const deltaY = touchCurrentY - touchStartY
-    const itemHeight = 50 // Hauteur approximative d'un item
-    const moveCount = Math.round(deltaY / itemHeight)
-
-    if (moveCount !== 0) {
-      const newIndex = Math.max(0, Math.min(userOrder.length - 1, touchDraggedIndex + moveCount))
-
-      if (newIndex !== touchDraggedIndex) {
-        const newOrder = [...userOrder]
-        newOrder.splice(touchDraggedIndex, 1)
-        newOrder.splice(newIndex, 0, touchDraggedItem)
-        setUserOrder(newOrder)
-      }
+    // Échanger les positions si différentes
+    if (touchTargetIndex !== null && touchTargetIndex !== touchDraggedIndex) {
+      const newOrder = [...userOrder]
+      newOrder.splice(touchDraggedIndex, 1)
+      newOrder.splice(touchTargetIndex, 0, touchDraggedItem)
+      setUserOrder(newOrder)
     }
 
     // Reset des states
     setTouchStartY(null)
-    setTouchCurrentY(null)
     setTouchDraggedItem(null)
     setTouchDraggedIndex(null)
+    setTouchTargetIndex(null)
   }
 
   const handleValidate = () => {
@@ -400,9 +412,11 @@ export default function QuizPlayerOrdering({ quiz, onComplete }) {
 
           {userOrder.map((item, index) => {
             const isDragging = isMobile && touchDraggedItem?.id === item.id
+            const isTarget = isMobile && touchTargetIndex === index && touchDraggedIndex !== index
             return (
             <div
               key={item.id}
+              data-item-index={index}
               draggable={!isMobile}
               onDragStart={(e) => handleDragStart(e, item)}
               onDragOver={handleDragOver}
@@ -411,8 +425,8 @@ export default function QuizPlayerOrdering({ quiz, onComplete }) {
               onTouchMove={(e) => isMobile && handleTouchMove(e)}
               onTouchEnd={(e) => isMobile && handleTouchEnd(e)}
               style={{
-                background: 'white',
-                border: '2px solid #e5e7eb',
+                background: isTarget ? '#f3e8ff' : 'white',
+                border: `2px solid ${isTarget ? '#8b5cf6' : '#e5e7eb'}`,
                 borderRadius: '8px',
                 padding: getPadding(),
                 marginBottom: index === userOrder.length - 1 ? '0' : getMarginBottom(),
