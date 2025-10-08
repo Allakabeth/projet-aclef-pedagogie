@@ -28,18 +28,27 @@ export default function QuizPlayerOrdering({ quiz, onComplete }) {
     return () => window.removeEventListener('resize', checkMobile)
   }, [])
 
-  // Calculer la taille des éléments pour qu'ils tiennent tous sur l'écran
+  // Calculer la taille des éléments pour qu'ils remplissent TOUT l'écran
   const getItemHeight = () => {
     const itemCount = userOrder.length
+    if (itemCount === 0) return '50px'
+
     if (isMobile) {
-      // Mobile : hauteur fixe adaptative
-      if (itemCount <= 4) return '60px'
-      if (itemCount <= 6) return '50px'
-      if (itemCount <= 8) return '42px'
-      if (itemCount <= 10) return '38px'
-      return '35px'
+      // Mobile : calcul dynamique pour remplir l'écran
+      const screenHeight = window.innerHeight
+      const headerHeight = 40 // Header + margin
+      const buttonHeight = 50 // Bouton valider + margin
+      const padding = 20 // Padding container
+
+      const availableHeight = screenHeight - headerHeight - buttonHeight - padding
+      const totalMargins = (itemCount - 1) * 4 // 4px entre chaque item
+      const itemHeight = (availableHeight - totalMargins) / itemCount
+
+      // Min 30px, max 80px
+      const finalHeight = Math.max(30, Math.min(80, itemHeight))
+      return `${Math.floor(finalHeight)}px`
     } else {
-      // PC : hauteur adaptative avec clamp - optimisée pour tenir sur l'écran
+      // PC : hauteur adaptative avec clamp
       if (itemCount <= 4) return 'clamp(60px, 8vh, 90px)'
       if (itemCount <= 6) return 'clamp(50px, 7vh, 75px)'
       if (itemCount <= 8) return 'clamp(45px, 6vh, 65px)'
@@ -50,12 +59,10 @@ export default function QuizPlayerOrdering({ quiz, onComplete }) {
   }
 
   const getMarginBottom = () => {
-    const itemCount = userOrder.length
     if (isMobile) {
-      if (itemCount <= 6) return '8px'
-      if (itemCount <= 10) return '5px'
-      return '4px'
+      return '4px' // Fixe pour calcul précis
     } else {
+      const itemCount = userOrder.length
       if (itemCount <= 6) return 'clamp(6px, 0.8vh, 8px)'
       if (itemCount <= 10) return 'clamp(4px, 0.6vh, 6px)'
       return 'clamp(3px, 0.4vh, 5px)'
@@ -65,9 +72,13 @@ export default function QuizPlayerOrdering({ quiz, onComplete }) {
   const getFontSize = () => {
     const itemCount = userOrder.length
     if (isMobile) {
-      if (itemCount <= 6) return '18px'
-      if (itemCount <= 10) return '16px'
-      return '15px'
+      // Adapter la taille de police à la hauteur de l'item
+      const heightPx = parseInt(getItemHeight())
+      if (heightPx >= 70) return '20px'
+      if (heightPx >= 60) return '18px'
+      if (heightPx >= 50) return '16px'
+      if (heightPx >= 40) return '15px'
+      return '14px'
     } else {
       if (itemCount <= 6) return 'clamp(22px, 2.4vw, 28px)'
       if (itemCount <= 10) return 'clamp(20px, 2.2vw, 26px)'
@@ -79,7 +90,10 @@ export default function QuizPlayerOrdering({ quiz, onComplete }) {
   const getPadding = () => {
     const itemCount = userOrder.length
     if (isMobile) {
-      if (itemCount <= 6) return '12px'
+      // Adapter le padding à la hauteur
+      const heightPx = parseInt(getItemHeight())
+      if (heightPx >= 60) return '12px'
+      if (heightPx >= 45) return '10px'
       return '8px'
     } else {
       if (itemCount <= 6) return 'clamp(12px, 1.2vh, 15px)'
@@ -91,9 +105,12 @@ export default function QuizPlayerOrdering({ quiz, onComplete }) {
   const getBadgeSize = () => {
     const itemCount = userOrder.length
     if (isMobile) {
-      if (itemCount <= 6) return '32px'
-      if (itemCount <= 10) return '28px'
-      return '26px'
+      // Adapter le badge à la hauteur
+      const heightPx = parseInt(getItemHeight())
+      if (heightPx >= 60) return '36px'
+      if (heightPx >= 50) return '32px'
+      if (heightPx >= 40) return '28px'
+      return '24px'
     } else {
       if (itemCount <= 6) return 'clamp(42px, 5vh, 50px)'
       if (itemCount <= 10) return 'clamp(38px, 4.5vh, 46px)'
@@ -105,9 +122,12 @@ export default function QuizPlayerOrdering({ quiz, onComplete }) {
   const getBadgeFontSize = () => {
     const itemCount = userOrder.length
     if (isMobile) {
-      if (itemCount <= 6) return '15px'
-      if (itemCount <= 10) return '14px'
-      return '13px'
+      // Adapter la police du badge
+      const heightPx = parseInt(getItemHeight())
+      if (heightPx >= 60) return '16px'
+      if (heightPx >= 50) return '15px'
+      if (heightPx >= 40) return '14px'
+      return '12px'
     } else {
       if (itemCount <= 6) return 'clamp(18px, 2vh, 22px)'
       if (itemCount <= 10) return 'clamp(17px, 1.9vh, 21px)'
