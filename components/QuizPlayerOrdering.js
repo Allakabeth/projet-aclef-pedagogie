@@ -13,9 +13,9 @@ export default function QuizPlayerOrdering({ quiz, onComplete }) {
 
   // States pour le touch drag mobile
   const [touchStartY, setTouchStartY] = useState(null)
+  const [touchCurrentY, setTouchCurrentY] = useState(null)
   const [touchDraggedItem, setTouchDraggedItem] = useState(null)
   const [touchDraggedIndex, setTouchDraggedIndex] = useState(null)
-  const [touchTargetIndex, setTouchTargetIndex] = useState(null)
 
   const currentQuestion = quiz.quiz_data?.questions?.[currentQuestionIndex]
 
@@ -172,61 +172,64 @@ export default function QuizPlayerOrdering({ quiz, onComplete }) {
     setUserOrder(newOrder)
   }
 
-  // Handlers pour le touch drag mobile
+  // Handlers pour le touch drag mobile - Réorganisation en temps réel
   const handleTouchStart = (e, item, index) => {
     const touch = e.touches[0]
     setTouchStartY(touch.clientY)
+    setTouchCurrentY(touch.clientY)
     setTouchDraggedItem(item)
     setTouchDraggedIndex(index)
-    setTouchTargetIndex(index)
   }
 
   const handleTouchMove = (e) => {
-    if (touchDraggedItem === null) return
+    if (touchDraggedItem === null || touchDraggedIndex === null) return
 
     const touch = e.touches[0]
+    setTouchCurrentY(touch.clientY)
 
     // Empêcher le scroll pendant le drag
     e.preventDefault()
 
-    // Trouver l'élément sous le doigt
+    // Détecter l'élément sous le doigt
     const elementAtPoint = document.elementFromPoint(touch.clientX, touch.clientY)
     if (!elementAtPoint) return
 
-    // Trouver le div parent qui contient l'attribut data-index
+    // Trouver l'index de l'item cible
     let currentElement = elementAtPoint
-    let foundIndex = null
+    let targetIndex = null
 
-    while (currentElement && !foundIndex) {
+    while (currentElement && targetIndex === null) {
       const dataIndex = currentElement.getAttribute('data-item-index')
       if (dataIndex !== null) {
-        foundIndex = parseInt(dataIndex)
+        targetIndex = parseInt(dataIndex)
         break
       }
       currentElement = currentElement.parentElement
     }
 
-    if (foundIndex !== null && foundIndex !== touchTargetIndex) {
-      setTouchTargetIndex(foundIndex)
+    // Réorganiser en temps réel si changement détecté
+    if (targetIndex !== null && targetIndex !== touchDraggedIndex) {
+      const newOrder = [...userOrder]
+      const draggedItem = newOrder[touchDraggedIndex]
+
+      // Retirer l'item de sa position actuelle
+      newOrder.splice(touchDraggedIndex, 1)
+      // L'insérer à la nouvelle position
+      newOrder.splice(targetIndex, 0, draggedItem)
+
+      setUserOrder(newOrder)
+      setTouchDraggedIndex(targetIndex)
     }
   }
 
   const handleTouchEnd = (e) => {
     if (touchDraggedItem === null) return
 
-    // Échanger les positions si différentes
-    if (touchTargetIndex !== null && touchTargetIndex !== touchDraggedIndex) {
-      const newOrder = [...userOrder]
-      newOrder.splice(touchDraggedIndex, 1)
-      newOrder.splice(touchTargetIndex, 0, touchDraggedItem)
-      setUserOrder(newOrder)
-    }
-
     // Reset des states
     setTouchStartY(null)
+    setTouchCurrentY(null)
     setTouchDraggedItem(null)
     setTouchDraggedIndex(null)
-    setTouchTargetIndex(null)
   }
 
   const handleValidate = () => {
@@ -365,40 +368,27 @@ export default function QuizPlayerOrdering({ quiz, onComplete }) {
         display: 'flex',
         flexDirection: 'column'
       }}>
-        {/* En-tête compact */}
+        {/* En-tête minimaliste */}
         <div style={{
-          background: 'linear-gradient(135deg, #8b5cf6 0%, #a855f7 100%)',
-          padding: isMobile ? '4px 10px' : '0px clamp(10px, 1.2vh, 12px)',
+          background: '#8b5cf6',
+          padding: isMobile ? '2px 8px' : 'clamp(2px, 0.6vh, 4px) clamp(8px, 1.2vh, 12px)',
           borderRadius: '6px',
-          marginBottom: isMobile ? '6px' : 'clamp(4px, 0.6vh, 6px)',
+          marginBottom: isMobile ? '4px' : 'clamp(4px, 0.6vh, 6px)',
           flexShrink: 0,
-          height: 'fit-content'
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          minHeight: isMobile ? '32px' : 'clamp(36px, 5vh, 44px)'
         }}>
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: isMobile ? '8px' : 'clamp(10px, 1.2vh, 15px)',
-            justifyContent: 'space-between'
+          <span style={{
+            fontSize: isMobile ? '18px' : 'clamp(22px, 2.6vh, 28px)',
+            fontWeight: '600',
+            color: 'white',
+            lineHeight: '1.2',
+            textAlign: 'center'
           }}>
-            <span style={{
-              fontSize: isMobile ? '14px' : 'clamp(16px, 1.8vh, 20px)',
-              fontWeight: 'bold',
-              color: 'white',
-              lineHeight: '1'
-            }}>
-              {quiz.title}
-            </span>
-            <span style={{
-              fontSize: isMobile ? '13px' : 'clamp(14px, 1.6vh, 18px)',
-              color: 'rgba(255,255,255,0.9)',
-              lineHeight: '1'
-            }}>
-              {currentQuestion.text}
-            </span>
-            <div style={{ transform: isMobile ? 'scale(0.7)' : 'scale(0.6)', flexShrink: 0 }}>
-              <AudioButton text={currentQuestion.text} />
-            </div>
-          </div>
+            {currentQuestion.text}
+          </span>
         </div>
 
         {/* Liste des éléments à ordonner - AUCUN SCROLL */}
@@ -412,7 +402,6 @@ export default function QuizPlayerOrdering({ quiz, onComplete }) {
 
           {userOrder.map((item, index) => {
             const isDragging = isMobile && touchDraggedItem?.id === item.id
-            const isTarget = isMobile && touchTargetIndex === index && touchDraggedIndex !== index
             return (
             <div
               key={item.id}
@@ -425,20 +414,21 @@ export default function QuizPlayerOrdering({ quiz, onComplete }) {
               onTouchMove={(e) => isMobile && handleTouchMove(e)}
               onTouchEnd={(e) => isMobile && handleTouchEnd(e)}
               style={{
-                background: isTarget ? '#f3e8ff' : 'white',
-                border: `2px solid ${isTarget ? '#8b5cf6' : '#e5e7eb'}`,
+                background: 'white',
+                border: '2px solid #e5e7eb',
                 borderRadius: '8px',
                 padding: getPadding(),
                 marginBottom: index === userOrder.length - 1 ? '0' : getMarginBottom(),
                 display: 'flex',
                 alignItems: 'center',
                 gap: isMobile ? '8px' : 'clamp(8px, 1vh, 12px)',
-                cursor: isMobile ? 'grab' : 'move',
-                transition: 'all 0.2s ease',
+                cursor: isMobile ? (isDragging ? 'grabbing' : 'grab') : 'move',
+                transition: isDragging ? 'none' : 'all 0.15s ease',
                 minHeight: getItemHeight(),
                 maxHeight: getItemHeight(),
-                opacity: isDragging ? 0.5 : 1,
-                transform: isDragging ? 'scale(1.02)' : 'scale(1)'
+                opacity: isDragging ? 0.7 : 1,
+                transform: isDragging ? 'scale(1.03) rotate(2deg)' : 'scale(1)',
+                boxShadow: isDragging ? '0 8px 16px rgba(0,0,0,0.2)' : 'none'
               }}
               onMouseOver={(e) => {
                 if (!isMobile) {
