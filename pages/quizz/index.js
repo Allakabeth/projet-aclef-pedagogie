@@ -81,7 +81,7 @@ export default function QuizzHome() {
   }
 
   const handleRetourQuizz = () => {
-    router.push('/quizz')
+    router.push('/dashboard')
   }
 
   if (loading) {
@@ -339,7 +339,7 @@ export default function QuizzHome() {
           onMouseOver={(e) => e.target.style.backgroundColor = '#4b5563'}
           onMouseOut={(e) => e.target.style.backgroundColor = '#6b7280'}
         >
-          ← Retour aux quiz
+          ← Retour au menu principal
         </button>
 
         {/* Informations utilisateur */}

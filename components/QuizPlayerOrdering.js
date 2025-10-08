@@ -11,6 +11,12 @@ export default function QuizPlayerOrdering({ quiz, onComplete }) {
   const [score, setScore] = useState(0)
   const [isMobile, setIsMobile] = useState(false)
 
+  // States pour le touch drag mobile
+  const [touchStartY, setTouchStartY] = useState(null)
+  const [touchDraggedItem, setTouchDraggedItem] = useState(null)
+  const [touchDraggedIndex, setTouchDraggedIndex] = useState(null)
+  const [touchCurrentY, setTouchCurrentY] = useState(null)
+
   const currentQuestion = quiz.quiz_data?.questions?.[currentQuestionIndex]
 
   useEffect(() => {
@@ -164,6 +170,51 @@ export default function QuizPlayerOrdering({ quiz, onComplete }) {
     newOrder[index + 1] = newOrder[index]
     newOrder[index] = temp
     setUserOrder(newOrder)
+  }
+
+  // Handlers pour le touch drag mobile
+  const handleTouchStart = (e, item, index) => {
+    const touch = e.touches[0]
+    setTouchStartY(touch.clientY)
+    setTouchCurrentY(touch.clientY)
+    setTouchDraggedItem(item)
+    setTouchDraggedIndex(index)
+  }
+
+  const handleTouchMove = (e) => {
+    if (touchDraggedItem === null) return
+
+    const touch = e.touches[0]
+    setTouchCurrentY(touch.clientY)
+
+    // Empêcher le scroll pendant le drag
+    e.preventDefault()
+  }
+
+  const handleTouchEnd = (e) => {
+    if (touchDraggedItem === null) return
+
+    // Calculer le déplacement
+    const deltaY = touchCurrentY - touchStartY
+    const itemHeight = 50 // Hauteur approximative d'un item
+    const moveCount = Math.round(deltaY / itemHeight)
+
+    if (moveCount !== 0) {
+      const newIndex = Math.max(0, Math.min(userOrder.length - 1, touchDraggedIndex + moveCount))
+
+      if (newIndex !== touchDraggedIndex) {
+        const newOrder = [...userOrder]
+        newOrder.splice(touchDraggedIndex, 1)
+        newOrder.splice(newIndex, 0, touchDraggedItem)
+        setUserOrder(newOrder)
+      }
+    }
+
+    // Reset des states
+    setTouchStartY(null)
+    setTouchCurrentY(null)
+    setTouchDraggedItem(null)
+    setTouchDraggedIndex(null)
   }
 
   const handleValidate = () => {
@@ -347,13 +398,18 @@ export default function QuizPlayerOrdering({ quiz, onComplete }) {
           overflow: 'hidden'
         }}>
 
-          {userOrder.map((item, index) => (
+          {userOrder.map((item, index) => {
+            const isDragging = isMobile && touchDraggedItem?.id === item.id
+            return (
             <div
               key={item.id}
               draggable={!isMobile}
               onDragStart={(e) => handleDragStart(e, item)}
               onDragOver={handleDragOver}
               onDrop={(e) => handleDrop(e, item)}
+              onTouchStart={(e) => isMobile && handleTouchStart(e, item, index)}
+              onTouchMove={(e) => isMobile && handleTouchMove(e)}
+              onTouchEnd={(e) => isMobile && handleTouchEnd(e)}
               style={{
                 background: 'white',
                 border: '2px solid #e5e7eb',
@@ -363,10 +419,12 @@ export default function QuizPlayerOrdering({ quiz, onComplete }) {
                 display: 'flex',
                 alignItems: 'center',
                 gap: isMobile ? '8px' : 'clamp(8px, 1vh, 12px)',
-                cursor: isMobile ? 'default' : 'move',
+                cursor: isMobile ? 'grab' : 'move',
                 transition: 'all 0.2s ease',
                 minHeight: getItemHeight(),
-                maxHeight: getItemHeight()
+                maxHeight: getItemHeight(),
+                opacity: isDragging ? 0.5 : 1,
+                transform: isDragging ? 'scale(1.02)' : 'scale(1)'
               }}
               onMouseOver={(e) => {
                 if (!isMobile) {
@@ -418,45 +476,26 @@ export default function QuizPlayerOrdering({ quiz, onComplete }) {
                 <AudioButton text={item.text} />
               </div>
 
-              {/* Boutons de déplacement (mobile) */}
+              {/* Icône drag (mobile) */}
               {isMobile && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                  <button
-                    onClick={() => moveUp(index)}
-                    disabled={index === 0}
-                    style={{
-                      padding: '4px 8px',
-                      background: index === 0 ? '#e5e7eb' : '#3b82f6',
-                      color: index === 0 ? '#9ca3af' : 'white',
-                      border: 'none',
-                      borderRadius: '4px',
-                      cursor: index === 0 ? 'not-allowed' : 'pointer',
-                      fontSize: '10px',
-                      lineHeight: '1'
-                    }}
-                  >
-                    ▲
-                  </button>
-                  <button
-                    onClick={() => moveDown(index)}
-                    disabled={index === userOrder.length - 1}
-                    style={{
-                      padding: '4px 8px',
-                      background: index === userOrder.length - 1 ? '#e5e7eb' : '#3b82f6',
-                      color: index === userOrder.length - 1 ? '#9ca3af' : 'white',
-                      border: 'none',
-                      borderRadius: '4px',
-                      cursor: index === userOrder.length - 1 ? 'not-allowed' : 'pointer',
-                      fontSize: '10px',
-                      lineHeight: '1'
-                    }}
-                  >
-                    ▼
-                  </button>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: '30px',
+                  height: '30px',
+                  color: '#8b5cf6',
+                  fontSize: '20px',
+                  cursor: 'grab',
+                  userSelect: 'none',
+                  touchAction: 'none'
+                }}>
+                  ⋮⋮
                 </div>
               )}
             </div>
-          ))}
+          )
+        })}
         </div>
 
         {/* Bouton valider */}
