@@ -24,6 +24,9 @@ export default async function handler(req, res) {
             return res.status(401).json({ error: 'Token invalide' })
         }
 
+        // Récupérer l'ID de l'apprenant depuis le token
+        const apprenantId = decoded.apprenant_id || decoded.id
+
         // Déterminer les IDs de textes à traiter
         let textesIds = []
         
@@ -44,7 +47,7 @@ export default async function handler(req, res) {
                     .select('mot')
                     .eq('classification', 'multi')
                     .eq('texte_reference_id', texteId)
-                    .eq('apprenant_id', decoded.userId)
+                    .eq('apprenant_id', apprenantId)
                     .eq('valide_par_admin', false)
                 
                 if (texteError) {
@@ -90,7 +93,7 @@ export default async function handler(req, res) {
             .in('texte_reference_id', textesIds)
             .eq('classification', 'multi')
             .eq('valide_par_admin', false)
-            .eq('apprenant_id', decoded.userId)
+            .eq('apprenant_id', apprenantId)
 
         if (texteError) {
             console.error('Erreur récupération mots textes:', texteError)
@@ -112,7 +115,7 @@ export default async function handler(req, res) {
                 .in('texte_reference_id', textesIds)
                 .eq('classification', 'multi')
                 .eq('valide_par_admin', false)
-                .eq('apprenant_id', decoded.userId)
+                .eq('apprenant_id', apprenantId)
 
             if (nonValidesError) {
                 console.error('Erreur récupération mots non validés:', nonValidesError)
