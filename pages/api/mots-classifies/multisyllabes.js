@@ -26,6 +26,8 @@ export default async function handler(req, res) {
 
         // Récupérer l'ID de l'apprenant depuis le token
         const apprenantId = decoded.apprenant_id || decoded.id
+        console.log(`🔍 [MULTISYLLABES] Apprenant ID: ${apprenantId}`)
+        console.log(`🔍 [MULTISYLLABES] Token decoded:`, JSON.stringify(decoded, null, 2))
 
         // Déterminer les IDs de textes à traiter
         let textesIds = []
@@ -71,36 +73,32 @@ export default async function handler(req, res) {
             textesIds = bodyTextesIds
         }
 
-        console.log(`Récupération multisyllabes validés pour textes ${textesIds.join(', ')}`)
+        console.log(`🔍 [MULTISYLLABES] Récupération multisyllabes pour textes ${textesIds.join(', ')}`)
 
-        // 1. D'ABORD : Récupérer les multisyllabes VALIDÉS PAR ADMIN (priorité absolue)
-        const { data: multisyllabesValides, error: validesError } = await supabase
-            .from('mots_classifies')
-            .select('mot')
-            .eq('classification', 'multi')
-            .eq('valide_par_admin', true)
-
+        // DÉSACTIVÉ : Les corrections centralisées ne sont pas pertinentes pour la segmentation syllabique
+        // L'apprenant doit segmenter uniquement les mots de son propre texte
         let multisyllabesCentralises = []
-        if (!validesError && multisyllabesValides) {
-            multisyllabesCentralises = multisyllabesValides.map(m => m.mot)
-            console.log(`✅ ${multisyllabesCentralises.length} multisyllabes centralisés (validés admin) trouvés`)
-        }
+        console.log(`⚠️ [MULTISYLLABES] Corrections centralisées désactivées pour segmentation syllabique`)
 
         // 2. ENSUITE : Récupérer les mots classifiés comme multisyllabes pour ces textes
+        console.log(`🔍 [MULTISYLLABES] Requête mots apprenant - texteIds: ${textesIds.join(', ')}, apprenantId: ${apprenantId}`)
         const { data: motsValidesData, error: texteError } = await supabase
             .from('mots_classifies')
-            .select('mot')
+            .select('mot, texte_reference_id, apprenant_id')
             .in('texte_reference_id', textesIds)
             .eq('classification', 'multi')
             .eq('valide_par_admin', false)
             .eq('apprenant_id', apprenantId)
 
         if (texteError) {
-            console.error('Erreur récupération mots textes:', texteError)
+            console.error('❌ [MULTISYLLABES] Erreur récupération mots textes:', texteError)
+        } else {
+            console.log(`🔍 [MULTISYLLABES] Données récupérées:`, JSON.stringify(motsValidesData, null, 2))
         }
 
         const motsTextes = motsValidesData?.map(row => row.mot) || []
-        console.log(`${motsTextes.length} multisyllabes des textes trouvés`)
+        console.log(`✅ [MULTISYLLABES] ${motsTextes.length} multisyllabes de l'apprenant ${apprenantId} pour texte(s) ${textesIds.join(', ')}`)
+        console.log(`🔍 [MULTISYLLABES] Mots trouvés:`, motsTextes)
 
         // FUSIONNER : Corrections centralisées + mots des textes (centralisées en priorité)
         let multisyllabes = [...multisyllabesCentralises, ...motsTextes]
@@ -137,14 +135,16 @@ export default async function handler(req, res) {
         // Éliminer les doublons et trier
         const multisyllabesUniques = [...new Set(multisyllabes)].sort()
 
-        console.log(`✅ ${multisyllabesUniques.length} multisyllabes uniques retournés`)
-        
+        console.log(`✅ [MULTISYLLABES] ${multisyllabesUniques.length} multisyllabes uniques retournés`)
+        console.log(`🔍 [MULTISYLLABES] Liste finale:`, multisyllabesUniques)
+        console.log(`📊 [MULTISYLLABES] Stats - Centralisés: ${multisyllabesCentralises.length}, Apprenant: ${motsTextes.length}, Total unique: ${multisyllabesUniques.length}`)
+
         // Format compatible avec l'interface mes-syllabes
         const motsFormatted = multisyllabesUniques.map((mot, index) => ({
             id: index,
             contenu: mot
         }))
-        
+
         res.status(200).json({
             success: true,
             mots: motsFormatted,

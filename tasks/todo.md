@@ -1,4 +1,459 @@
-# PLAN : Interface Admin - Gestion Module Code de la Route
+# 🎓 TODO : Module "Gérer la Formation" Complet
+
+**Date de création** : 10 octobre 2025
+**Objectif** : Créer un système complet de gestion pédagogique du début à la fin
+
+---
+
+## 🎯 Vue d'Ensemble du Besoin
+
+### Parcours Complet
+```
+POSITIONNEMENT
+    ↓
+PLAN DE FORMATION (Référentiels)
+    ↓
+CRÉATION EXERCICES
+    ↓
+ATTRIBUTION INDIVIDUALISÉE
+    ↓
+SUIVI STATISTIQUE & PÉDAGOGIQUE
+    ↓
+BILAN À TOUT MOMENT
+```
+
+---
+
+## ❓ Questions Critiques à Répondre AVANT de Commencer
+
+### 1️⃣ Référentiels Existants
+**Question** : Avez-vous déjà des référentiels de formation existants à intégrer ?
+- [ ] Référentiel CléA (socle de compétences)
+- [ ] Référentiel FLE (A1, A2, B1, B2)
+- [ ] Référentiels internes ACLEF
+- [ ] Autre : ________________
+- [ ] Non, partir de zéro
+
+**Si oui, format** :
+- [ ] PDF (à intégrer manuellement)
+- [ ] Excel/CSV (à importer)
+- [ ] Autre
+
+---
+
+### 2️⃣ Positionnement Initial
+
+**Question** : Comment souhaitez-vous réaliser les positionnements ?
+
+**Option A - Évaluation manuelle formateur**
+- Formateur remplit un formulaire par domaine
+- Échelle de notation (1-5 ou A1-C2)
+- Zone commentaires libre
+
+**Option B - Tests automatiques**
+- Batterie de tests intégrés dans l'application
+- Scoring automatique
+- Génération rapport de positionnement
+
+**Option C - Hybride**
+- Tests automatiques + Évaluation formateur
+- Synthèse des deux sources
+
+**Votre choix** : _____________
+
+---
+
+### 3️⃣ Exercices
+
+**Question** : Faut-il créer de nouveaux types d'exercices ou réutiliser l'existant ?
+
+**Modules existants à réutiliser** :
+- [ ] 📋 Quiz (choix multiple, matching, ordering, numérique)
+- [ ] 📖 Lire (segmentation, syllabes, compréhension)
+- [ ] ✍️ Écrire (dictée, production écrite)
+- [ ] 🔢 Compter (calcul, problèmes)
+- [ ] 🚗 Code de la Route (vocabulaire)
+- [ ] 🖼️ Imagiers
+
+**Nouveaux types nécessaires** :
+- [ ] Autre : ________________
+
+**Votre choix** : _____________
+
+---
+
+### 4️⃣ Bilans
+
+**Question** : Quel(s) format(s) pour les bilans ?
+
+- [ ] PDF uniquement (lecture seule)
+- [ ] PDF + Impression
+- [ ] Export Word modifiable
+- [ ] Export Excel (données brutes)
+- [ ] HTML (consultation en ligne)
+
+**Votre choix** : _____________
+
+---
+
+### 5️⃣ Ordre de Développement
+
+**Question** : Par quel module commencer ?
+
+**Option A - Logique chronologique**
+```
+1. Positionnement (évaluation initiale)
+2. Plans de formation (définir objectifs)
+3. Exercices (création et attribution)
+4. Suivi (statistiques et résultats)
+5. Bilans (synthèse)
+```
+
+**Option B - Logique pratique**
+```
+1. Plans de formation (structure de base)
+2. Exercices (création et attribution)
+3. Suivi (voir les résultats)
+4. Positionnement (évaluation)
+5. Bilans (synthèse)
+```
+
+**Option C - MVP rapide**
+```
+1. Plans de formation basiques
+2. Attribution exercices existants
+3. Suivi simple
+(puis enrichir progressivement)
+```
+
+**Votre choix** : _____________
+
+---
+
+### 6️⃣ Données Existantes
+
+**Question** : Y a-t-il des données de formation déjà en base à migrer ?
+
+- [ ] Oui, positionnements existants (format : ________)
+- [ ] Oui, plans de formation existants (format : ________)
+- [ ] Oui, exercices attribués (format : ________)
+- [ ] Oui, résultats d'exercices (format : ________)
+- [ ] Non, c'est un nouveau système
+
+**Si oui, détails** : _____________
+
+---
+
+### 7️⃣ Niveau de Granularité
+
+**Question** : Niveau de détail souhaité pour les compétences ?
+
+**Granularité Fine (détaillée)** :
+```
+Exemple Lecture :
+├─ Reconnaissance lettres
+│  ├─ Lettres majuscules
+│  ├─ Lettres minuscules
+│  └─ Lettres cursives
+├─ Syllabes simples (CV)
+├─ Syllabes complexes (CVC, CCV)
+└─ Lecture mots
+   ├─ Mots 1 syllabe
+   ├─ Mots 2 syllabes
+   └─ Mots 3+ syllabes
+```
+
+**Granularité Large (globale)** :
+```
+Exemple Lecture :
+├─ Déchiffrage
+├─ Lecture courante
+└─ Compréhension
+```
+
+**Votre choix** : _____________
+
+---
+
+### 8️⃣ Interface Apprenant
+
+**Question** : Les apprenants doivent-ils avoir accès à leur propre suivi ?
+
+- [ ] Oui, consultation complète (plan, exercices, résultats, bilans)
+- [ ] Oui, consultation partielle (uniquement exercices et résultats)
+- [ ] Non, réservé aux formateurs/admin
+
+**Votre choix** : _____________
+
+---
+
+## 📊 Architecture Proposée (selon vos réponses)
+
+### Base de Données (Tables Supabase à créer)
+
+```sql
+-- 1. POSITIONNEMENTS
+CREATE TABLE positionnements (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    apprenant_id UUID REFERENCES users(id),
+    date_positionnement TIMESTAMP DEFAULT NOW(),
+    statut TEXT DEFAULT 'en_cours', -- en_cours, terminé, validé
+    commentaires_generaux TEXT,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- 2. RÉSULTATS POSITIONNEMENT
+CREATE TABLE resultats_positionnement (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    positionnement_id UUID REFERENCES positionnements(id) ON DELETE CASCADE,
+    domaine TEXT, -- lire, écrire, compter, fle
+    sous_domaine TEXT,
+    niveau_acquis INTEGER, -- 1-5 ou échelle adaptée
+    niveau_cible INTEGER,
+    observations TEXT,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- 3. RÉFÉRENTIELS DE FORMATION
+CREATE TABLE referentiels (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    nom TEXT NOT NULL,
+    description TEXT,
+    domaine TEXT, -- lire, écrire, compter, fle, code-route
+    niveau TEXT, -- débutant, intermédiaire, avancé
+    objectifs JSONB,
+    duree_estimee INTEGER, -- en heures
+    ordre INTEGER,
+    actif BOOLEAN DEFAULT true,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- 4. COMPÉTENCES
+CREATE TABLE competences (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    referentiel_id UUID REFERENCES referentiels(id) ON DELETE CASCADE,
+    code TEXT NOT NULL, -- ex: LIRE-SYL-01
+    intitule TEXT NOT NULL,
+    description TEXT,
+    prerequis TEXT[], -- codes compétences prérequises
+    niveau_difficulte INTEGER, -- 1-5
+    ordre INTEGER,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- 5. PLANS DE FORMATION
+CREATE TABLE plans_formation (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    apprenant_id UUID REFERENCES users(id),
+    date_debut DATE,
+    date_fin_prevue DATE,
+    statut TEXT DEFAULT 'en_cours', -- en_cours, terminé, abandonné
+    objectif_principal TEXT,
+    positionnement_id UUID REFERENCES positionnements(id),
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- 6. COMPÉTENCES DU PLAN
+CREATE TABLE plan_competences (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    plan_id UUID REFERENCES plans_formation(id) ON DELETE CASCADE,
+    competence_id UUID REFERENCES competences(id),
+    priorite INTEGER, -- 1=haute, 2=moyenne, 3=basse
+    statut TEXT DEFAULT 'a_faire', -- a_faire, en_cours, acquis, non_acquis
+    date_attribution DATE DEFAULT CURRENT_DATE,
+    date_acquis DATE,
+    taux_reussite DECIMAL(5,2),
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- 7. EXERCICES FORMATION
+CREATE TABLE exercices_formation (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    titre TEXT NOT NULL,
+    description TEXT,
+    type TEXT, -- quiz, lire, ecrire, compter, code-route
+    competence_id UUID REFERENCES competences(id),
+    contenu JSONB,
+    niveau_difficulte INTEGER,
+    duree_estimee INTEGER, -- en minutes
+    consignes TEXT,
+    correction_auto BOOLEAN DEFAULT true,
+    actif BOOLEAN DEFAULT true,
+    created_by UUID REFERENCES users(id),
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- 8. ATTRIBUTIONS EXERCICES
+CREATE TABLE attributions_exercices (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    apprenant_id UUID REFERENCES users(id),
+    exercice_id UUID REFERENCES exercices_formation(id),
+    plan_id UUID REFERENCES plans_formation(id),
+    date_attribution TIMESTAMP DEFAULT NOW(),
+    date_limite DATE,
+    statut TEXT DEFAULT 'attribue', -- attribue, commence, termine
+    obligatoire BOOLEAN DEFAULT true,
+    ordre INTEGER,
+    created_by UUID REFERENCES users(id),
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- 9. RÉSULTATS EXERCICES
+CREATE TABLE resultats_exercices (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    attribution_id UUID REFERENCES attributions_exercices(id),
+    apprenant_id UUID REFERENCES users(id),
+    exercice_id UUID REFERENCES exercices_formation(id),
+    date_debut TIMESTAMP,
+    date_fin TIMESTAMP,
+    score DECIMAL(5,2), -- sur 100
+    reponses JSONB,
+    temps_passe INTEGER, -- en secondes
+    nombre_tentatives INTEGER DEFAULT 1,
+    statut TEXT DEFAULT 'en_cours', -- en_cours, reussi, echec
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- 10. SUIVIS PÉDAGOGIQUES
+CREATE TABLE suivis_pedagogiques (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    apprenant_id UUID REFERENCES users(id),
+    plan_id UUID REFERENCES plans_formation(id),
+    date_suivi TIMESTAMP DEFAULT NOW(),
+    type TEXT, -- entretien, observation, evaluation
+    observations TEXT,
+    points_forts TEXT[],
+    points_amelioration TEXT[],
+    actions_prevues TEXT[],
+    formateur_id UUID REFERENCES users(id),
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- 11. BILANS
+CREATE TABLE bilans (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    apprenant_id UUID REFERENCES users(id),
+    plan_id UUID REFERENCES plans_formation(id),
+    date_bilan DATE DEFAULT CURRENT_DATE,
+    type TEXT, -- intermediaire, final, personnalise
+    periode_debut DATE,
+    periode_fin DATE,
+    donnees_statistiques JSONB,
+    synthese TEXT,
+    competences_acquises TEXT[],
+    competences_en_cours TEXT[],
+    recommandations TEXT,
+    genere_par UUID REFERENCES users(id),
+    created_at TIMESTAMP DEFAULT NOW()
+);
+```
+
+---
+
+## 🏗️ Structure des Pages (à créer)
+
+```
+📂 admin/formation/
+├── index.js                              # Dashboard Formation
+├── 📂 positionnements/
+│   ├── index.js                          # Liste
+│   ├── nouveau.js                        # Créer
+│   └── [id].js                           # Détail/Modifier
+├── 📂 referentiels/
+│   ├── index.js                          # Liste
+│   ├── nouveau.js                        # Créer
+│   ├── [id].js                           # Détail
+│   └── competences.js                    # Gestion
+├── 📂 plans/
+│   ├── index.js                          # Liste
+│   ├── nouveau.js                        # Créer (assistant)
+│   ├── [id].js                           # Détail
+│   └── assigner-competences.js           # Attribution
+├── 📂 exercices/
+│   ├── index.js                          # Bibliothèque
+│   ├── nouveau.js                        # Créer
+│   ├── [id].js                           # Modifier
+│   └── attribuer.js                      # Attribution
+├── 📂 suivi/
+│   ├── index.js                          # Vue d'ensemble
+│   ├── [apprenantId].js                  # Suivi individuel
+│   ├── statistiques.js                   # Stats globales
+│   └── observations.js                   # Saisie observations
+└── 📂 bilans/
+    ├── index.js                          # Liste
+    ├── generer.js                        # Générer
+    └── [id].js                           # Consulter
+```
+
+---
+
+## 📅 Plan d'Implémentation (estimations)
+
+### Phase 1 : Fondations (1-2 semaines)
+- [ ] Créer tables Supabase
+- [ ] Structure pages `/admin/formation/`
+- [ ] Endpoints API de base
+- [ ] Composants réutilisables
+
+### Phase 2 : Positionnements (3-4 jours)
+- [ ] Pages positionnements
+- [ ] APIs positionnements
+
+### Phase 3 : Référentiels & Compétences (5-7 jours)
+- [ ] Pages référentiels
+- [ ] Gestion compétences
+- [ ] Système prérequis
+
+### Phase 4 : Plans de Formation (1 semaine)
+- [ ] Pages plans
+- [ ] Assistant création
+- [ ] Système suggestions
+
+### Phase 5 : Exercices (1 semaine)
+- [ ] Bibliothèque exercices
+- [ ] Attribution individualisée
+
+### Phase 6 : Suivi & Résultats (1 semaine)
+- [ ] Dashboard suivi
+- [ ] Statistiques
+- [ ] Graphiques
+
+### Phase 7 : Bilans (3-4 jours)
+- [ ] Générateur bilans
+- [ ] Templates PDF
+
+### Phase 8 : Interface Apprenant (3-4 jours)
+- [ ] Pages côté apprenant
+
+### Phase 9 : Finitions (5-7 jours)
+- [ ] Tests
+- [ ] Documentation
+
+**DURÉE TOTALE ESTIMÉE** : 6-8 semaines
+
+---
+
+## 🎯 Prochaine Étape
+
+**VEUILLEZ RÉPONDRE AUX 8 QUESTIONS CI-DESSUS**
+
+Une fois vos réponses fournies, je créerai un plan détaillé personnalisé avec :
+- Architecture adaptée à vos besoins
+- Ordre de développement optimal
+- Liste précise des fichiers à créer
+- Timeline détaillée
+
+---
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+# ✅ HISTORIQUE : Modules Précédents (Terminés)
+
+## PLAN : Interface Admin - Gestion Module Code de la Route
 
 ## Analyse de l'existant
 

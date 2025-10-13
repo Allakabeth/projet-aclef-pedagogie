@@ -125,6 +125,26 @@ export default function Dashboard() {
                     </button>
 
                     <button
+                        onClick={() => router.push('/exercices/mes-exercices')}
+                        style={{
+                            backgroundColor: '#4f46e5',
+                            color: 'white',
+                            padding: 'clamp(15px, 4vw, 20px) clamp(10px, 3vw, 15px)',
+                            borderRadius: '15px',
+                            border: 'none',
+                            fontSize: 'clamp(14px, 3vw, 16px)',
+                            fontWeight: 'bold',
+                            cursor: 'pointer',
+                            boxShadow: '0 4px 15px rgba(79, 70, 229, 0.3)',
+                            transition: 'transform 0.2s ease'
+                        }}
+                        onMouseOver={(e) => e.target.style.transform = 'translateY(-2px)'}
+                        onMouseOut={(e) => e.target.style.transform = 'translateY(0)'}
+                    >
+                        📝 Mes Exercices
+                    </button>
+
+                    <button
                         onClick={() => router.push('/lire')}
                         style={{
                             backgroundColor: '#10b981',

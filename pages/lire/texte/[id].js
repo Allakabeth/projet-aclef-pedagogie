@@ -340,6 +340,61 @@ export default function VoirTexte() {
         lireTexte(texteComplet, 'all')
     }
 
+    const printText = () => {
+        const printContent = `
+            <html>
+                <head>
+                    <title>${texte?.titre || 'Texte de référence'}</title>
+                    <style>
+                        body {
+                            font-family: ${textFont}, Arial, sans-serif;
+                            font-size: 16px;
+                            line-height: 1.6;
+                            margin: 20px;
+                            color: #333;
+                        }
+                        .text-group {
+                            background: #f8f9fa;
+                            border: 2px solid #dee2e6;
+                            border-radius: 8px;
+                            padding: 15px;
+                            margin-bottom: 15px;
+                            min-height: 40px;
+                            display: flex;
+                            align-items: center;
+                        }
+                        .title {
+                            font-size: 24px;
+                            font-weight: bold;
+                            text-align: center;
+                            margin-bottom: 30px;
+                            color: #333;
+                        }
+                        @media print {
+                            body { margin: 15px; }
+                            .text-group {
+                                break-inside: avoid;
+                                page-break-inside: avoid;
+                            }
+                        }
+                    </style>
+                </head>
+                <body>
+                    <div class="title">${texte?.titre || 'Texte de référence'}</div>
+                    ${groupesSens.map(groupe =>
+                        groupe.contenu && groupe.contenu.trim() ?
+                            `<div class="text-group">${groupe.contenu.trim()}</div>` : ''
+                    ).join('')}
+                </body>
+            </html>
+        `
+
+        const printWindow = window.open('', '_blank')
+        printWindow.document.write(printContent)
+        printWindow.document.close()
+        printWindow.print()
+    }
+
     if (isLoading) {
         return (
             <div style={{
@@ -716,23 +771,40 @@ export default function VoirTexte() {
                     >
                         ← Retour à mes textes
                     </button>
-                    
+
                     {texte && (
-                        <button
-                            onClick={() => router.push(`/lire/modifier-texte/${texte.id}`)}
-                            style={{
-                                backgroundColor: '#10b981',
-                                color: 'white',
-                                padding: '12px 20px',
-                                border: 'none',
-                                borderRadius: '8px',
-                                fontSize: '14px',
-                                fontWeight: 'bold',
-                                cursor: 'pointer'
-                            }}
-                        >
-                            ✏️ Modifier ce texte
-                        </button>
+                        <>
+                            <button
+                                onClick={printText}
+                                style={{
+                                    backgroundColor: '#8b5cf6',
+                                    color: 'white',
+                                    padding: '12px 20px',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    fontSize: '14px',
+                                    fontWeight: 'bold',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                🖨️ Imprimer
+                            </button>
+                            <button
+                                onClick={() => router.push(`/lire/modifier-texte/${texte.id}`)}
+                                style={{
+                                    backgroundColor: '#10b981',
+                                    color: 'white',
+                                    padding: '12px 20px',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    fontSize: '14px',
+                                    fontWeight: 'bold',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                ✏️ Modifier ce texte
+                            </button>
+                        </>
                     )}
                 </div>
             </div>
