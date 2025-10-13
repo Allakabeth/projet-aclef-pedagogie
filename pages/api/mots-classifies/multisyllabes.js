@@ -90,6 +90,7 @@ export default async function handler(req, res) {
             .in('texte_reference_id', textesIds)
             .eq('classification', 'multi')
             .eq('valide_par_admin', false)
+            .eq('apprenant_id', decoded.userId)
 
         if (texteError) {
             console.error('Erreur récupération mots textes:', texteError)
@@ -111,6 +112,7 @@ export default async function handler(req, res) {
                 .in('texte_reference_id', textesIds)
                 .eq('classification', 'multi')
                 .eq('valide_par_admin', false)
+                .eq('apprenant_id', decoded.userId)
 
             if (nonValidesError) {
                 console.error('Erreur récupération mots non validés:', nonValidesError)
