@@ -74,7 +74,11 @@ export default function VoirTexte() {
 
     // Fonctions de gestion du cache audio
     const getCacheKey = (text, voiceId) => {
-        return `elevenlabs_${voiceId}_${btoa(text).substring(0, 50)}`
+        // Hash simple du texte qui supporte tous les caractères Unicode (accents majuscules/minuscules)
+        const hash = text.split('').reduce((acc, char) => {
+            return ((acc << 5) - acc) + char.charCodeAt(0)
+        }, 0)
+        return `elevenlabs_${voiceId}_${text.length}_${Math.abs(hash)}`
     }
 
     const getCachedAudio = (text, voiceId) => {
