@@ -20,6 +20,14 @@ export default function VoirTexte() {
     const [audioCache, setAudioCache] = useState({})
     const [textFont, setTextFont] = useState('Comic Sans MS')
     const [textSize, setTextSize] = useState('22')
+
+    // États pour l'enregistrement vocal
+    const [recordings, setRecordings] = useState({}) // {groupe_id: {audio_data, duree}}
+    const [isRecording, setIsRecording] = useState(null) // ID du groupe en cours d'enregistrement
+    const [mediaRecorder, setMediaRecorder] = useState(null)
+    const [recordingChunks, setRecordingChunks] = useState([])
+    const [playingRecording, setPlayingRecording] = useState(null) // ID du groupe en cours de lecture
+
     const router = useRouter()
     const { id } = router.query
 
@@ -57,6 +65,7 @@ export default function VoirTexte() {
     useEffect(() => {
         if (id && !isLoading) {
             loadTexte()
+            loadRecordings()
         }
     }, [id, isLoading])
 
@@ -144,6 +153,187 @@ export default function VoirTexte() {
             router.push('/lire/voir-mes-textes')
         } finally {
             setIsLoadingTexte(false)
+        }
+    }
+
+    // Charger les enregistrements depuis l'API
+    const loadRecordings = async () => {
+        if (!id) return
+
+        try {
+            const token = localStorage.getItem('token')
+            const response = await fetch(`/api/audio/get-recordings?texte_id=${id}`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            })
+
+            if (response.ok) {
+                const data = await response.json()
+                const recordingsMap = {}
+                data.enregistrements.forEach(rec => {
+                    recordingsMap[rec.groupe_sens_id] = {
+                        audio_data: rec.audio_data,
+                        duree: rec.duree_secondes
+                    }
+                })
+                setRecordings(recordingsMap)
+                console.log(`📼 ${data.count} enregistrements chargés`)
+            }
+        } catch (error) {
+            console.error('Erreur chargement enregistrements:', error)
+        }
+    }
+
+    // Démarrer l'enregistrement
+    const startRecording = async (groupeId) => {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+            const recorder = new MediaRecorder(stream)
+            const chunks = []
+
+            recorder.ondataavailable = (e) => {
+                if (e.data.size > 0) {
+                    chunks.push(e.data)
+                }
+            }
+
+            recorder.onstop = async () => {
+                const blob = new Blob(chunks, { type: 'audio/webm' })
+                const reader = new FileReader()
+
+                reader.onloadend = async () => {
+                    const base64Audio = reader.result
+                    await saveRecording(groupeId, base64Audio, blob.size / 1000) // durée approximative
+                }
+
+                reader.readAsDataURL(blob)
+                stream.getTracks().forEach(track => track.stop())
+            }
+
+            recorder.start()
+            setMediaRecorder(recorder)
+            setRecordingChunks(chunks)
+            setIsRecording(groupeId)
+            console.log('🔴 Enregistrement démarré pour groupe:', groupeId)
+        } catch (error) {
+            console.error('Erreur démarrage enregistrement:', error)
+            alert('Impossible d\'accéder au microphone. Vérifiez les permissions.')
+        }
+    }
+
+    // Arrêter l'enregistrement
+    const stopRecording = () => {
+        if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+            mediaRecorder.stop()
+            setMediaRecorder(null)
+            setIsRecording(null)
+            console.log('⏹️ Enregistrement arrêté')
+        }
+    }
+
+    // Sauvegarder l'enregistrement via API
+    const saveRecording = async (groupeId, audioData, duree) => {
+        try {
+            const token = localStorage.getItem('token')
+            const response = await fetch('/api/audio/save-recording', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    groupe_sens_id: groupeId,
+                    texte_id: id,
+                    audio_data: audioData,
+                    duree_secondes: duree
+                })
+            })
+
+            if (response.ok) {
+                const data = await response.json()
+                console.log('✅ Enregistrement sauvegardé:', data.message)
+
+                // Mettre à jour l'état local
+                setRecordings(prev => ({
+                    ...prev,
+                    [groupeId]: {
+                        audio_data: audioData,
+                        duree: duree
+                    }
+                }))
+            } else {
+                const error = await response.json()
+                console.error('Erreur sauvegarde:', error)
+                alert('Erreur lors de la sauvegarde de l\'enregistrement')
+            }
+        } catch (error) {
+            console.error('Erreur sauvegarde enregistrement:', error)
+            alert('Erreur lors de la sauvegarde')
+        }
+    }
+
+    // Lire l'enregistrement de l'apprenant
+    const playRecording = (groupeId) => {
+        const recording = recordings[groupeId]
+        if (!recording) return
+
+        // Arrêter toute lecture en cours
+        if (currentAudio) {
+            currentAudio.pause()
+            currentAudio.currentTime = 0
+            setCurrentAudio(null)
+        }
+
+        const audio = new Audio(recording.audio_data)
+        setCurrentAudio(audio)
+        setPlayingRecording(groupeId)
+
+        audio.onended = () => {
+            setCurrentAudio(null)
+            setPlayingRecording(null)
+        }
+
+        audio.onerror = () => {
+            console.error('Erreur lecture enregistrement')
+            setCurrentAudio(null)
+            setPlayingRecording(null)
+        }
+
+        audio.play()
+        console.log('▶️ Lecture enregistrement pour groupe:', groupeId)
+    }
+
+    // Supprimer l'enregistrement
+    const deleteRecording = async (groupeId) => {
+        if (!confirm('Supprimer cet enregistrement ?')) return
+
+        try {
+            const token = localStorage.getItem('token')
+            const response = await fetch('/api/audio/delete-recording', {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    groupe_sens_id: groupeId
+                })
+            })
+
+            if (response.ok) {
+                console.log('🗑️ Enregistrement supprimé')
+                setRecordings(prev => {
+                    const newRecordings = { ...prev }
+                    delete newRecordings[groupeId]
+                    return newRecordings
+                })
+            } else {
+                alert('Erreur lors de la suppression')
+            }
+        } catch (error) {
+            console.error('Erreur suppression enregistrement:', error)
+            alert('Erreur lors de la suppression')
         }
     }
 
@@ -574,32 +764,100 @@ export default function VoirTexte() {
                                                 }}>
                                                     {groupe.contenu}
                                                 </div>
-                                                
-                                                {/* Bouton lecture du groupe */}
-                                                {speechSupported && groupe.contenu && groupe.contenu.trim() && (
-                                                    <button
-                                                        onClick={() => lireTexte(groupe.contenu, groupe.id)}
-                                                        disabled={isGeneratingAudio || (speaking && currentSpeaking !== groupe.id)}
-                                                        style={{
-                                                            backgroundColor: speaking && currentSpeaking === groupe.id ? '#ef4444' : 
-                                                                            isGeneratingAudio && currentSpeaking === groupe.id ? '#f59e0b' : '#10b981',
-                                                            color: 'white',
-                                                            border: getCachedAudio(groupe.contenu, selectedVoice) ? '2px solid #fbbf24' : 'none',
-                                                            borderRadius: '6px',
-                                                            padding: '8px 12px',
-                                                            fontSize: '14px',
-                                                            cursor: isGeneratingAudio ? 'wait' : 'pointer',
-                                                            flexShrink: 0,
-                                                            opacity: (isGeneratingAudio || (speaking && currentSpeaking !== groupe.id)) ? 0.7 : 1,
-                                                            minWidth: '45px'
-                                                        }}
-                                                        title={getCachedAudio(groupe.contenu, selectedVoice) ? 'Audio en cache - pas de quota utilisé' : 'Générera un nouveau audio'}
-                                                    >
-                                                        {speaking && currentSpeaking === groupe.id ? '⏹️' : 
-                                                         isGeneratingAudio && currentSpeaking === groupe.id ? '⏳' : 
-                                                         getCachedAudio(groupe.contenu, selectedVoice) ? '💾' : '🎤'}
-                                                    </button>
-                                                )}
+
+                                                {/* Boutons audio */}
+                                                <div style={{
+                                                    display: 'flex',
+                                                    gap: '8px',
+                                                    flexShrink: 0
+                                                }}>
+                                                    {/* Bouton lecture IA */}
+                                                    {speechSupported && groupe.contenu && groupe.contenu.trim() && (
+                                                        <button
+                                                            onClick={() => lireTexte(groupe.contenu, groupe.id)}
+                                                            disabled={isGeneratingAudio || (speaking && currentSpeaking !== groupe.id)}
+                                                            style={{
+                                                                backgroundColor: speaking && currentSpeaking === groupe.id ? '#ef4444' :
+                                                                                isGeneratingAudio && currentSpeaking === groupe.id ? '#f59e0b' : '#10b981',
+                                                                color: 'white',
+                                                                border: getCachedAudio(groupe.contenu, selectedVoice) ? '2px solid #fbbf24' : 'none',
+                                                                borderRadius: '6px',
+                                                                padding: '8px 12px',
+                                                                fontSize: '14px',
+                                                                cursor: isGeneratingAudio ? 'wait' : 'pointer',
+                                                                opacity: (isGeneratingAudio || (speaking && currentSpeaking !== groupe.id)) ? 0.7 : 1,
+                                                                minWidth: '45px'
+                                                            }}
+                                                            title={getCachedAudio(groupe.contenu, selectedVoice) ? 'Audio en cache - pas de quota utilisé' : 'Générera un nouveau audio'}
+                                                        >
+                                                            {speaking && currentSpeaking === groupe.id ? '⏹️' :
+                                                             isGeneratingAudio && currentSpeaking === groupe.id ? '⏳' :
+                                                             getCachedAudio(groupe.contenu, selectedVoice) ? '💾' : '🎤'}
+                                                        </button>
+                                                    )}
+
+                                                    {/* Bouton enregistrement vocal */}
+                                                    {groupe.contenu && groupe.contenu.trim() && (
+                                                        <>
+                                                            {recordings[groupe.id] ? (
+                                                                // Si enregistrement existe : boutons lecture + suppression
+                                                                <>
+                                                                    <button
+                                                                        onClick={() => playingRecording === groupe.id ? setPlayingRecording(null) : playRecording(groupe.id)}
+                                                                        style={{
+                                                                            backgroundColor: playingRecording === groupe.id ? '#ef4444' : '#3b82f6',
+                                                                            color: 'white',
+                                                                            border: 'none',
+                                                                            borderRadius: '6px',
+                                                                            padding: '8px 12px',
+                                                                            fontSize: '14px',
+                                                                            cursor: 'pointer',
+                                                                            minWidth: '45px'
+                                                                        }}
+                                                                        title={playingRecording === groupe.id ? 'Arrêter' : 'Écouter votre enregistrement'}
+                                                                    >
+                                                                        {playingRecording === groupe.id ? '⏹️' : '▶️'}
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={() => deleteRecording(groupe.id)}
+                                                                        style={{
+                                                                            backgroundColor: '#ef4444',
+                                                                            color: 'white',
+                                                                            border: 'none',
+                                                                            borderRadius: '6px',
+                                                                            padding: '8px 12px',
+                                                                            fontSize: '14px',
+                                                                            cursor: 'pointer',
+                                                                            minWidth: '45px'
+                                                                        }}
+                                                                        title="Supprimer votre enregistrement"
+                                                                    >
+                                                                        🗑️
+                                                                    </button>
+                                                                </>
+                                                            ) : (
+                                                                // Sinon : bouton enregistrer
+                                                                <button
+                                                                    onClick={() => isRecording === groupe.id ? stopRecording() : startRecording(groupe.id)}
+                                                                    style={{
+                                                                        backgroundColor: isRecording === groupe.id ? '#ef4444' : '#dc2626',
+                                                                        color: 'white',
+                                                                        border: 'none',
+                                                                        borderRadius: '6px',
+                                                                        padding: '8px 12px',
+                                                                        fontSize: '14px',
+                                                                        cursor: 'pointer',
+                                                                        minWidth: '45px',
+                                                                        animation: isRecording === groupe.id ? 'pulse 1.5s ease-in-out infinite' : 'none'
+                                                                    }}
+                                                                    title={isRecording === groupe.id ? 'Arrêter l\'enregistrement' : 'Enregistrer votre voix'}
+                                                                >
+                                                                    {isRecording === groupe.id ? '⏹️' : '🔴'}
+                                                                </button>
+                                                            )}
+                                                        </>
+                                                    )}
+                                                </div>
                                             </div>
                                         </div>
                                     ))}
