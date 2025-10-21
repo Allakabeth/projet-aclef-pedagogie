@@ -108,6 +108,9 @@ supabase/functions/.vscode/
 # Environment files
 .env
 
+# MCP Configuration (contains sensitive tokens)
+.mcp.json
+
 # Test and temporary files with potential secrets
 test-*.js
 examine-*.js
