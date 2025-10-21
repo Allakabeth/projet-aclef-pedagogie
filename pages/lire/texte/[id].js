@@ -20,6 +20,17 @@ export default function VoirTexte() {
     const [audioCache, setAudioCache] = useState({})
     const [textFont, setTextFont] = useState('Comic Sans MS')
     const [textSize, setTextSize] = useState('22')
+
+    // États pour l'enregistrement vocal
+    const [enregistrements, setEnregistrements] = useState({}) // { groupeId: { audio_url, duree, ... } }
+    const [isRecording, setIsRecording] = useState(false)
+    const [recordingGroupeId, setRecordingGroupeId] = useState(null)
+    const [mediaRecorder, setMediaRecorder] = useState(null)
+    const [audioChunks, setAudioChunks] = useState([])
+    const [recordingDuration, setRecordingDuration] = useState(0)
+    const [recordingTimer, setRecordingTimer] = useState(null)
+    const [isUploading, setIsUploading] = useState(false)
+
     const router = useRouter()
     const { id } = router.query
 
@@ -133,6 +144,8 @@ export default function VoirTexte() {
                 const data = await response.json()
                 setTexte(data.texte)
                 setGroupesSens(data.groupes_sens || [])
+                // Charger les enregistrements après avoir chargé le texte
+                await loadEnregistrements()
             } else {
                 console.error('Erreur chargement texte')
                 alert('Erreur lors du chargement du texte')
@@ -144,6 +157,33 @@ export default function VoirTexte() {
             router.push('/lire/voir-mes-textes')
         } finally {
             setIsLoadingTexte(false)
+        }
+    }
+
+    const loadEnregistrements = async () => {
+        try {
+            const token = localStorage.getItem('token')
+            const response = await fetch(`/api/enregistrements/list?texte_id=${id}`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            })
+
+            if (response.ok) {
+                const data = await response.json()
+                console.log('✅ Enregistrements chargés:', data.count)
+
+                // Transformer en map { groupeId: enregistrement }
+                const enregMap = {}
+                data.enregistrements.forEach(enreg => {
+                    enregMap[enreg.groupe_sens_id] = enreg
+                })
+                setEnregistrements(enregMap)
+            } else {
+                console.error('Erreur chargement enregistrements')
+            }
+        } catch (error) {
+            console.error('Erreur chargement enregistrements:', error)
         }
     }
 
@@ -399,6 +439,128 @@ export default function VoirTexte() {
         printWindow.print()
     }
 
+    // ========================================================================
+    // FONCTIONS ENREGISTREMENT VOCAL
+    // ========================================================================
+
+    const startRecording = async (groupeId) => {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+            const recorder = new MediaRecorder(stream, { mimeType: 'audio/webm' })
+
+            const chunks = []
+            recorder.ondataavailable = (e) => chunks.push(e.data)
+
+            recorder.onstop = async () => {
+                const blob = new Blob(chunks, { type: 'audio/webm' })
+                const dureeSec = recordingDuration
+                await uploadEnregistrement(groupeId, blob, dureeSec)
+                stream.getTracks().forEach(track => track.stop())
+            }
+
+            setMediaRecorder(recorder)
+            setAudioChunks([])
+            setRecordingGroupeId(groupeId)
+            setIsRecording(true)
+            setRecordingDuration(0)
+
+            recorder.start()
+
+            // Démarrer compteur
+            const timer = setInterval(() => {
+                setRecordingDuration(prev => prev + 1)
+            }, 1000)
+            setRecordingTimer(timer)
+
+        } catch (error) {
+            console.error('Erreur accès micro:', error)
+            alert('⚠️ Impossible d\'accéder au microphone. Vérifiez les permissions dans votre navigateur.')
+        }
+    }
+
+    const stopRecording = () => {
+        if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+            mediaRecorder.stop()
+            setIsRecording(false)
+            if (recordingTimer) {
+                clearInterval(recordingTimer)
+                setRecordingTimer(null)
+            }
+        }
+    }
+
+    const uploadEnregistrement = async (groupeId, audioBlob, dureeSec) => {
+        setIsUploading(true)
+
+        try {
+            const formData = new FormData()
+            formData.append('groupe_sens_id', groupeId)
+            formData.append('audio', audioBlob, `groupe_${groupeId}.webm`)
+            formData.append('duree_secondes', dureeSec)
+
+            const token = localStorage.getItem('token')
+            const response = await fetch('/api/enregistrements/upload', {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}` },
+                body: formData
+            })
+
+            if (!response.ok) throw new Error('Upload échoué')
+
+            const data = await response.json()
+
+            // Mettre à jour l'état local
+            setEnregistrements(prev => ({
+                ...prev,
+                [groupeId]: data.enregistrement
+            }))
+
+            alert('✅ Enregistrement sauvegardé !')
+
+        } catch (error) {
+            console.error('Erreur upload:', error)
+            alert('❌ Erreur lors de la sauvegarde : ' + error.message)
+        } finally {
+            setIsUploading(false)
+            setRecordingGroupeId(null)
+            setRecordingDuration(0)
+        }
+    }
+
+    const playEnregistrement = async (groupeId) => {
+        const enreg = enregistrements[groupeId]
+        if (!enreg) return
+
+        // Arrêter toute lecture en cours
+        if (currentAudio) {
+            currentAudio.pause()
+            currentAudio.currentTime = 0
+        }
+        if (speaking) {
+            window.speechSynthesis.cancel()
+        }
+
+        const audio = new Audio(enreg.audio_url)
+        setCurrentAudio(audio)
+        setSpeaking(true)
+        setCurrentSpeaking(groupeId)
+
+        audio.onended = () => {
+            setSpeaking(false)
+            setCurrentSpeaking(null)
+            setCurrentAudio(null)
+        }
+
+        audio.onerror = () => {
+            setSpeaking(false)
+            setCurrentSpeaking(null)
+            setCurrentAudio(null)
+            alert('❌ Erreur lors de la lecture de l\'enregistrement')
+        }
+
+        await audio.play()
+    }
+
     if (isLoading) {
         return (
             <div style={{
@@ -575,31 +737,94 @@ export default function VoirTexte() {
                                                     {groupe.contenu}
                                                 </div>
                                                 
-                                                {/* Bouton lecture du groupe */}
-                                                {speechSupported && groupe.contenu && groupe.contenu.trim() && (
-                                                    <button
-                                                        onClick={() => lireTexte(groupe.contenu, groupe.id)}
-                                                        disabled={isGeneratingAudio || (speaking && currentSpeaking !== groupe.id)}
-                                                        style={{
-                                                            backgroundColor: speaking && currentSpeaking === groupe.id ? '#ef4444' : 
-                                                                            isGeneratingAudio && currentSpeaking === groupe.id ? '#f59e0b' : '#10b981',
-                                                            color: 'white',
-                                                            border: getCachedAudio(groupe.contenu, selectedVoice) ? '2px solid #fbbf24' : 'none',
-                                                            borderRadius: '6px',
-                                                            padding: '8px 12px',
-                                                            fontSize: '14px',
-                                                            cursor: isGeneratingAudio ? 'wait' : 'pointer',
-                                                            flexShrink: 0,
-                                                            opacity: (isGeneratingAudio || (speaking && currentSpeaking !== groupe.id)) ? 0.7 : 1,
-                                                            minWidth: '45px'
-                                                        }}
-                                                        title={getCachedAudio(groupe.contenu, selectedVoice) ? 'Audio en cache - pas de quota utilisé' : 'Générera un nouveau audio'}
-                                                    >
-                                                        {speaking && currentSpeaking === groupe.id ? '⏹️' : 
-                                                         isGeneratingAudio && currentSpeaking === groupe.id ? '⏳' : 
-                                                         getCachedAudio(groupe.contenu, selectedVoice) ? '💾' : '🎤'}
-                                                    </button>
-                                                )}
+                                                {/* Boutons audio du groupe */}
+                                                <div style={{
+                                                    display: 'flex',
+                                                    gap: '8px',
+                                                    flexShrink: 0,
+                                                    alignItems: 'center'
+                                                }}>
+                                                    {/* Bouton TTS */}
+                                                    {speechSupported && groupe.contenu && groupe.contenu.trim() && (
+                                                        <button
+                                                            onClick={() => lireTexte(groupe.contenu, groupe.id)}
+                                                            disabled={isGeneratingAudio || (speaking && currentSpeaking !== groupe.id)}
+                                                            style={{
+                                                                backgroundColor: speaking && currentSpeaking === groupe.id ? '#ef4444' :
+                                                                                isGeneratingAudio && currentSpeaking === groupe.id ? '#f59e0b' : '#10b981',
+                                                                color: 'white',
+                                                                border: getCachedAudio(groupe.contenu, selectedVoice) ? '2px solid #fbbf24' : 'none',
+                                                                borderRadius: '6px',
+                                                                padding: '8px 12px',
+                                                                fontSize: '14px',
+                                                                cursor: isGeneratingAudio ? 'wait' : 'pointer',
+                                                                opacity: (isGeneratingAudio || (speaking && currentSpeaking !== groupe.id)) ? 0.7 : 1,
+                                                                minWidth: '45px'
+                                                            }}
+                                                            title={getCachedAudio(groupe.contenu, selectedVoice) ? 'Audio en cache - pas de quota utilisé' : 'Générera un nouveau audio'}
+                                                        >
+                                                            {speaking && currentSpeaking === groupe.id ? '⏹️' :
+                                                             isGeneratingAudio && currentSpeaking === groupe.id ? '⏳' :
+                                                             getCachedAudio(groupe.contenu, selectedVoice) ? '💾' : '🎤'}
+                                                        </button>
+                                                    )}
+
+                                                    {/* Boutons enregistrement (uniquement si le groupe a du contenu) */}
+                                                    {groupe.contenu && groupe.contenu.trim() && (
+                                                        <>
+                                                            {/* Bouton Enregistrer/Stop */}
+                                                            <button
+                                                                onClick={() => isRecording && recordingGroupeId === groupe.id
+                                                                    ? stopRecording()
+                                                                    : startRecording(groupe.id)}
+                                                                disabled={isUploading || (isRecording && recordingGroupeId !== groupe.id)}
+                                                                style={{
+                                                                    backgroundColor: isRecording && recordingGroupeId === groupe.id
+                                                                        ? '#ef4444'  // Rouge quand enregistrement
+                                                                        : '#dc2626', // Rouge foncé par défaut
+                                                                    color: 'white',
+                                                                    border: 'none',
+                                                                    borderRadius: '6px',
+                                                                    padding: '8px 12px',
+                                                                    fontSize: '14px',
+                                                                    cursor: (isUploading || (isRecording && recordingGroupeId !== groupe.id)) ? 'not-allowed' : 'pointer',
+                                                                    opacity: (isUploading || (isRecording && recordingGroupeId !== groupe.id)) ? 0.5 : 1,
+                                                                    minWidth: '45px',
+                                                                    fontWeight: '500'
+                                                                }}
+                                                                title={isRecording && recordingGroupeId === groupe.id
+                                                                    ? 'Arrêter l\'enregistrement'
+                                                                    : 'Enregistrer ma voix'}
+                                                            >
+                                                                {isRecording && recordingGroupeId === groupe.id
+                                                                    ? `⏹️ ${recordingDuration}s`
+                                                                    : '🔴'}
+                                                            </button>
+
+                                                            {/* Bouton Lire Mon Enregistrement */}
+                                                            {enregistrements[groupe.id] && (
+                                                                <button
+                                                                    onClick={() => playEnregistrement(groupe.id)}
+                                                                    disabled={isUploading || isRecording}
+                                                                    style={{
+                                                                        backgroundColor: '#8b5cf6', // Violet
+                                                                        color: 'white',
+                                                                        border: 'none',
+                                                                        borderRadius: '6px',
+                                                                        padding: '8px 12px',
+                                                                        fontSize: '14px',
+                                                                        cursor: (isUploading || isRecording) ? 'not-allowed' : 'pointer',
+                                                                        opacity: (isUploading || isRecording) ? 0.5 : 1,
+                                                                        minWidth: '45px'
+                                                                    }}
+                                                                    title="Écouter mon enregistrement"
+                                                                >
+                                                                    🎵
+                                                                </button>
+                                                            )}
+                                                        </>
+                                                    )}
+                                                </div>
                                             </div>
                                         </div>
                                     ))}
