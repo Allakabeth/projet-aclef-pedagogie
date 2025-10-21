@@ -158,10 +158,10 @@ export default function OuEstCe() {
 
             setEnregistrements(allEnregistrementsTemp)
             console.log(`🎵 Total enregistrements disponibles: ${Object.keys(allEnregistrementsTemp).length}`)
-            return allGroupesTemp
+            return { groupes: allGroupesTemp, enregistrements: allEnregistrementsTemp }
         } catch (error) {
             console.error('Erreur chargement groupes:', error)
-            return []
+            return { groupes: [], enregistrements: {} }
         }
     }
 
@@ -172,8 +172,8 @@ export default function OuEstCe() {
         }
 
         setIsLoadingTextes(true)
-        const groupes = await loadGroupesForTextes(selectedTextes)
-        
+        const { groupes, enregistrements: loadedEnreg } = await loadGroupesForTextes(selectedTextes)
+
         if (groupes.length === 0) {
             alert('Aucun groupe de sens trouvé dans les textes sélectionnés')
             setIsLoadingTextes(false)
@@ -204,8 +204,8 @@ export default function OuEstCe() {
         setFinalScore({ correct: 0, total: 0, percentage: 0 })
         setIsLoadingTextes(false)
         
-        // Lire automatiquement le premier groupe
-        setTimeout(() => playAudio(shuffled[0].contenu, shuffled[0]), 500)
+        // Lire automatiquement le premier groupe (passer les enregistrements chargés directement)
+        setTimeout(() => playAudio(shuffled[0].contenu, shuffled[0], loadedEnreg), 500)
     }
 
     const restartGame = () => {
@@ -267,15 +267,14 @@ export default function OuEstCe() {
     }
 
     // Jouer un enregistrement personnel
-    const playEnregistrement = async (groupeId) => {
-        const enreg = enregistrements[groupeId]
-        if (!enreg || !enreg.audio_url) {
-            console.warn('Pas d\'enregistrement pour groupe', groupeId)
+    const playEnregistrement = async (enregistrement) => {
+        if (!enregistrement || !enregistrement.audio_url) {
+            console.warn('Pas d\'enregistrement valide')
             return false
         }
 
         try {
-            const audio = new Audio(enreg.audio_url)
+            const audio = new Audio(enregistrement.audio_url)
             setCurrentAudio(audio)
 
             audio.onended = () => {
@@ -297,7 +296,7 @@ export default function OuEstCe() {
         }
     }
 
-    const playAudio = async (texte, groupe = null) => {
+    const playAudio = async (texte, groupe = null, enregistrementsData = null) => {
         if (isPlaying && currentAudio) {
             currentAudio.pause()
             setCurrentAudio(null)
@@ -311,9 +310,11 @@ export default function OuEstCe() {
         if (selectedVoice === 'VOIX_PERSONNALISEE') {
             // Si groupe n'est pas fourni, le chercher dans shuffledGroupes
             const grp = groupe || shuffledGroupes.find(g => g.contenu === texte)
-            if (grp && enregistrements[grp.id]) {
+            // Utiliser enregistrementsData si fourni, sinon le state enregistrements
+            const enregToUse = enregistrementsData || enregistrements
+            if (grp && enregToUse[grp.id]) {
                 console.log('🎵 Lecture enregistrement personnel pour groupe', grp.id)
-                const success = await playEnregistrement(grp.id)
+                const success = await playEnregistrement(enregToUse[grp.id])
                 if (success) return
             }
 
