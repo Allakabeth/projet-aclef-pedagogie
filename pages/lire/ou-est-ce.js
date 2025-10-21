@@ -34,6 +34,7 @@ export default function OuEstCe() {
     const [gameFinished, setGameFinished] = useState(false)
     const [finalScore, setFinalScore] = useState({ correct: 0, total: 0, percentage: 0 })
     const [tokenStatus, setTokenStatus] = useState('unknown') // 'available', 'exhausted', 'unknown'
+    const [enregistrements, setEnregistrements] = useState({}) // Enregistrements par groupe_sens_id
     const router = useRouter()
 
     useEffect(() => {
@@ -108,21 +109,22 @@ export default function OuEstCe() {
         try {
             const token = localStorage.getItem('token')
             const allGroupesTemp = []
-            
+            const allEnregistrementsTemp = {}
+
             for (const texteId of texteIds) {
                 const response = await fetch(`/api/textes/get/${texteId}`, {
                     headers: {
                         'Authorization': `Bearer ${token}`
                     }
                 })
-                
+
                 if (response.ok) {
                     const data = await response.json()
                     const groupes = data.groupes_sens || []
                     // Filtrer pour exclure les sauts de lignes et groupes vides
-                    const groupesValides = groupes.filter(groupe => 
-                        groupe.type_groupe !== 'linebreak' && 
-                        groupe.contenu && 
+                    const groupesValides = groupes.filter(groupe =>
+                        groupe.type_groupe !== 'linebreak' &&
+                        groupe.contenu &&
                         groupe.contenu.trim() !== ''
                     )
                     groupesValides.forEach(groupe => {
@@ -132,9 +134,30 @@ export default function OuEstCe() {
                             texte_id: texteId
                         })
                     })
+
+                    // Charger les enregistrements pour ce texte
+                    try {
+                        const enregResponse = await fetch(`/api/enregistrements/list?texte_id=${texteId}`, {
+                            headers: {
+                                'Authorization': `Bearer ${token}`
+                            }
+                        })
+
+                        if (enregResponse.ok) {
+                            const enregData = await enregResponse.json()
+                            console.log(`📼 ${enregData.count || 0} enregistrement(s) chargé(s) pour texte ${texteId}`)
+                            enregData.enregistrements?.forEach(enreg => {
+                                allEnregistrementsTemp[enreg.groupe_sens_id] = enreg
+                            })
+                        }
+                    } catch (enregError) {
+                        console.warn('Erreur chargement enregistrements:', enregError)
+                    }
                 }
             }
-            
+
+            setEnregistrements(allEnregistrementsTemp)
+            console.log(`🎵 Total enregistrements disponibles: ${Object.keys(allEnregistrementsTemp).length}`)
             return allGroupesTemp
         } catch (error) {
             console.error('Erreur chargement groupes:', error)
@@ -182,7 +205,7 @@ export default function OuEstCe() {
         setIsLoadingTextes(false)
         
         // Lire automatiquement le premier groupe
-        setTimeout(() => playAudio(shuffled[0].contenu), 500)
+        setTimeout(() => playAudio(shuffled[0].contenu, shuffled[0]), 500)
     }
 
     const restartGame = () => {
@@ -243,7 +266,38 @@ export default function OuEstCe() {
         }
     }
 
-    const playAudio = async (texte) => {
+    // Jouer un enregistrement personnel
+    const playEnregistrement = async (groupeId) => {
+        const enreg = enregistrements[groupeId]
+        if (!enreg || !enreg.audio_url) {
+            console.warn('Pas d\'enregistrement pour groupe', groupeId)
+            return false
+        }
+
+        try {
+            const audio = new Audio(enreg.audio_url)
+            setCurrentAudio(audio)
+
+            audio.onended = () => {
+                setIsPlaying(false)
+                setCurrentAudio(null)
+            }
+
+            audio.onerror = () => {
+                console.error('Erreur lecture enregistrement')
+                setIsPlaying(false)
+                setCurrentAudio(null)
+            }
+
+            await audio.play()
+            return true
+        } catch (error) {
+            console.error('Erreur playback enregistrement:', error)
+            return false
+        }
+    }
+
+    const playAudio = async (texte, groupe = null) => {
         if (isPlaying && currentAudio) {
             currentAudio.pause()
             setCurrentAudio(null)
@@ -252,6 +306,78 @@ export default function OuEstCe() {
         }
 
         setIsPlaying(true)
+
+        // Mode voix personnalisée
+        if (selectedVoice === 'VOIX_PERSONNALISEE') {
+            // Si groupe n'est pas fourni, le chercher dans shuffledGroupes
+            const grp = groupe || shuffledGroupes.find(g => g.contenu === texte)
+            if (grp && enregistrements[grp.id]) {
+                console.log('🎵 Lecture enregistrement personnel pour groupe', grp.id)
+                const success = await playEnregistrement(grp.id)
+                if (success) return
+            }
+
+            // Fallback sur Paul si pas d'enregistrement
+            console.log('🎤 Pas d\'enregistrement, fallback sur Paul')
+            // Utiliser Paul (voix par défaut) pour cette lecture
+            const paulVoiceId = 'AfbuxQ9DVtS4azaxN1W7'
+
+            try {
+                const cachedAudio = getCachedAudio(texte, paulVoiceId)
+                let audioData = null
+
+                if (cachedAudio) {
+                    audioData = cachedAudio
+                } else if (tokenStatus !== 'exhausted') {
+                    const token = localStorage.getItem('token')
+                    const response = await fetch('/api/speech/elevenlabs', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify({
+                            text: texte,
+                            voice_id: paulVoiceId
+                        })
+                    })
+
+                    if (response.ok) {
+                        const data = await response.json()
+                        audioData = data.audio
+                        setCachedAudio(texte, paulVoiceId, audioData)
+                        setTokenStatus('available')
+                    } else {
+                        setTokenStatus('exhausted')
+                        fallbackToWebSpeech(texte)
+                        return
+                    }
+                } else {
+                    fallbackToWebSpeech(texte)
+                    return
+                }
+
+                const audio = new Audio(audioData)
+                setCurrentAudio(audio)
+
+                audio.onended = () => {
+                    setIsPlaying(false)
+                    setCurrentAudio(null)
+                }
+
+                audio.onerror = () => {
+                    setIsPlaying(false)
+                    setCurrentAudio(null)
+                    fallbackToWebSpeech(texte)
+                }
+
+                await audio.play()
+                return
+            } catch (error) {
+                fallbackToWebSpeech(texte)
+                return
+            }
+        }
 
         try {
             // 1. TOUJOURS vérifier le cache en premier
@@ -378,7 +504,7 @@ export default function OuEstCe() {
                 if (currentIndex < shuffledGroupes.length - 1) {
                     const nextGroupe = shuffledGroupes[currentIndex + 1]
                     setCurrentGroupe(nextGroupe)
-                    playAudio(nextGroupe.contenu)
+                    playAudio(nextGroupe.contenu, nextGroupe)
                     setFeedback('')
                 } else {
                     // Fin du jeu
@@ -523,6 +649,7 @@ export default function OuEstCe() {
                                             border: '1px solid #ddd'
                                         }}
                                     >
+                                        <option value="VOIX_PERSONNALISEE">🎵 Voix personnalisée ⭐</option>
                                         {availableVoices.map(voice => (
                                             <option key={voice.voice_id} value={voice.voice_id}>
                                                 {voice.name} {voice.recommended ? '⭐' : ''}
@@ -630,7 +757,7 @@ export default function OuEstCe() {
                                 flexWrap: 'wrap'
                             }}>
                                 <button
-                                    onClick={() => playAudio(currentGroupe.contenu)}
+                                    onClick={() => playAudio(currentGroupe.contenu, currentGroupe)}
                                     disabled={isPlaying}
                                     style={{
                                         backgroundColor: isPlaying ? '#f59e0b' : '#3b82f6',
