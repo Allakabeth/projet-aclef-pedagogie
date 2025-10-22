@@ -12,8 +12,17 @@ export default async function handler(req, res) {
     }
 
     try {
-        // TEMPORAIRE : Pas d'auth pour le moment, on utilise Nina comme utilisateur test
-        const decoded = { userId: 'ef45f2ec-77e5-4df6-b73b-221fa56deb50' } // ID de Nina
+        // Vérifier l'authentification
+        const authHeader = req.headers.authorization
+        if (!authHeader?.startsWith('Bearer ')) {
+            return res.status(401).json({ error: 'Token manquant' })
+        }
+
+        const token = authHeader.split(' ')[1]
+        const decoded = verifyToken(token)
+        if (!decoded) {
+            return res.status(401).json({ error: 'Token invalide' })
+        }
 
         // Déterminer les IDs de textes à traiter
         let textesIds = []
@@ -32,14 +41,14 @@ export default async function handler(req, res) {
             textesIds = bodyTextesIds
         }
 
-        console.log(`🔍 Récupération multisyllabes SIMPLES pour textes ${textesIds.join(', ')} (apprenant ${decoded.userId})`)
+        console.log(`🔍 Récupération multisyllabes SIMPLES pour textes ${textesIds.join(', ')} (apprenant ${decoded.id})`)
 
         // REQUÊTE UNIQUE ET SIMPLE : Tous les multisyllabes de l'apprenant pour ces textes
         const { data: multisyllabesData, error } = await supabase
             .from('mots_classifies')
             .select('mot, valide_par_admin')
             .eq('classification', 'multi')
-            .eq('apprenant_id', decoded.userId)
+            .eq('apprenant_id', decoded.id)
             .in('texte_reference_id', textesIds)
 
         if (error) {
