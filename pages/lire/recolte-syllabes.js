@@ -84,10 +84,12 @@ export default function RecolteSyllabes() {
             
             console.log('Chargement des mots pour le texte:', texteId)
 
+            const token = localStorage.getItem('token')
             const response = await fetch('/api/mots-classifies/multisyllabes-simple', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
                 },
                 body: JSON.stringify({
                     textesIds: [texteId]
@@ -402,14 +404,15 @@ export default function RecolteSyllabes() {
     const envoyerPourValidation = async () => {
         try {
             const stats = calculerStatistiques()
-            
+            const token = localStorage.getItem('token')
+
             const response = await fetch('/api/admin/validation-syllabes', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
                 },
                 body: JSON.stringify({
-                    apprenantId: 'ef45f2ec-77e5-4df6-b73b-221fa56deb50', // Nina
                     texteId: router.query.texte || localStorage.getItem('texte_selectionne_id'),
                     statistiques: stats,
                     paniers: paniers,
@@ -441,10 +444,12 @@ export default function RecolteSyllabes() {
                 setMotsEnAttenteResegmentation([])
 
                 // Vider sur le serveur
+                const token = localStorage.getItem('token')
                 const response = await fetch('/api/paniers/sauvegarder', {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json'
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
                     },
                     body: JSON.stringify({
                         paniers: {},
@@ -501,10 +506,12 @@ export default function RecolteSyllabes() {
             }
 
             // Utiliser l'API paniers/sauvegarder qui fonctionne
+            const token = localStorage.getItem('token')
             const response = await fetch('/api/paniers/sauvegarder', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
                 },
                 body: JSON.stringify({
                     paniers: paniersFormates,
@@ -525,10 +532,12 @@ export default function RecolteSyllabes() {
 
     const chargerPaniersExistants = async () => {
         try {
+            const token = localStorage.getItem('token')
             const response = await fetch('/api/paniers/charger', {
                 method: 'GET',
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
                 }
             })
 
