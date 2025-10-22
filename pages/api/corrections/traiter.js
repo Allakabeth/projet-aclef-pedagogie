@@ -76,6 +76,34 @@ export default async function handler(req, res) {
             }
 
             console.log(`✅ Mot "${motConcerne}" mis à jour: ${correction.classification_actuelle} → ${correction.correction_proposee}`)
+
+            // 🌟 CORRECTION CENTRALISÉE : Insérer dans corrections_mono_multi
+            // Cette correction s'appliquera à TOUS les apprenants
+            const classificationComplete = correction.correction_proposee === 'mono' ? 'monosyllabe' : 'multisyllabe'
+            const adminUser = decoded.identifiant || decoded.email || 'admin'
+
+            const { error: insertCentralError } = await supabase
+                .from('corrections_mono_multi')
+                .upsert({
+                    mot: motConcerne.toLowerCase(),
+                    classification_correcte: classificationComplete,
+                    ancienne_classification: correction.classification_actuelle === 'mono' ? 'monosyllabe' : 'multisyllabe',
+                    source: 'apprenant_signalement',
+                    admin_correcteur: adminUser,
+                    commentaire: commentaire || `Correction validée suite à signalement apprenant`,
+                    date_modification: new Date().toISOString(),
+                    updated_at: new Date().toISOString()
+                }, {
+                    onConflict: 'mot',
+                    ignoreDuplicates: false
+                })
+
+            if (insertCentralError) {
+                console.error('⚠️ Erreur insertion correction centralisée:', insertCentralError)
+                // Ne pas faire échouer la requête, mais logger
+            } else {
+                console.log(`🌟 Correction centralisée créée: "${motConcerne}" → ${classificationComplete} (appliquée à TOUS les apprenants)`)
+            }
         }
 
         // Marquer la correction comme traitée
