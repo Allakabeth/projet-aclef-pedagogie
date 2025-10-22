@@ -57,12 +57,14 @@ export default function SyllabesPaniers() {
         
         // Charger les détails de chaque texte (nombre de mots multisyllabes)
         const details = {}
+        const token = localStorage.getItem('token')
         for (const texte of textes) {
             try {
                 const detailResponse = await fetch('/api/mots-classifies/multisyllabes-simple', {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json'
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
                     },
                     body: JSON.stringify({
                         textesIds: [texte.id]
@@ -92,10 +94,12 @@ export default function SyllabesPaniers() {
     const loadPaniers = async () => {
         try {
             console.log('📂 Chargement paniers...')
+            const token = localStorage.getItem('token')
             const response = await fetch('/api/paniers/charger', {
                 method: 'GET',
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
                 }
             })
 
@@ -235,10 +239,12 @@ export default function SyllabesPaniers() {
         try {
             // Charger les mots multisyllabes pour ce texte
             console.log('🔄 Chargement des mots multisyllabes...')
+            const token = localStorage.getItem('token')
             const response = await fetch('/api/mots-classifies/multisyllabes-simple', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
                 },
                 body: JSON.stringify({
                     textesIds: [selectedTexte]
