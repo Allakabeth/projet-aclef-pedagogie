@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
 import { countSyllables, isMonosyllabic, syllabifyWord } from '../../utils/syllabify'
+import { convertNumberToWordsWithHyphens, isNumericString } from '../../lib/convertNumbers'
+import VoiceRecorder from '../../components/VoiceRecorder'
 
 // Styles pour masquer les éléments sur mobile
 const mobileStyles = `
@@ -30,6 +32,13 @@ export default function MonosyllabesMultisyllabes() {
     const [availableVoices, setAvailableVoices] = useState([])
     const [selectedVoice, setSelectedVoice] = useState('Paul')
     const [autoRead, setAutoRead] = useState(false)
+    const [numbersDetected, setNumbersDetected] = useState([])
+    const [showNumbersModal, setShowNumbersModal] = useState(false)
+    const [numbersChoices, setNumbersChoices] = useState({})
+    const [pendingWords, setPendingWords] = useState([])
+    const [enregistrementsMap, setEnregistrementsMap] = useState({})
+    const [showRecorder, setShowRecorder] = useState(false)
+    const [isUploading, setIsUploading] = useState(false)
     const router = useRouter()
 
     useEffect(() => {
@@ -45,6 +54,7 @@ export default function MonosyllabesMultisyllabes() {
         try {
             setUser(JSON.parse(userData))
             loadTextes()
+            loadEnregistrements() // Charger les enregistrements de mots
         } catch (error) {
             console.error('Erreur parsing user data:', error)
             router.push('/login')
@@ -140,6 +150,27 @@ export default function MonosyllabesMultisyllabes() {
         }
     }
 
+    const loadEnregistrements = async () => {
+        try {
+            const token = localStorage.getItem('token')
+            const response = await fetch('/api/enregistrements-mots/list', {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            })
+
+            if (response.ok) {
+                const data = await response.json()
+                console.log(`🎤 ${data.count} enregistrement(s) de mots chargé(s)`)
+                setEnregistrementsMap(data.enregistrementsMap || {})
+            } else {
+                console.error('Erreur chargement enregistrements')
+            }
+        } catch (error) {
+            console.error('Erreur chargement enregistrements:', error)
+        }
+    }
+
     const loadMotsTexte = async (texteId) => {
         setIsLoadingTexte(true)
         try {
@@ -202,22 +233,59 @@ export default function MonosyllabesMultisyllabes() {
                 // Convertir en tableau et mélanger
                 const uniqueWords = Array.from(uniqueWordsMap.values())
                 const shuffledWords = uniqueWords.sort(() => Math.random() - 0.5)
-                setAllMots(shuffledWords)
-                setCurrentMotIndex(0)
-                setCurrentMot(shuffledWords[0])
-                setGameStarted(true)
-                setScore(0)
-                setAttempts(0)
-                setFeedback('')
-                setGameFinished(false)
-                setUserChoices([])
-                setShowResults(false)
-                
-                console.log(`Exercice démarré avec ${shuffledWords.length} mots uniques`)
-                
-                // Lecture automatique du premier mot si activée
-                if (autoRead && shuffledWords[0]) {
-                    setTimeout(() => speakText(shuffledWords[0]?.clean), 1000)
+
+                // ====================================================================
+                // DÉTECTION DES NOMBRES
+                // ====================================================================
+
+                const detectedNumbers = []
+                const initialChoices = {}
+
+                shuffledWords.forEach(wordObj => {
+                    if (isNumericString(wordObj.clean)) {
+                        const converted = convertNumberToWordsWithHyphens(wordObj.clean)
+                        if (converted) {
+                            detectedNumbers.push({
+                                original: wordObj.clean,
+                                converted: converted,
+                                syllables: syllabifyWord(converted),
+                                estimatedSyllables: countSyllables(converted)
+                            })
+                            initialChoices[wordObj.clean] = 'keep' // Par défaut : garder
+                        } else {
+                            // Nombre trop grand, exclure par défaut
+                            initialChoices[wordObj.clean] = 'exclude'
+                        }
+                    }
+                })
+
+                // Si des nombres sont détectés, afficher la modale
+                if (detectedNumbers.length > 0) {
+                    console.log(`🔢 ${detectedNumbers.length} nombre(s) détecté(s)`)
+                    setPendingWords(shuffledWords)
+                    setNumbersDetected(detectedNumbers)
+                    setNumbersChoices(initialChoices)
+                    setShowNumbersModal(true)
+                    // Le jeu ne démarre pas encore, on attend les choix de l'utilisateur
+                } else {
+                    // Aucun nombre, démarrer directement le jeu
+                    setAllMots(shuffledWords)
+                    setCurrentMotIndex(0)
+                    setCurrentMot(shuffledWords[0])
+                    setGameStarted(true)
+                    setScore(0)
+                    setAttempts(0)
+                    setFeedback('')
+                    setGameFinished(false)
+                    setUserChoices([])
+                    setShowResults(false)
+
+                    console.log(`Exercice démarré avec ${shuffledWords.length} mots uniques`)
+
+                    // Lecture automatique du premier mot si activée
+                    if (autoRead && shuffledWords[0]) {
+                        setTimeout(() => speakText(shuffledWords[0]?.clean), 1000)
+                    }
                 }
             } else {
                 alert('Erreur lors du chargement du texte')
@@ -230,6 +298,61 @@ export default function MonosyllabesMultisyllabes() {
         }
     }
 
+
+    const applyNumbersChoices = () => {
+        // Appliquer les choix de l'utilisateur sur les nombres
+        const processedWords = []
+
+        pendingWords.forEach(wordObj => {
+            if (isNumericString(wordObj.clean)) {
+                const choice = numbersChoices[wordObj.clean]
+
+                if (choice === 'exclude') {
+                    // Exclure ce mot du jeu
+                    console.log(`🗑️ Nombre exclu : ${wordObj.clean}`)
+                    return // Skip this word
+                } else if (choice === 'keep') {
+                    // Convertir en lettres avec tirets
+                    const converted = convertNumberToWordsWithHyphens(wordObj.clean)
+                    if (converted) {
+                        const convertedWord = {
+                            original: wordObj.original,
+                            clean: converted,
+                            groupe_id: wordObj.groupe_id,
+                            syllables: syllabifyWord(converted),
+                            estimatedSyllables: countSyllables(converted),
+                            isMonosyllabe: isMonosyllabic(converted)
+                        }
+                        processedWords.push(convertedWord)
+                        console.log(`✅ Nombre converti : ${wordObj.clean} → ${converted}`)
+                    }
+                }
+            } else {
+                // Mot normal, garder tel quel
+                processedWords.push(wordObj)
+            }
+        })
+
+        // Lancer le jeu avec les mots traités
+        setAllMots(processedWords)
+        setCurrentMotIndex(0)
+        setCurrentMot(processedWords[0])
+        setGameStarted(true)
+        setScore(0)
+        setAttempts(0)
+        setFeedback('')
+        setGameFinished(false)
+        setUserChoices([])
+        setShowResults(false)
+        setShowNumbersModal(false) // Fermer la modale
+
+        console.log(`✅ Exercice démarré avec ${processedWords.length} mots uniques (après traitement des nombres)`)
+
+        // Lecture automatique du premier mot si activée
+        if (autoRead && processedWords[0]) {
+            setTimeout(() => speakText(processedWords[0]?.clean), 1000)
+        }
+    }
 
     const startGame = () => {
         if (!selectedTexte) {
@@ -367,9 +490,30 @@ export default function MonosyllabesMultisyllabes() {
         }
     }
 
-    // Fonction TTS intelligente Paul/Julie avec auto-détection ElevenLabs/Web Speech
+    // Fonction TTS intelligente avec priorité : Voix perso > ElevenLabs > Web Speech
     const speakText = async (text) => {
         if (!text.trim()) return
+
+        // ====================================================================
+        // PRIORITÉ 1 : VOIX PERSONNALISÉE (si enregistrement existe)
+        // ====================================================================
+
+        const enregistrement = enregistrementsMap[text.toLowerCase().trim()]
+        if (enregistrement && enregistrement.audio_url) {
+            try {
+                console.log(`🎤 Lecture voix personnalisée pour: ${text}`)
+                const audio = new Audio(enregistrement.audio_url)
+                audio.play()
+                return // Arrêter ici, on a joué la voix perso
+            } catch (error) {
+                console.error('❌ Erreur lecture voix perso:', error)
+                // Continuer vers fallback
+            }
+        }
+
+        // ====================================================================
+        // PRIORITÉ 2 : ELEVENLABS (si voix sélectionnée)
+        // ====================================================================
 
         const selectedVoiceObj = availableVoices.find(v => v.name === selectedVoice)
         if (!selectedVoiceObj) return
@@ -395,7 +539,7 @@ export default function MonosyllabesMultisyllabes() {
             }
         }
 
-        // Essayer ElevenLabs en premier
+        // Essayer ElevenLabs
         try {
             const response = await fetch('/api/speech/elevenlabs', {
                 method: 'POST',
@@ -432,7 +576,10 @@ export default function MonosyllabesMultisyllabes() {
             // Fallback silencieux vers Web Speech API
         }
 
-        // Utiliser Web Speech API en fallback
+        // ====================================================================
+        // PRIORITÉ 3 : WEB SPEECH API (fallback)
+        // ====================================================================
+
         if ('speechSynthesis' in window) {
             const utterance = new SpeechSynthesisUtterance(text)
             utterance.lang = 'fr-FR'
@@ -444,6 +591,52 @@ export default function MonosyllabesMultisyllabes() {
             }
 
             window.speechSynthesis.speak(utterance)
+        }
+    }
+
+    const handleRecordingComplete = async (audioBlob) => {
+        if (!currentMot) return
+
+        setIsUploading(true)
+        setShowRecorder(false)
+
+        try {
+            const token = localStorage.getItem('token')
+            const formData = new FormData()
+            formData.append('audio', audioBlob, `${currentMot.clean}.webm`)
+            formData.append('mot', currentMot.clean)
+            if (selectedTexte) {
+                formData.append('texte_id', selectedTexte)
+            }
+
+            console.log(`📤 Upload enregistrement pour mot: ${currentMot.clean}`)
+
+            const response = await fetch('/api/enregistrements-mots/upload', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                },
+                body: formData
+            })
+
+            if (response.ok) {
+                const data = await response.json()
+                console.log('✅ Enregistrement sauvegardé:', data)
+
+                // Recharger les enregistrements
+                await loadEnregistrements()
+
+                alert(`✅ Votre enregistrement pour "${currentMot.clean}" a été sauvegardé !`)
+            } else {
+                const error = await response.json()
+                console.error('❌ Erreur upload:', error)
+                alert(`❌ Erreur: ${error.error}`)
+            }
+        } catch (error) {
+            console.error('💥 Erreur upload:', error)
+            alert('❌ Erreur lors de l\'upload de l\'enregistrement')
+        } finally {
+            setIsUploading(false)
         }
     }
 
@@ -459,6 +652,7 @@ export default function MonosyllabesMultisyllabes() {
         setGameFinished(false)
         setUserChoices([])
         setShowResults(false)
+        setShowRecorder(false)
     }
 
     if (isLoading) {
@@ -501,6 +695,155 @@ export default function MonosyllabesMultisyllabes() {
                     🔤 Trouver mes syllabes-mot
                 </h1>
 
+                {/* Modale de gestion des nombres */}
+                {showNumbersModal && (
+                    <div style={{
+                        position: 'fixed',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        zIndex: 1000,
+                        padding: '20px'
+                    }}>
+                        <div style={{
+                            backgroundColor: 'white',
+                            borderRadius: '12px',
+                            padding: '30px',
+                            maxWidth: '600px',
+                            width: '100%',
+                            maxHeight: '80vh',
+                            overflowY: 'auto',
+                            boxShadow: '0 10px 40px rgba(0, 0, 0, 0.3)'
+                        }}>
+                            <h2 style={{
+                                marginBottom: '20px',
+                                color: '#f59e0b',
+                                textAlign: 'center'
+                            }}>
+                                ⚠️ Nombres détectés
+                            </h2>
+
+                            <p style={{
+                                marginBottom: '20px',
+                                color: '#666',
+                                textAlign: 'center'
+                            }}>
+                                Des nombres ont été trouvés dans le texte.
+                                Pour chaque nombre, choisissez si vous voulez le garder (converti en lettres) ou l'exclure du jeu.
+                            </p>
+
+                            <div style={{
+                                display: 'grid',
+                                gap: '15px',
+                                marginBottom: '30px'
+                            }}>
+                                {numbersDetected.map((number, index) => (
+                                    <div key={index} style={{
+                                        padding: '15px',
+                                        background: '#f9fafb',
+                                        borderRadius: '8px',
+                                        border: '2px solid #e5e7eb'
+                                    }}>
+                                        <div style={{
+                                            display: 'flex',
+                                            justifyContent: 'space-between',
+                                            alignItems: 'center',
+                                            marginBottom: '10px'
+                                        }}>
+                                            <div>
+                                                <strong style={{ fontSize: '18px', color: '#3b82f6' }}>
+                                                    {number.original}
+                                                </strong>
+                                                <span style={{ margin: '0 8px', color: '#999' }}>→</span>
+                                                <strong style={{ fontSize: '18px', color: '#10b981' }}>
+                                                    {number.converted}
+                                                </strong>
+                                            </div>
+                                        </div>
+
+                                        <div style={{
+                                            fontSize: '14px',
+                                            color: '#666',
+                                            marginBottom: '10px'
+                                        }}>
+                                            {number.syllables?.join(' · ')} ({number.estimatedSyllables} syllabe{number.estimatedSyllables > 1 ? 's' : ''})
+                                        </div>
+
+                                        <div style={{
+                                            display: 'flex',
+                                            gap: '10px'
+                                        }}>
+                                            <button
+                                                onClick={() => setNumbersChoices({
+                                                    ...numbersChoices,
+                                                    [number.original]: 'keep'
+                                                })}
+                                                style={{
+                                                    flex: 1,
+                                                    padding: '10px',
+                                                    borderRadius: '6px',
+                                                    border: '2px solid',
+                                                    borderColor: numbersChoices[number.original] === 'keep' ? '#10b981' : '#d1d5db',
+                                                    backgroundColor: numbersChoices[number.original] === 'keep' ? '#d1fae5' : 'white',
+                                                    color: numbersChoices[number.original] === 'keep' ? '#065f46' : '#6b7280',
+                                                    fontWeight: 'bold',
+                                                    cursor: 'pointer',
+                                                    fontSize: '14px'
+                                                }}
+                                            >
+                                                ✓ Garder
+                                            </button>
+
+                                            <button
+                                                onClick={() => setNumbersChoices({
+                                                    ...numbersChoices,
+                                                    [number.original]: 'exclude'
+                                                })}
+                                                style={{
+                                                    flex: 1,
+                                                    padding: '10px',
+                                                    borderRadius: '6px',
+                                                    border: '2px solid',
+                                                    borderColor: numbersChoices[number.original] === 'exclude' ? '#ef4444' : '#d1d5db',
+                                                    backgroundColor: numbersChoices[number.original] === 'exclude' ? '#fee2e2' : 'white',
+                                                    color: numbersChoices[number.original] === 'exclude' ? '#991b1b' : '#6b7280',
+                                                    fontWeight: 'bold',
+                                                    cursor: 'pointer',
+                                                    fontSize: '14px'
+                                                }}
+                                            >
+                                                ✗ Exclure
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+
+                            <button
+                                onClick={applyNumbersChoices}
+                                style={{
+                                    width: '100%',
+                                    padding: '15px',
+                                    backgroundColor: '#10b981',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    fontSize: '16px',
+                                    fontWeight: 'bold',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                🚀 Valider et commencer l'exercice
+                            </button>
+                        </div>
+                    </div>
+                )}
+
                 {!gameStarted ? (
                     <>
                         {/* Instructions */}
@@ -515,7 +858,7 @@ export default function MonosyllabesMultisyllabes() {
                                 📚 Comment jouer ?
                             </h3>
                             <p style={{ margin: 0, color: '#0369a1' }}>
-                                Pour chaque mot affiché, écoutez bien les mots et comptez les syllabes. Décidez s'il s'agit d'un mot avec une syllabe 🟢 ou d'un mot avec plusieurs syllabes 🔴
+                                Pour chaque mot affiché, écoutez bien les mots et comptez les syllabes. Décidez s'il s'agit d'un mot avec une syllabe ?︢ ou d'un mot avec plusieurs syllabes 🔴
                             </p>
                         </div>
 
@@ -753,7 +1096,7 @@ export default function MonosyllabesMultisyllabes() {
                                 padding: '20px',
                                 borderRadius: '8px'
                             }}>
-                                <h3 style={{ marginBottom: '20px' }}>📝 Détail des réponses</h3>
+                                <h3 style={{ marginBottom: '20px' }}>📏 Détail des réponses</h3>
                                 <div style={{
                                     display: 'grid',
                                     gap: '10px'
@@ -840,7 +1183,7 @@ export default function MonosyllabesMultisyllabes() {
                                     📊 Score: {score}/{attempts}
                                 </div>
                                 <div style={{ fontSize: '16px', color: '#666' }}>
-                                    📝 Mot {currentMotIndex + 1}/{allMots.length}
+                                    📏 Mot {currentMotIndex + 1}/{allMots.length}
                                 </div>
                             </div>
 
@@ -882,7 +1225,97 @@ export default function MonosyllabesMultisyllabes() {
                                 >
                                     🔊 Écouter le mot
                                 </button>
-                                
+
+                                {/* Indicateur si enregistrement existe */}
+                                {enregistrementsMap[currentMot?.clean] && (
+                                    <div style={{
+                                        fontSize: '14px',
+                                        color: '#10b981',
+                                        marginBottom: '10px',
+                                        textAlign: 'center'
+                                    }}>
+                                        ✅ Vous avez un enregistrement pour ce mot
+                                    </div>
+                                )}
+
+                                {/* Bouton d'enregistrement */}
+                                {!showRecorder && !isUploading && (
+                                    <button
+                                        onClick={() => setShowRecorder(true)}
+                                        disabled={!!feedback}
+                                        style={{
+                                            backgroundColor: '#ef4444',
+                                            color: 'white',
+                                            padding: '8px 16px',
+                                            border: 'none',
+                                            borderRadius: '8px',
+                                            fontSize: '14px',
+                                            cursor: feedback ? 'not-allowed' : 'pointer',
+                                            opacity: feedback ? 0.5 : 1,
+                                            marginBottom: '15px',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '8px',
+                                            margin: '0 auto 15px auto'
+                                        }}
+                                    >
+                                        🎤 {enregistrementsMap[currentMot?.clean] ? 'Modifier mon enregistrement' : 'Enregistrer ma voix'}
+                                    </button>
+                                )}
+
+                                {/* Composant d'enregistrement */}
+                                {showRecorder && !isUploading && (
+                                    <div style={{
+                                        marginBottom: '20px',
+                                        padding: '15px',
+                                        background: '#f9fafb',
+                                        borderRadius: '8px',
+                                        border: '2px solid #e5e7eb'
+                                    }}>
+                                        <p style={{
+                                            fontSize: '14px',
+                                            color: '#666',
+                                            marginBottom: '10px',
+                                            textAlign: 'center'
+                                        }}>
+                                            Enregistrez le mot : <strong>{currentMot?.clean}</strong>
+                                        </p>
+                                        <VoiceRecorder
+                                            onRecordingComplete={handleRecordingComplete}
+                                            maxDuration={5}
+                                        />
+                                        <button
+                                            onClick={() => setShowRecorder(false)}
+                                            style={{
+                                                marginTop: '10px',
+                                                backgroundColor: '#6b7280',
+                                                color: 'white',
+                                                padding: '6px 12px',
+                                                border: 'none',
+                                                borderRadius: '6px',
+                                                fontSize: '12px',
+                                                cursor: 'pointer',
+                                                display: 'block',
+                                                margin: '10px auto 0'
+                                            }}
+                                        >
+                                            Annuler
+                                        </button>
+                                    </div>
+                                )}
+
+                                {/* Message d'upload */}
+                                {isUploading && (
+                                    <div style={{
+                                        fontSize: '14px',
+                                        color: '#3b82f6',
+                                        marginBottom: '15px',
+                                        textAlign: 'center'
+                                    }}>
+                                        📤 Upload en cours...
+                                    </div>
+                                )}
+
                             </div>
 
                             {/* Feedback */}
@@ -921,7 +1354,7 @@ export default function MonosyllabesMultisyllabes() {
                                         minWidth: '200px'
                                     }}
                                 >
-                                    🟢 1 son
+                                    ?︢ 1 son
                                 </button>
 
                                 <button
