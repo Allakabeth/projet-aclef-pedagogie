@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { verifyToken } from '../../../lib/jwt'
 
 const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -11,8 +12,19 @@ export default async function handler(req, res) {
     }
 
     try {
-        // TEMPORAIRE : Pas d'auth, utiliser Nina comme test
-        const apprenantId = 'ef45f2ec-77e5-4df6-b73b-221fa56deb50' // ID de Nina
+        // Vérifier l'authentification
+        const authHeader = req.headers.authorization
+        if (!authHeader?.startsWith('Bearer ')) {
+            return res.status(401).json({ error: 'Token manquant' })
+        }
+
+        const token = authHeader.split(' ')[1]
+        const decoded = verifyToken(token)
+        if (!decoded) {
+            return res.status(401).json({ error: 'Token invalide' })
+        }
+
+        const apprenantId = decoded.id
 
         const { 
             textesIds, 
