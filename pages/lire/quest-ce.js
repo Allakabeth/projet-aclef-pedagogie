@@ -33,6 +33,7 @@ export default function QuestCe() {
     const [availableVoices, setAvailableVoices] = useState([])
     const [gameFinished, setGameFinished] = useState(false)
     const [finalScore, setFinalScore] = useState({ correct: 0, total: 0, percentage: 0 })
+    const [enregistrements, setEnregistrements] = useState({}) // Enregistrements par groupe_sens_id
     const router = useRouter()
 
     useEffect(() => {
@@ -101,21 +102,22 @@ export default function QuestCe() {
         try {
             const token = localStorage.getItem('token')
             const allGroupesTemp = []
-            
+            const allEnregistrementsTemp = {}
+
             for (const texteId of texteIds) {
                 const response = await fetch(`/api/textes/get/${texteId}`, {
                     headers: {
                         'Authorization': `Bearer ${token}`
                     }
                 })
-                
+
                 if (response.ok) {
                     const data = await response.json()
                     const groupes = data.groupes_sens || []
                     // Filtrer pour exclure les sauts de lignes et groupes vides
-                    const groupesValides = groupes.filter(groupe => 
-                        groupe.type_groupe !== 'linebreak' && 
-                        groupe.contenu && 
+                    const groupesValides = groupes.filter(groupe =>
+                        groupe.type_groupe !== 'linebreak' &&
+                        groupe.contenu &&
                         groupe.contenu.trim() !== ''
                     )
                     groupesValides.forEach(groupe => {
@@ -126,12 +128,32 @@ export default function QuestCe() {
                         })
                     })
                 }
+
+                // Charger les enregistrements pour ce texte
+                try {
+                    const enregResponse = await fetch(`/api/enregistrements/list?texte_id=${texteId}`, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    })
+
+                    if (enregResponse.ok) {
+                        const enregData = await enregResponse.json()
+                        if (enregData.enregistrements) {
+                            enregData.enregistrements.forEach(enreg => {
+                                allEnregistrementsTemp[enreg.groupe_sens_id] = enreg
+                            })
+                            console.log(`🎵 ${enregData.enregistrements.length} enregistrement(s) chargé(s) pour texte ${texteId}`)
+                        }
+                    }
+                } catch (enregError) {
+                    console.warn(`⚠️ Erreur chargement enregistrements texte ${texteId}:`, enregError)
+                }
             }
-            
-            return allGroupesTemp
+
+            console.log(`🎵 Total enregistrements chargés: ${Object.keys(allEnregistrementsTemp).length}`)
+            return { groupes: allGroupesTemp, enregistrements: allEnregistrementsTemp }
         } catch (error) {
             console.error('Erreur chargement groupes:', error)
-            return []
+            return { groupes: [], enregistrements: {} }
         }
     }
 
@@ -142,8 +164,8 @@ export default function QuestCe() {
         }
 
         setIsLoadingTextes(true)
-        const groupes = await loadGroupesForTextes(selectedTextes)
-        
+        const { groupes, enregistrements: loadedEnreg } = await loadGroupesForTextes(selectedTextes)
+
         if (groupes.length === 0) {
             alert('Aucun groupe de sens trouvé dans les textes sélectionnés')
             setIsLoadingTextes(false)
@@ -151,22 +173,23 @@ export default function QuestCe() {
         }
 
         setAllGroupes(groupes)
-        
+        setEnregistrements(loadedEnreg)
+
         // Mélanger les groupes si mode aléatoire pour la progression
-        const shuffled = orderMode === 'random' 
+        const shuffled = orderMode === 'random'
             ? [...groupes].sort(() => Math.random() - 0.5)
             : [...groupes]
-        
+
         setShuffledGroupes(shuffled)
         setCurrentGroupe(shuffled[0])
-        
+
         // Afficher TOUS les groupes de sens en audio
         const allAudioChoices = displayMode === 'random'
             ? [...groupes].sort(() => Math.random() - 0.5)
             : [...groupes]
-        
+
         setDisplayedGroupes(allAudioChoices)
-        
+
         setScore(0)
         setAttempts(0)
         setCompletedGroupes([])
@@ -186,7 +209,38 @@ export default function QuestCe() {
         setFinalScore({ correct: 0, total: 0, percentage: 0 })
     }
 
-    const playAudio = async (groupe) => {
+    const playEnregistrement = async (enregistrement) => {
+        if (!enregistrement || !enregistrement.audio_url) {
+            console.warn('⚠️ Enregistrement invalide')
+            return false
+        }
+
+        try {
+            console.log('🎵 Lecture enregistrement personnel:', enregistrement.audio_url)
+            const audio = new Audio(enregistrement.audio_url)
+            setCurrentAudio(audio)
+
+            audio.onended = () => {
+                setIsPlaying(null)
+                setCurrentAudio(null)
+            }
+
+            audio.onerror = (error) => {
+                console.error('❌ Erreur lecture enregistrement:', error)
+                setIsPlaying(null)
+                setCurrentAudio(null)
+            }
+
+            await audio.play()
+            console.log('✅ Enregistrement personnel lu avec succès')
+            return true
+        } catch (error) {
+            console.error('❌ Erreur playEnregistrement:', error)
+            return false
+        }
+    }
+
+    const playAudio = async (groupe, enregistrementsData = null) => {
         // Si on clique sur le même audio qui joue, on l'arrête
         if (isPlaying === groupe.id && currentAudio) {
             currentAudio.pause()
@@ -202,8 +256,95 @@ export default function QuestCe() {
         }
 
         setIsPlaying(groupe.id)
-        
-        // Essayer d'abord avec le cache
+
+        // Si mode voix personnalisée, essayer de lire l'enregistrement
+        if (selectedVoice === 'VOIX_PERSONNALISEE') {
+            const enregToUse = enregistrementsData || enregistrements
+            if (enregToUse[groupe.id]) {
+                console.log('🎵 Enregistrement trouvé pour groupe', groupe.id)
+                const success = await playEnregistrement(enregToUse[groupe.id])
+                if (success) return
+                console.log('⚠️ Échec lecture enregistrement, fallback vers Paul')
+            } else {
+                console.log('⚠️ Aucun enregistrement pour ce groupe, fallback vers Paul')
+            }
+            // Pas d'enregistrement ou erreur → fallback vers Paul (AfbuxQ9DVtS4azaxN1W7)
+            const fallbackVoice = 'AfbuxQ9DVtS4azaxN1W7' // Paul
+
+            // Essayer d'abord avec le cache
+            const getCachedAudio = (text, voiceId) => {
+                const key = `elevenlabs_${voiceId}_${btoa(text).substring(0, 50)}`
+                return localStorage.getItem(key)
+            }
+
+            const setCachedAudio = (text, voiceId, audioData) => {
+                try {
+                    const key = `elevenlabs_${voiceId}_${btoa(text).substring(0, 50)}`
+                    localStorage.setItem(key, audioData)
+                } catch (error) {
+                    console.error('Erreur cache:', error)
+                }
+            }
+
+            try {
+                const cachedAudio = getCachedAudio(groupe.contenu, fallbackVoice)
+                let audioData = null
+
+                if (cachedAudio) {
+                    audioData = cachedAudio
+                } else {
+                    const token = localStorage.getItem('token')
+                    const response = await fetch('/api/speech/elevenlabs', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify({
+                            text: groupe.contenu,
+                            voice_id: fallbackVoice
+                        })
+                    })
+
+                    if (!response.ok) {
+                        // Fallback vers Web Speech API
+                        const utterance = new SpeechSynthesisUtterance(groupe.contenu)
+                        utterance.lang = 'fr-FR'
+                        utterance.rate = 0.8
+                        utterance.onend = () => {
+                            setIsPlaying(null)
+                        }
+                        window.speechSynthesis.speak(utterance)
+                        return
+                    }
+
+                    const data = await response.json()
+                    audioData = data.audio
+                    setCachedAudio(groupe.contenu, fallbackVoice, audioData)
+                }
+
+                const audio = new Audio(audioData)
+                setCurrentAudio(audio)
+
+                audio.onended = () => {
+                    setIsPlaying(null)
+                    setCurrentAudio(null)
+                }
+
+                audio.onerror = () => {
+                    setIsPlaying(null)
+                    setCurrentAudio(null)
+                }
+
+                await audio.play()
+            } catch (error) {
+                console.error('Erreur lecture audio fallback:', error)
+                setIsPlaying(null)
+            }
+            return
+        }
+
+        // Mode voix ElevenLabs normale
         const getCachedAudio = (text, voiceId) => {
             const key = `elevenlabs_${voiceId}_${btoa(text).substring(0, 50)}`
             return localStorage.getItem(key)
@@ -259,19 +400,19 @@ export default function QuestCe() {
 
             const audio = new Audio(audioData)
             setCurrentAudio(audio)
-            
+
             audio.onended = () => {
                 setIsPlaying(null)
                 setCurrentAudio(null)
             }
-            
+
             audio.onerror = () => {
                 setIsPlaying(null)
                 setCurrentAudio(null)
             }
-            
+
             await audio.play()
-            
+
         } catch (error) {
             console.error('Erreur lecture audio:', error)
             setIsPlaying(null)
@@ -507,6 +648,7 @@ export default function QuestCe() {
                                             border: '1px solid #ddd'
                                         }}
                                     >
+                                        <option value="VOIX_PERSONNALISEE">🎵 Voix personnalisée ⭐</option>
                                         {availableVoices.map(voice => (
                                             <option key={voice.voice_id} value={voice.voice_id}>
                                                 {voice.name} {voice.recommended ? '⭐' : ''}
