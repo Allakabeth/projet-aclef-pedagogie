@@ -25,9 +25,17 @@ export default function RemettreEnOrdre() {
     const [isCorrect, setIsCorrect] = useState(false)
     const [feedback, setFeedback] = useState('')
     const [showSolution, setShowSolution] = useState(false)
+    const [enregistrements, setEnregistrements] = useState({}) // Enregistrements par groupe_sens_id
+    const [selectedVoice, setSelectedVoice] = useState('AfbuxQ9DVtS4azaxN1W7') // Paul par défaut
+    const [availableVoices, setAvailableVoices] = useState([])
+    const [isPlaying, setIsPlaying] = useState(null) // ID du groupe en cours de lecture
+    const [currentAudio, setCurrentAudio] = useState(null)
     const router = useRouter()
 
     useEffect(() => {
+        // Charger les voix disponibles
+        loadVoices()
+
         // Vérifier l'authentification
         const token = localStorage.getItem('token')
         const userData = localStorage.getItem('user')
@@ -48,6 +56,18 @@ export default function RemettreEnOrdre() {
 
         setIsLoading(false)
     }, [router])
+
+    const loadVoices = async () => {
+        try {
+            const response = await fetch('/api/speech/voices')
+            if (response.ok) {
+                const data = await response.json()
+                setAvailableVoices(data.voices || [])
+            }
+        } catch (error) {
+            console.error('Erreur chargement voix:', error)
+        }
+    }
 
     const loadTextes = async () => {
         setIsLoadingTexte(true)
@@ -84,22 +104,43 @@ export default function RemettreEnOrdre() {
             if (response.ok) {
                 const data = await response.json()
                 const groupes = data.groupes_sens || []
-                
+
                 // Filtrer pour exclure les sauts de lignes et groupes vides
-                const groupesValides = groupes.filter(groupe => 
-                    groupe.type_groupe !== 'linebreak' && 
-                    groupe.contenu && 
+                const groupesValides = groupes.filter(groupe =>
+                    groupe.type_groupe !== 'linebreak' &&
+                    groupe.contenu &&
                     groupe.contenu.trim() !== ''
                 )
-                
+
                 // Trier par ordre_groupe pour avoir l'ordre original
                 const sortedGroupes = groupesValides.sort((a, b) => a.ordre_groupe - b.ordre_groupe)
                 setOriginalOrder(sortedGroupes)
-                
+
                 // Mélanger pour le jeu
                 const shuffledGroupes = [...sortedGroupes].sort(() => Math.random() - 0.5)
                 setCurrentOrder(shuffledGroupes)
-                
+
+                // Charger les enregistrements pour ce texte
+                try {
+                    const enregResponse = await fetch(`/api/enregistrements/list?texte_id=${texteId}`, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    })
+
+                    if (enregResponse.ok) {
+                        const enregData = await enregResponse.json()
+                        if (enregData.enregistrements) {
+                            const enregMap = {}
+                            enregData.enregistrements.forEach(enreg => {
+                                enregMap[enreg.groupe_sens_id] = enreg
+                            })
+                            setEnregistrements(enregMap)
+                            console.log(`🎵 ${enregData.enregistrements.length} enregistrement(s) chargé(s) pour texte ${texteId}`)
+                        }
+                    }
+                } catch (enregError) {
+                    console.warn(`⚠️ Erreur chargement enregistrements texte ${texteId}:`, enregError)
+                }
+
                 setGameStarted(true)
                 setAttempts(0)
                 setIsCorrect(false)
@@ -199,6 +240,220 @@ export default function RemettreEnOrdre() {
         setIsCorrect(false)
         setFeedback('')
         setShowSolution(false)
+        // Arrêter tout audio en cours
+        if (currentAudio) {
+            currentAudio.pause()
+            setCurrentAudio(null)
+        }
+        setIsPlaying(null)
+    }
+
+    const playEnregistrement = async (enregistrement) => {
+        if (!enregistrement || !enregistrement.audio_url) {
+            console.warn('⚠️ Enregistrement invalide')
+            return false
+        }
+
+        try {
+            console.log('🎵 Lecture enregistrement personnel:', enregistrement.audio_url)
+            const audio = new Audio(enregistrement.audio_url)
+            setCurrentAudio(audio)
+
+            audio.onended = () => {
+                setIsPlaying(null)
+                setCurrentAudio(null)
+            }
+
+            audio.onerror = (error) => {
+                console.error('❌ Erreur lecture enregistrement:', error)
+                setIsPlaying(null)
+                setCurrentAudio(null)
+            }
+
+            await audio.play()
+            console.log('✅ Enregistrement personnel lu avec succès')
+            return true
+        } catch (error) {
+            console.error('❌ Erreur playEnregistrement:', error)
+            return false
+        }
+    }
+
+    const playAudio = async (groupe) => {
+        // Si on clique sur le même audio qui joue, on l'arrête
+        if (isPlaying === groupe.id && currentAudio) {
+            currentAudio.pause()
+            setCurrentAudio(null)
+            setIsPlaying(null)
+            return
+        }
+
+        // Arrêter tout audio en cours
+        if (currentAudio) {
+            currentAudio.pause()
+            setCurrentAudio(null)
+        }
+
+        setIsPlaying(groupe.id)
+
+        // Si mode voix personnalisée, essayer de lire l'enregistrement
+        if (selectedVoice === 'VOIX_PERSONNALISEE') {
+            if (enregistrements[groupe.id]) {
+                console.log('🎵 Enregistrement trouvé pour groupe', groupe.id)
+                const success = await playEnregistrement(enregistrements[groupe.id])
+                if (success) return
+                console.log('⚠️ Échec lecture enregistrement, fallback vers Paul')
+            } else {
+                console.log('⚠️ Aucun enregistrement pour ce groupe, fallback vers Paul')
+            }
+            // Pas d'enregistrement ou erreur → fallback vers Paul (AfbuxQ9DVtS4azaxN1W7)
+            const fallbackVoice = 'AfbuxQ9DVtS4azaxN1W7' // Paul
+
+            const getCachedAudio = (text, voiceId) => {
+                const key = `elevenlabs_${voiceId}_${btoa(text).substring(0, 50)}`
+                return localStorage.getItem(key)
+            }
+
+            const setCachedAudio = (text, voiceId, audioData) => {
+                try {
+                    const key = `elevenlabs_${voiceId}_${btoa(text).substring(0, 50)}`
+                    localStorage.setItem(key, audioData)
+                } catch (error) {
+                    console.error('Erreur cache:', error)
+                }
+            }
+
+            try {
+                const cachedAudio = getCachedAudio(groupe.contenu, fallbackVoice)
+                let audioData = null
+
+                if (cachedAudio) {
+                    audioData = cachedAudio
+                } else {
+                    const token = localStorage.getItem('token')
+                    const response = await fetch('/api/speech/elevenlabs', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify({
+                            text: groupe.contenu,
+                            voice_id: fallbackVoice
+                        })
+                    })
+
+                    if (!response.ok) {
+                        // Fallback vers Web Speech API
+                        const utterance = new SpeechSynthesisUtterance(groupe.contenu)
+                        utterance.lang = 'fr-FR'
+                        utterance.rate = 0.8
+                        utterance.onend = () => {
+                            setIsPlaying(null)
+                        }
+                        window.speechSynthesis.speak(utterance)
+                        return
+                    }
+
+                    const data = await response.json()
+                    audioData = data.audio
+                    setCachedAudio(groupe.contenu, fallbackVoice, audioData)
+                }
+
+                const audio = new Audio(audioData)
+                setCurrentAudio(audio)
+
+                audio.onended = () => {
+                    setIsPlaying(null)
+                    setCurrentAudio(null)
+                }
+
+                audio.onerror = () => {
+                    setIsPlaying(null)
+                    setCurrentAudio(null)
+                }
+
+                await audio.play()
+            } catch (error) {
+                console.error('Erreur lecture audio fallback:', error)
+                setIsPlaying(null)
+            }
+            return
+        }
+
+        // Mode voix ElevenLabs normale
+        const getCachedAudio = (text, voiceId) => {
+            const key = `elevenlabs_${voiceId}_${btoa(text).substring(0, 50)}`
+            return localStorage.getItem(key)
+        }
+
+        const setCachedAudio = (text, voiceId, audioData) => {
+            try {
+                const key = `elevenlabs_${voiceId}_${btoa(text).substring(0, 50)}`
+                localStorage.setItem(key, audioData)
+            } catch (error) {
+                console.error('Erreur cache:', error)
+            }
+        }
+
+        try {
+            // Vérifier le cache
+            const cachedAudio = getCachedAudio(groupe.contenu, selectedVoice)
+            let audioData = null
+
+            if (cachedAudio) {
+                audioData = cachedAudio
+            } else {
+                // Générer via ElevenLabs
+                const token = localStorage.getItem('token')
+                const response = await fetch('/api/speech/elevenlabs', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        text: groupe.contenu,
+                        voice_id: selectedVoice
+                    })
+                })
+
+                if (!response.ok) {
+                    // Fallback vers Web Speech API
+                    const utterance = new SpeechSynthesisUtterance(groupe.contenu)
+                    utterance.lang = 'fr-FR'
+                    utterance.rate = 0.8
+                    utterance.onend = () => {
+                        setIsPlaying(null)
+                    }
+                    window.speechSynthesis.speak(utterance)
+                    return
+                }
+
+                const data = await response.json()
+                audioData = data.audio
+                setCachedAudio(groupe.contenu, selectedVoice, audioData)
+            }
+
+            const audio = new Audio(audioData)
+            setCurrentAudio(audio)
+
+            audio.onended = () => {
+                setIsPlaying(null)
+                setCurrentAudio(null)
+            }
+
+            audio.onerror = () => {
+                setIsPlaying(null)
+                setCurrentAudio(null)
+            }
+
+            await audio.play()
+
+        } catch (error) {
+            console.error('Erreur lecture audio:', error)
+            setIsPlaying(null)
+        }
     }
 
     if (isLoading) {
@@ -354,6 +609,31 @@ export default function RemettreEnOrdre() {
                                         ))}
                                     </select>
 
+                                    {/* Sélecteur de voix */}
+                                    <div style={{ marginBottom: '20px' }}>
+                                        <label style={{ fontWeight: 'bold', marginBottom: '10px', display: 'block' }}>
+                                            🎵 Voix :
+                                        </label>
+                                        <select
+                                            value={selectedVoice}
+                                            onChange={(e) => setSelectedVoice(e.target.value)}
+                                            style={{
+                                                width: '100%',
+                                                padding: '10px',
+                                                borderRadius: '4px',
+                                                border: '1px solid #ddd',
+                                                fontSize: '16px'
+                                            }}
+                                        >
+                                            <option value="VOIX_PERSONNALISEE">🎵 Voix personnalisée ⭐</option>
+                                            {availableVoices.map(voice => (
+                                                <option key={voice.voice_id} value={voice.voice_id}>
+                                                    {voice.name} {voice.recommended ? '⭐' : ''}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+
                                     <button
                                         onClick={startGame}
                                         disabled={!selectedTexte}
@@ -488,6 +768,31 @@ export default function RemettreEnOrdre() {
                                             }}>
                                                 {index + 1}
                                             </div>
+
+                                            {/* Bouton audio */}
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation()
+                                                    playAudio(groupe)
+                                                }}
+                                                style={{
+                                                    minWidth: '36px',
+                                                    height: '36px',
+                                                    background: isPlaying === groupe.id ? '#f59e0b' : '#3b82f6',
+                                                    color: 'white',
+                                                    border: 'none',
+                                                    borderRadius: '50%',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    cursor: 'pointer',
+                                                    fontSize: '16px',
+                                                    transition: 'all 0.2s'
+                                                }}
+                                                title="Écouter ce groupe"
+                                            >
+                                                {isPlaying === groupe.id ? '⏸️' : '🔊'}
+                                            </button>
 
                                             {/* Contenu du groupe */}
                                             <div style={{
