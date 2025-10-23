@@ -111,6 +111,9 @@ supabase/functions/.vscode/
 # MCP Configuration (contains sensitive tokens)
 .mcp.json
 
+# Restore configuration (contains database credentials)
+restore_config.json
+
 # Test and temporary files with potential secrets
 test-*.js
 examine-*.js
