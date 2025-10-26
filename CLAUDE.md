@@ -244,3 +244,156 @@ ESSENTIEL : Lors du débogage, il est impératif de suivre l'intégralité du fl
 
 
 
+## ORGANISATION DES DOSSIERS
+
+### 📂 `/pages/` - Routes Next.js
+**Rôle :** Toutes les pages de l'application (143 fichiers)
+**Contenu :**
+- Routes publiques : `/login.js`, `/dashboard.js`, `/index.js`
+- Routes admin : `/admin/*` (22 pages)
+- Routes apprenants : `/lire/*`, `/quizz/*`, `/imagiers/*`
+- Routes API : `/api/*` (backend)
+
+**Important :**
+- Chaque fichier = une route HTTP
+- Structure = URL de l'application
+- Ne pas renommer sans comprendre l'impact sur les routes
+
+### 📂 `/components/` - Composants React Réutilisables
+**Rôle :** Composants UI partagés entre plusieurs pages
+**Contenu :**
+- **Quiz :** `AIQuizGenerator.js`, `QuizPlayer.js`, `AIQuizModifier.js`
+- **Upload :** `CSVUploader.js`, `CSVPreview.js`, `ImageUpload.js`
+- **Audio :** `AudioButton.js`, `VoiceRecorder.js`
+- **Utilitaires :** `CategorySelector.js`, `TemplateDownloader.js`, `EnhancedErrorDisplay.js`
+- **Sous-dossiers :**
+  - `/QuestionTypes/` - Éditeurs de questions quiz (4 composants)
+  - `/formation/` - Composants module Formation (8 composants)
+
+**Convention :** PascalCase pour les noms de fichiers
+
+### 📂 `/lib/` - Bibliothèques & Utilitaires Métier
+**Rôle :** Logique métier réutilisable, clients API, parsers
+**Contenu :**
+- **Supabase :** `supabaseClient.js`, `supabaseAdmin.js`
+- **Authentification :** `jwt.js`
+- **Parsing :** `csv-parser.js`, `excel-parser.js`
+- **Métier :** `wordAnalyzer.js`, `convertNumbers.js`
+
+**Différence avec /utils/ :**
+- `/lib/` = logique métier complexe, clients API
+- `/utils/` = fonctions utilitaires simples
+
+### 📂 `/utils/` - Fonctions Utilitaires
+**Rôle :** Fonctions helpers simples
+**Contenu :**
+- `syllabify.js` - Algorithme de syllabification (utilisé par monosyllabes-multisyllabes.js)
+- `voiceMapper.js` - Mapping de voix (UNUSED)
+
+**⚠️ Important :** `syllabify.js` est UTILISÉ par le module Lire, ne pas supprimer
+
+### 📂 `/public/` - Fichiers Statiques
+**Rôle :** Assets accessibles publiquement via URL
+**Contenu :**
+- `dictionnaire-syllabes.json` - Dictionnaire de syllabification (489 KB)
+- `pdf.worker.min.js` - Worker PDF.js
+
+**Accès :** `/dictionnaire-syllabes.json` dans le navigateur
+
+### 📂 `/styles/` - Styles CSS
+**Rôle :** Feuilles de style globales et modules
+**Contenu :**
+- `globals.css` - Styles globaux de base
+- `learner.module.css` - Styles module apprenant (CSS Module)
+- `/learner/` - Styles spécifiques apprenants
+
+**Convention :**
+- Fichiers globaux : `*.css`
+- CSS Modules : `*.module.css`
+
+### 📂 `/data/` - Données & Ressources
+**Rôle :** Fichiers de données CSV, JSON, ressources
+**Contenu :**
+- Actuellement vide ou réorganisé ailleurs
+- Historiquement : dictionnaires, vocabulaires
+
+**État :** Dossier probablement obsolète, à vérifier avant suppression
+
+### 📂 `/scripts/` - Scripts Utilitaires & Migrations
+**Rôle :** Scripts Node.js pour maintenance, migrations, génération de données
+**Contenu :**
+- **Migrations Formation :** `verifier-migration-formation.js`, `create-missing-tables.js`
+- **Dictionnaires :** `create-clean-dictionary.js`, `extract-csv-words.js`, `generate-large-dictionary.js`
+- **Utilitaires :** `apply-migration-*.js`, `run-migrations.js`
+
+**Usage :** `node scripts/nom-du-script.js`
+
+**État :**
+- Utiles pour debug migrations BDD
+- Dictionnaires probablement déjà générés
+- Peuvent être supprimés si BDD fonctionnelle
+
+### 📂 `/supabase/` - Configuration Supabase
+**Rôle :** Migrations SQL, configuration BDD
+**Contenu :**
+- `/migrations/` - Fichiers SQL de migration (*.sql)
+- `/.temp/` - Fichiers temporaires Supabase CLI
+
+**Important :**
+- Source de vérité pour le schéma BDD
+- Migrations numérotées : `YYYYMMDDHHMMSS_nom_migration.sql`
+- Appliquer via Dashboard Supabase ou CLI
+
+### 📂 `/.next/` - Build Next.js (Généré)
+**Rôle :** Fichiers de build générés automatiquement
+**État :** Généré par `npm run build` ou `npm run dev`
+**Gitignored :** Oui (ne jamais commiter)
+
+### 📂 `/.vercel/` - Configuration Vercel (Généré)
+**Rôle :** Configuration de déploiement Vercel
+**État :** Généré automatiquement lors du déploiement
+**Gitignored :** Oui
+
+### 📂 `/.git/` - Dépôt Git (Système)
+**Rôle :** Historique des versions, branches Git
+**Ne JAMAIS modifier manuellement**
+
+### 📂 `/.claude/` - Configuration Claude Code
+**Rôle :** Configuration locale Claude Code
+**Contenu :** `settings.local.json` (permissions MCP, configurations)
+**Gitignored :** Oui (configuration personnelle)
+
+### 📂 `/node_modules/` - Dépendances npm (Généré)
+**Rôle :** Packages npm installés
+**État :** Généré par `npm install`
+**Gitignored :** Oui
+**Taille :** ~100-500 MB
+
+---
+
+## RÉSUMÉ DES DOSSIERS PAR CATÉGORIE
+
+### 🔧 Dossiers de Code Source (À ne PAS supprimer)
+- `/pages/` - Routes & Pages
+- `/components/` - Composants React
+- `/lib/` - Logique métier
+- `/utils/` - Utilitaires
+- `/styles/` - CSS
+
+### 🗄️ Dossiers de Configuration (À conserver)
+- `/supabase/` - Migrations SQL
+- `/public/` - Assets statiques
+
+### 🧪 Dossiers Optionnels (Peuvent être supprimés)
+- `/scripts/` - Si migrations déjà appliquées
+- `/data/` - Si vide ou inutilisé
+
+### 🚫 Dossiers Générés (Gitignored)
+- `/.next/` - Build Next.js
+- `/.vercel/` - Config Vercel
+- `/.git/` - Dépôt Git
+- `/.claude/` - Config Claude Code
+- `/node_modules/` - Dépendances npm
+
+---
+
