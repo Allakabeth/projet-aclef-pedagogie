@@ -337,6 +337,52 @@ export default function Lire() {
 
                     <div style={{ position: 'relative', display: 'inline-block', width: '100%' }}>
                         <button
+                            onClick={() => router.push('/lire/reconnaitre-les-mots')}
+                            style={{
+                                backgroundColor: '#06b6d4',
+                                color: 'white',
+                                padding: 'clamp(15px, 4vw, 20px) clamp(10px, 3vw, 15px)',
+                                border: 'none',
+                                borderRadius: '12px',
+                                fontSize: 'clamp(13px, 3vw, 15px)',
+                                fontWeight: 'bold',
+                                cursor: 'pointer',
+                                transition: 'transform 0.2s ease',
+                                width: '100%'
+                            }}
+                            onMouseOver={(e) => e.target.style.transform = 'translateY(-2px)'}
+                            onMouseOut={(e) => e.target.style.transform = 'translateY(0)'}
+                        >
+                            👁️ Reconnaitre les mots
+                        </button>
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation()
+                                lireTexte('Reconnaitre les mots')
+                            }}
+                            style={{
+                                position: 'absolute',
+                                top: '5px',
+                                right: '5px',
+                                backgroundColor: 'rgba(255,255,255,0.2)',
+                                border: 'none',
+                                borderRadius: '50%',
+                                width: '25px',
+                                height: '25px',
+                                cursor: 'pointer',
+                                fontSize: '12px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                            }}
+                            title="Écouter"
+                        >
+                            🔊
+                        </button>
+                    </div>
+
+                    <div style={{ position: 'relative', display: 'inline-block', width: '100%' }}>
+                        <button
                             onClick={() => router.push('/lire/monosyllabes-multisyllabes')}
                             style={{
                                 backgroundColor: '#14b8a6',
