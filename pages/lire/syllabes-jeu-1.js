@@ -46,11 +46,14 @@ export default function JeJoueSyllabes() {
 
     const loadUserWords = async () => {
         try {
+            const token = localStorage.getItem('token')
+
             // Récupérer tous les paniers de syllabes de l'utilisateur
             const response = await fetch('/api/paniers/charger', {
                 method: 'GET',
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
                 }
             })
 

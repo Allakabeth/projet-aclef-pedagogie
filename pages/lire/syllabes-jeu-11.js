@@ -118,11 +118,14 @@ export default function SyllabesJeu11() {
 
     const loadGameData = async () => {
         try {
+            const token = localStorage.getItem('token')
+
             // 1. Charger mes syllabes et mes mots existants
             const response = await fetch('/api/paniers/charger', {
                 method: 'GET',
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
                 }
             })
 

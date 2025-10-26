@@ -120,10 +120,13 @@ export default function SyllabesJeu10() {
 
     const loadUserWords = async () => {
         try {
+            const token = localStorage.getItem('token')
+
             const response = await fetch('/api/paniers/charger', {
                 method: 'GET',
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
                 }
             })
 
