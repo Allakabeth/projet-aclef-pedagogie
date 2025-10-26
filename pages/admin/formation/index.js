@@ -159,12 +159,15 @@ export default function DashboardFormation() {
                     </p>
                 </div>
 
-                {/* Modules à venir */}
-                <div style={{ ...styles.menuCard, ...styles.menuCardDisabled }}>
+                {/* Suivi pédagogique */}
+                <div
+                    style={styles.menuCard}
+                    onClick={() => router.push('/admin/formation/suivi-pedagogique')}
+                >
                     <div style={styles.menuIcon}>📊</div>
                     <h3 style={styles.menuTitle}>Suivi pédagogique</h3>
                     <p style={styles.menuDescription}>
-                        À venir - Phase 4
+                        Visualiser l'activité complète de chaque apprenant
                     </p>
                 </div>
 

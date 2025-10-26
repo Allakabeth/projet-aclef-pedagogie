@@ -17,11 +17,11 @@ export default async function handler(req, res) {
     }
 
     try {
-        // Récupérer tous les apprenants (utilisateurs non-admin)
+        // Récupérer UNIQUEMENT les apprenants (pas les formateurs ni admins)
         const { data, error } = await supabase
             .from('users')
-            .select('id, prenom, nom, email, identifiant')
-            .neq('role', 'admin')
+            .select('id, prenom, nom, email, identifiant, archive')
+            .eq('role', 'apprenant')
             .order('nom', { ascending: true })
 
         if (error) throw error
