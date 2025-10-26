@@ -401,7 +401,7 @@ export default function SyllabesJeu11() {
                         textShadow: '2px 2px 4px rgba(0,0,0,0.3)',
                         marginBottom: '10px'
                     }}>
-                        🧩 Jeu 11 - Mots cachés
+                        🧩 Jeu 9 - Mots cachés
                     </h1>
                     <p style={{
                         color: 'white',

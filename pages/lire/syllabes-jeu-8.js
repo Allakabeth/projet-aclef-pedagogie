@@ -290,7 +290,7 @@ export default function SyllabesJeu8() {
                         textShadow: '2px 2px 4px rgba(0,0,0,0.3)',
                         marginBottom: '10px'
                     }}>
-                        🔢 Jeu 8 - Compte les syllabes
+                        🔢 Jeu 1 - Compte les syllabes
                     </h1>
                     <p style={{
                         color: 'white',

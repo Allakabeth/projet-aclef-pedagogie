@@ -328,7 +328,7 @@ export default function SyllabesJeu6() {
                         textShadow: '2px 2px 4px rgba(0,0,0,0.3)',
                         marginBottom: '10px'
                     }}>
-                        🏃 Jeu 6 - Course de syllabes
+                        🏃 Jeu 8 - Chute de syllabes
                     </h1>
                     <p style={{
                         color: 'white',

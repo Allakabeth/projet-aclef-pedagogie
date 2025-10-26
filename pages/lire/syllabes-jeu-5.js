@@ -305,7 +305,7 @@ export default function SyllabesJeu5() {
                         textShadow: '2px 2px 4px rgba(0,0,0,0.3)',
                         marginBottom: '10px'
                     }}>
-                        🔍 Jeu 5 - Syllabe mystère
+                        🔍 Jeu 2 - Syllabe mystère
                     </h1>
                     <p style={{
                         color: 'white',

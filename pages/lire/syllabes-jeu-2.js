@@ -242,7 +242,7 @@ export default function JeJoueSyllabes2() {
                         textAlign: 'center',
                         textShadow: '2px 2px 4px rgba(0,0,0,0.3)'
                     }}>
-                        🎮 Je joue avec les syllabes - Jeu 2
+                        🎮 Jeu 5 - Je joue avec les syllabes - Fin
                     </h1>
                 )}
 
