@@ -37,6 +37,7 @@ export default function SegmentationSyllabes() {
     ])
     const [selectedVoice, setSelectedVoice] = useState('Paul')
     const [autoRead, setAutoRead] = useState(false)
+    const [gameMode, setGameMode] = useState('entrainement') // 'entrainement' ou 'formation'
     const router = useRouter()
 
     useEffect(() => {
@@ -352,9 +353,9 @@ export default function SegmentationSyllabes() {
                 nextRound(remaining, newCompleted)
             }, 2000)
         } else {
-            setFeedback(`❌ Pas tout à fait ! Vous avez fait : ${userSyllables.join(' - ')}. 
+            setFeedback(`❌ Pas tout à fait ! Vous avez fait : ${userSyllables.join(' - ')}.
                         La bonne segmentation : ${correctSyllables.join(' - ')}`)
-            
+
             // Ajouter aux mots ratés
             const motRate = {
                 mot: currentMot.contenu,
@@ -362,16 +363,21 @@ export default function SegmentationSyllabes() {
                 segmentationCorrecte: correctSyllables
             }
             setMotsRates(prev => [...prev, motRate])
-            
-            setTimeout(() => {
-                setFeedback('')
-                // Retirer le mot raté des mots shufflés ET l'ajouter aux complétés pour éviter qu'il réapparaisse
-                const remaining = shuffledMots.filter(m => m.id !== currentMot.id)
-                const newCompleted = [...completedMots, currentMot]
-                setShuffledMots(remaining)
-                setCompletedMots(newCompleted)
-                nextRound(remaining, newCompleted)
-            }, 4000)
+
+            // Mode Entraînement : passage automatique après 4 secondes
+            if (gameMode === 'entrainement') {
+                setTimeout(() => {
+                    setFeedback('')
+                    // Retirer le mot raté des mots shufflés ET l'ajouter aux complétés pour éviter qu'il réapparaisse
+                    const remaining = shuffledMots.filter(m => m.id !== currentMot.id)
+                    const newCompleted = [...completedMots, currentMot]
+                    setShuffledMots(remaining)
+                    setCompletedMots(newCompleted)
+                    nextRound(remaining, newCompleted)
+                }, 4000)
+            }
+            // Mode Formation : attendre que l'utilisateur clique sur "Continuer"
+            // (le bouton sera affiché dans le rendu)
         }
     }
 
@@ -675,6 +681,54 @@ export default function SegmentationSyllabes() {
                                     </option>
                                 ))}
                             </select>
+                        </div>
+
+                        {/* Choix du mode de jeu */}
+                        <div style={{
+                            background: '#f0f9ff',
+                            padding: '20px',
+                            borderRadius: '12px',
+                            marginBottom: '20px',
+                            textAlign: 'center'
+                        }}>
+                            <h3 style={{ color: '#1d4ed8', marginBottom: '15px', fontSize: '18px' }}>
+                                Mode de jeu
+                            </h3>
+                            <div style={{ display: 'flex', gap: '15px', justifyContent: 'center', flexWrap: 'wrap' }}>
+                                <button
+                                    onClick={() => setGameMode('entrainement')}
+                                    style={{
+                                        padding: '12px 24px',
+                                        borderRadius: '8px',
+                                        border: `2px solid ${gameMode === 'entrainement' ? '#f59e0b' : '#ddd'}`,
+                                        background: gameMode === 'entrainement' ? '#fef3c7' : 'white',
+                                        fontSize: '16px',
+                                        fontWeight: gameMode === 'entrainement' ? 'bold' : 'normal',
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    🎯 Mode Entraînement
+                                </button>
+                                <button
+                                    onClick={() => setGameMode('formation')}
+                                    style={{
+                                        padding: '12px 24px',
+                                        borderRadius: '8px',
+                                        border: `2px solid ${gameMode === 'formation' ? '#f59e0b' : '#ddd'}`,
+                                        background: gameMode === 'formation' ? '#fef3c7' : 'white',
+                                        fontSize: '16px',
+                                        fontWeight: gameMode === 'formation' ? 'bold' : 'normal',
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    👥 Mode Formation
+                                </button>
+                            </div>
+                            <p style={{ fontSize: '14px', color: '#666', marginTop: '10px', fontStyle: 'italic' }}>
+                                {gameMode === 'entrainement'
+                                    ? '⏱️ Passage automatique en cas d\'erreur'
+                                    : '⏸️ Bouton manuel pour discuter avec le formateur'}
+                            </p>
                         </div>
 
                         <div style={{
@@ -1101,6 +1155,34 @@ export default function SegmentationSyllabes() {
                                 whiteSpace: 'pre-line'
                             }}>
                                 {feedback}
+                            </div>
+                        )}
+
+                        {/* Bouton Continuer en mode Formation quand erreur */}
+                        {feedback && feedback.includes('❌') && gameMode === 'formation' && (
+                            <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+                                <button
+                                    onClick={() => {
+                                        setFeedback('')
+                                        const remaining = shuffledMots.filter(m => m.id !== currentMot.id)
+                                        const newCompleted = [...completedMots, currentMot]
+                                        setShuffledMots(remaining)
+                                        setCompletedMots(newCompleted)
+                                        nextRound(remaining, newCompleted)
+                                    }}
+                                    style={{
+                                        backgroundColor: '#f59e0b',
+                                        color: 'white',
+                                        padding: '12px 30px',
+                                        border: 'none',
+                                        borderRadius: '8px',
+                                        fontSize: '16px',
+                                        fontWeight: 'bold',
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    ➡️ Continuer
+                                </button>
                             </div>
                         )}
 
