@@ -191,7 +191,7 @@ export default function JeJoueSyllabes() {
                         >
                             <div style={{ fontSize: '48px', marginBottom: '15px' }}>🔢</div>
                             <h3 style={{ fontSize: '20px', marginBottom: '10px', margin: 0 }}>
-                                Jeu 8 - Compter 🟢
+                                Jeu 1 - Compter 🟢
                             </h3>
                             <p style={{ fontSize: '14px', opacity: 0.9, margin: 0, lineHeight: '1.4' }}>
                                 Comptez le nombre de syllabes dans chaque mot affiché
