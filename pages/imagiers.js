@@ -151,6 +151,74 @@ export default function Imagiers() {
                         </p>
                     </button>
 
+                    {/* Imagiers partagés */}
+                    <button
+                        onClick={() => router.push('/imagiers/partages')}
+                        style={{
+                            background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                            color: 'white',
+                            padding: '30px 20px',
+                            borderRadius: '16px',
+                            border: 'none',
+                            textAlign: 'center',
+                            cursor: 'pointer',
+                            boxShadow: '0 8px 25px rgba(16, 185, 129, 0.3)',
+                            transition: 'all 0.3s ease',
+                            position: 'relative',
+                            overflow: 'hidden'
+                        }}
+                        onMouseOver={(e) => {
+                            e.target.style.transform = 'translateY(-5px)'
+                            e.target.style.boxShadow = '0 12px 35px rgba(16, 185, 129, 0.4)'
+                        }}
+                        onMouseOut={(e) => {
+                            e.target.style.transform = 'translateY(0)'
+                            e.target.style.boxShadow = '0 8px 25px rgba(16, 185, 129, 0.3)'
+                        }}
+                    >
+                        <div style={{ fontSize: '48px', marginBottom: '15px' }}>🌍</div>
+                        <h3 style={{ fontSize: '20px', fontWeight: 'bold', marginBottom: '10px' }}>
+                            Imagiers partagés
+                        </h3>
+                        <p style={{ fontSize: '14px', opacity: 0.9, margin: 0 }}>
+                            Découvrez et importez des imagiers partagés
+                        </p>
+                    </button>
+
+                    {/* Quiz */}
+                    <button
+                        onClick={() => router.push('/imagiers/quiz')}
+                        style={{
+                            background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+                            color: 'white',
+                            padding: '30px 20px',
+                            borderRadius: '16px',
+                            border: 'none',
+                            textAlign: 'center',
+                            cursor: 'pointer',
+                            boxShadow: '0 8px 25px rgba(239, 68, 68, 0.3)',
+                            transition: 'all 0.3s ease',
+                            position: 'relative',
+                            overflow: 'hidden'
+                        }}
+                        onMouseOver={(e) => {
+                            e.target.style.transform = 'translateY(-5px)'
+                            e.target.style.boxShadow = '0 12px 35px rgba(239, 68, 68, 0.4)'
+                        }}
+                        onMouseOut={(e) => {
+                            e.target.style.transform = 'translateY(0)'
+                            e.target.style.boxShadow = '0 8px 25px rgba(239, 68, 68, 0.3)'
+                        }}
+                    >
+                        <div style={{ fontSize: '48px', marginBottom: '15px' }}>🎯</div>
+                        <h3 style={{ fontSize: '20px', fontWeight: 'bold', marginBottom: '10px' }}>
+                            Quiz
+                        </h3>
+                        <p style={{ fontSize: '14px', opacity: 0.9, margin: 0 }}>
+                            Testez vos connaissances avec des quiz
+                        </p>
+                    </button>
+
                     {/* Où est-ce ? */}
                     <button
                         onClick={() => router.push('/imagiers/ou-est-ce')}

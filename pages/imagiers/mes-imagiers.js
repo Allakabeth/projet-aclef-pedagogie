@@ -275,6 +275,41 @@ export default function MesImagiers() {
         }
     }
 
+    const shareImagier = async (imagier) => {
+        const newSharedState = !imagier.shared
+        const confirmMessage = newSharedState
+            ? '🌍 Partager cet imagier avec tous les apprenants ?'
+            : '🔒 Retirer le partage de cet imagier ?'
+
+        if (!confirm(confirmMessage)) return
+
+        try {
+            const token = localStorage.getItem('token')
+            const response = await fetch('/api/imagiers/share', {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    imagier_id: imagier.id,
+                    shared: newSharedState
+                })
+            })
+
+            if (response.ok) {
+                const data = await response.json()
+                alert(data.message)
+                loadImagiers()
+            } else {
+                alert('❌ Erreur lors du partage')
+            }
+        } catch (error) {
+            console.error('Erreur partage:', error)
+            alert('❌ Erreur lors du partage')
+        }
+    }
+
     // Fonctions de capture d'écran Google Images
     const openGoogleImages = (mot) => {
         const searchTerm = mot?.trim() || 'image'
@@ -498,8 +533,12 @@ export default function MesImagiers() {
                                                 <h3 style={{
                                                     margin: '0 0 5px 0',
                                                     color: '#333',
-                                                    fontSize: '18px'
+                                                    fontSize: '18px',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: '8px'
                                                 }}>
+                                                    {imagier.shared && <span title="Imagier partagé">🌍</span>}
                                                     {imagier.titre}
                                                 </h3>
                                                 <span style={{
@@ -514,6 +553,21 @@ export default function MesImagiers() {
                                                 </span>
                                             </div>
                                             <div style={{ display: 'flex', gap: '5px' }}>
+                                                <button
+                                                    onClick={() => shareImagier(imagier)}
+                                                    style={{
+                                                        backgroundColor: imagier.shared ? '#10b981' : '#6b7280',
+                                                        color: 'white',
+                                                        padding: '4px 8px',
+                                                        border: 'none',
+                                                        borderRadius: '4px',
+                                                        fontSize: '12px',
+                                                        cursor: 'pointer'
+                                                    }}
+                                                    title={imagier.shared ? 'Retirer le partage' : 'Partager'}
+                                                >
+                                                    {imagier.shared ? '🌍' : '🔒'}
+                                                </button>
                                                 <button
                                                     onClick={() => duplicateImagier(imagier)}
                                                     style={{
