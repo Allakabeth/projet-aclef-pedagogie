@@ -1,6 +1,7 @@
 import { verifyToken } from '../../../lib/jwt'
 import { supabase } from '../../../lib/supabaseClient'
 import formidable from 'formidable'
+import { promises as fs } from 'fs'
 
 export const config = {
     api: {
@@ -92,24 +93,53 @@ export default async function handler(req, res) {
             return res.status(500).json({ message: 'Erreur lors de la création de l\'imagier' })
         }
 
-        // Sauvegarder les éléments
-        const elementsData = elements.map((element, index) => {
-            // Si c'est un élément généré par IA, il a déjà image_url
-            // Si c'est un élément manuel, il a image (File) qu'il faut traiter
+        // Sauvegarder les éléments avec upload des images
+        const elementsData = []
+
+        for (let index = 0; index < elements.length; index++) {
+            const element = elements[index]
             let imageUrl = ''
 
             if (element.image_url) {
-                // Élément généré par IA
+                // Élément généré par IA - il a déjà une URL
                 imageUrl = element.image_url
-            } else if (element.image && element.image !== 'undefined') {
-                // Élément manuel - pour l'instant on met une image placeholder
-                imageUrl = `https://picsum.photos/400/300?random=${Date.now() + index}`
             } else {
-                // Pas d'image - placeholder
-                imageUrl = `https://picsum.photos/400/300?random=${Date.now() + index}`
+                // Élément manuel - convertir l'image en base64
+                const imageKey = `elements[${index}][image]`
+                const imageFile = files[imageKey]?.[0] || files[imageKey]
+
+                if (imageFile && imageFile.filepath) {
+                    try {
+                        console.log(`📤 Conversion image ${index}:`, imageFile.originalFilename)
+
+                        // Lire le fichier
+                        const fileBuffer = await fs.readFile(imageFile.filepath)
+
+                        // Convertir en base64
+                        const base64 = fileBuffer.toString('base64')
+                        const mimeType = imageFile.mimetype || 'image/jpeg'
+                        imageUrl = `data:${mimeType};base64,${base64}`
+
+                        console.log(`✅ Image ${index} convertie en base64 (${Math.round(base64.length / 1024)}KB)`)
+
+                        // Nettoyer le fichier temporaire
+                        try {
+                            await fs.unlink(imageFile.filepath)
+                        } catch (unlinkError) {
+                            console.error('⚠️ Erreur suppression fichier temp:', unlinkError)
+                        }
+
+                    } catch (error) {
+                        console.error('❌ Erreur traitement image:', error)
+                        imageUrl = `https://via.placeholder.com/400x300?text=Erreur`
+                    }
+                } else {
+                    console.warn(`⚠️ Pas d'image pour l'élément ${index}`)
+                    imageUrl = `https://via.placeholder.com/400x300?text=Pas+d%27image`
+                }
             }
 
-            return {
+            elementsData.push({
                 imagier_id: imagier.id,
                 mot: element.mot || '',
                 image_url: imageUrl,
@@ -117,8 +147,8 @@ export default async function handler(req, res) {
                 question: element.question || '',
                 reponse: element.reponse || '',
                 ordre: index
-            }
-        })
+            })
+        }
 
         console.log('Premier élément brut:', elements[0])
         console.log('Éléments à sauvegarder:', elementsData.slice(0, 2))

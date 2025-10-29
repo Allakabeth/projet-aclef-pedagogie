@@ -22,6 +22,15 @@ export default function CreerImagier() {
     const [isAddingElement, setIsAddingElement] = useState(false)
     const [isSaving, setIsSaving] = useState(false)
     const [isGenerating, setIsGenerating] = useState(false)
+    const [isDragging, setIsDragging] = useState(false)
+    const [isProcessingImages, setIsProcessingImages] = useState(false)
+    const [editingElementId, setEditingElementId] = useState(null)
+    const [editingElementName, setEditingElementName] = useState('')
+    const [isCapturing, setIsCapturing] = useState(false)
+    const [capturedImage, setCapturedImage] = useState(null)
+    const [isCropping, setIsCropping] = useState(false)
+    const [cropData, setCropData] = useState({ x: 0, y: 0, width: 0, height: 0 })
+    const [isSelecting, setIsSelecting] = useState(false)
     const [availableVoices, setAvailableVoices] = useState([
         { name: 'Paul', type: 'elevenlabs', id: 'AfbuxQ9DVtS4azaxN1W7' },
         { name: 'Julie', type: 'elevenlabs', id: 'tMyQcCxfGDdIt7wJ2RQw' }
@@ -157,6 +166,46 @@ export default function CreerImagier() {
         }
     }, [router])
 
+    // Fonction pour compresser une image
+    const compressImage = (file) => {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader()
+            reader.onload = (e) => {
+                const img = new Image()
+                img.onload = () => {
+                    const canvas = document.createElement('canvas')
+                    let width = img.width
+                    let height = img.height
+
+                    // Redimensionner si trop grand
+                    const maxSize = 800
+                    if (width > maxSize || height > maxSize) {
+                        if (width > height) {
+                            height = (height / width) * maxSize
+                            width = maxSize
+                        } else {
+                            width = (width / height) * maxSize
+                            height = maxSize
+                        }
+                    }
+
+                    canvas.width = width
+                    canvas.height = height
+                    const ctx = canvas.getContext('2d')
+                    ctx.drawImage(img, 0, 0, width, height)
+
+                    // Convertir en base64
+                    const compressedBase64 = canvas.toDataURL('image/jpeg', 0.7)
+                    resolve(compressedBase64)
+                }
+                img.onerror = reject
+                img.src = e.target.result
+            }
+            reader.onerror = reject
+            reader.readAsDataURL(file)
+        })
+    }
+
     const handleImageSelect = (e) => {
         const file = e.target.files[0]
         if (file) {
@@ -182,6 +231,102 @@ export default function CreerImagier() {
                 }))
             }
             reader.readAsDataURL(file)
+        }
+    }
+
+    // Traiter plusieurs images à la fois
+    const handleMultipleImages = async (files) => {
+        setIsProcessingImages(true)
+
+        const validFiles = Array.from(files).filter(file => {
+            if (!file.type.startsWith('image/')) {
+                return false
+            }
+            if (file.size > 5 * 1024 * 1024) {
+                alert(`${file.name} dépasse 5MB et sera ignoré`)
+                return false
+            }
+            return true
+        })
+
+        if (validFiles.length === 0) {
+            alert('Aucune image valide trouvée')
+            setIsProcessingImages(false)
+            return
+        }
+
+        try {
+            const newElements = []
+
+            for (const file of validFiles) {
+                // Extraire le nom sans extension
+                const fileName = file.name.replace(/\.[^/.]+$/, '')
+
+                // Compresser l'image
+                const compressedImage = await compressImage(file)
+
+                // Créer un objet File à partir du base64 pour la compatibilité
+                const blob = await fetch(compressedImage).then(r => r.blob())
+                const newFile = new File([blob], file.name, { type: 'image/jpeg' })
+
+                newElements.push({
+                    id: Date.now() + Math.random(),
+                    mot: fileName,
+                    image: newFile,
+                    imagePreview: compressedImage,
+                    commentaire: '',
+                    question: '',
+                    reponse: ''
+                })
+
+                // Petit délai pour éviter de bloquer l'interface
+                await new Promise(resolve => setTimeout(resolve, 50))
+            }
+
+            setElements(prev => [...prev, ...newElements])
+            alert(`✅ ${newElements.length} élément(s) ajouté(s) avec succès !`)
+        } catch (error) {
+            console.error('Erreur traitement images:', error)
+            alert('❌ Erreur lors du traitement des images')
+        } finally {
+            setIsProcessingImages(false)
+        }
+    }
+
+    // Drag & Drop handlers
+    const handleDragEnter = (e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        setIsDragging(true)
+    }
+
+    const handleDragLeave = (e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        setIsDragging(false)
+    }
+
+    const handleDragOver = (e) => {
+        e.preventDefault()
+        e.stopPropagation()
+    }
+
+    const handleDrop = (e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        setIsDragging(false)
+
+        const files = e.dataTransfer.files
+        if (files.length > 0) {
+            handleMultipleImages(files)
+        }
+    }
+
+    // Handler pour le sélecteur de fichiers multiple
+    const handleFileInputChange = (e) => {
+        const files = e.target.files
+        if (files.length > 0) {
+            handleMultipleImages(files)
         }
     }
 
@@ -223,6 +368,154 @@ export default function CreerImagier() {
 
     const removeElement = (elementId) => {
         setElements(prev => prev.filter(el => el.id !== elementId))
+    }
+
+    const startEditingElementName = (element) => {
+        setEditingElementId(element.id)
+        setEditingElementName(element.mot)
+    }
+
+    const saveElementName = (elementId) => {
+        if (editingElementName.trim()) {
+            setElements(prev => prev.map(el =>
+                el.id === elementId ? { ...el, mot: editingElementName.trim() } : el
+            ))
+        }
+        setEditingElementId(null)
+        setEditingElementName('')
+    }
+
+    const cancelEditingElementName = () => {
+        setEditingElementId(null)
+        setEditingElementName('')
+    }
+
+    // Ouvrir Google Images pour rechercher
+    const openGoogleImages = () => {
+        const searchTerm = currentElement.mot.trim() || 'image'
+        const googleUrl = `https://www.google.com/search?q=${encodeURIComponent(searchTerm)}&udm=2`
+        window.open(googleUrl, '_blank', 'width=1200,height=800')
+    }
+
+    // Capturer l'écran avec Screen Capture API
+    const captureScreen = async () => {
+        try {
+            setIsCapturing(true)
+
+            // Demander à l'utilisateur de choisir ce qu'il veut capturer
+            const stream = await navigator.mediaDevices.getDisplayMedia({
+                video: { mediaSource: 'screen' }
+            })
+
+            // Créer un élément vidéo temporaire
+            const video = document.createElement('video')
+            video.srcObject = stream
+            video.play()
+
+            // Attendre que la vidéo soit prête
+            await new Promise(resolve => {
+                video.onloadedmetadata = resolve
+            })
+
+            // Capturer une frame dans un canvas
+            const canvas = document.createElement('canvas')
+            canvas.width = video.videoWidth
+            canvas.height = video.videoHeight
+            const ctx = canvas.getContext('2d')
+            ctx.drawImage(video, 0, 0)
+
+            // Arrêter le stream
+            stream.getTracks().forEach(track => track.stop())
+
+            // Convertir en image
+            const imageData = canvas.toDataURL('image/png')
+            setCapturedImage(imageData)
+            setIsCropping(true)
+            setIsCapturing(false)
+
+        } catch (error) {
+            console.error('Erreur capture:', error)
+            if (error.name === 'NotAllowedError') {
+                alert('❌ Vous devez autoriser la capture d\'écran pour utiliser cette fonctionnalité')
+            } else {
+                alert('❌ Erreur lors de la capture d\'écran')
+            }
+            setIsCapturing(false)
+        }
+    }
+
+    // Appliquer le recadrage et ajouter l'image
+    const applyCrop = async () => {
+        if (!capturedImage || cropData.width === 0 || cropData.height === 0) return
+
+        try {
+            // Créer un canvas pour le recadrage
+            const img = new Image()
+            img.src = capturedImage
+
+            await new Promise((resolve) => {
+                img.onload = resolve
+            })
+
+            // Récupérer l'élément image affiché pour calculer le ratio
+            const displayedImg = document.getElementById('cropImage')
+            const scaleX = img.naturalWidth / displayedImg.offsetWidth
+            const scaleY = img.naturalHeight / displayedImg.offsetHeight
+
+            // Calculer les coordonnées réelles dans l'image originale
+            const realX = cropData.x * scaleX
+            const realY = cropData.y * scaleY
+            const realWidth = cropData.width * scaleX
+            const realHeight = cropData.height * scaleY
+
+            const canvas = document.createElement('canvas')
+            canvas.width = realWidth
+            canvas.height = realHeight
+            const ctx = canvas.getContext('2d')
+
+            // Dessiner la partie recadrée
+            ctx.drawImage(
+                img,
+                realX, realY, realWidth, realHeight,
+                0, 0, realWidth, realHeight
+            )
+
+            // Compresser l'image
+            const compressedImage = canvas.toDataURL('image/jpeg', 0.7)
+
+            // Convertir en File pour compatibilité
+            const blob = await fetch(compressedImage).then(r => r.blob())
+            const file = new File([blob], 'capture.jpg', { type: 'image/jpeg' })
+
+            // Ajouter à l'élément courant
+            setCurrentElement(prev => ({
+                ...prev,
+                image: file,
+                imagePreview: compressedImage
+            }))
+
+            // Réinitialiser
+            setCapturedImage(null)
+            setIsCropping(false)
+            setCropData({ x: 0, y: 0, width: 0, height: 0 })
+            setIsSelecting(false)
+
+        } catch (error) {
+            console.error('Erreur recadrage:', error)
+            alert('❌ Erreur lors du recadrage')
+        }
+    }
+
+    const cancelCrop = () => {
+        setCapturedImage(null)
+        setIsCropping(false)
+        setCropData({ x: 0, y: 0, width: 0, height: 0 })
+        setIsSelecting(false)
+    }
+
+    const resetCropSelection = () => {
+        setCropData({ x: 0, y: 0, width: 0, height: 0 })
+        setIsSelecting(false)
     }
 
     const generateWithAI = async () => {
@@ -811,6 +1104,72 @@ export default function CreerImagier() {
                         </button>
                     </div>
 
+                    {/* Zone de drag & drop pour plusieurs images */}
+                    <div
+                        onDragEnter={handleDragEnter}
+                        onDragOver={handleDragOver}
+                        onDragLeave={handleDragLeave}
+                        onDrop={handleDrop}
+                        style={{
+                            background: isDragging ? '#d1fae5' : 'white',
+                            border: isDragging ? '3px dashed #10b981' : '3px dashed #ddd',
+                            borderRadius: '12px',
+                            padding: '30px',
+                            marginBottom: '20px',
+                            textAlign: 'center',
+                            transition: 'all 0.3s ease',
+                            cursor: 'pointer'
+                        }}
+                    >
+                        <div style={{ fontSize: '48px', marginBottom: '15px' }}>
+                            {isProcessingImages ? '⏳' : isDragging ? '📥' : '📁'}
+                        </div>
+                        <h3 style={{
+                            marginBottom: '10px',
+                            color: isDragging ? '#10b981' : '#333',
+                            fontSize: '18px',
+                            fontWeight: 'bold'
+                        }}>
+                            {isProcessingImages ? 'Traitement des images...' : isDragging ? 'Déposez vos images ici' : '🚀 Import rapide de plusieurs images'}
+                        </h3>
+                        <p style={{
+                            color: '#666',
+                            marginBottom: '15px',
+                            fontSize: '14px'
+                        }}>
+                            Glissez-déposez plusieurs images ici ou cliquez pour sélectionner
+                        </p>
+                        <p style={{
+                            color: '#10b981',
+                            fontSize: '13px',
+                            fontWeight: 'bold',
+                            marginBottom: '15px'
+                        }}>
+                            ✨ Le nom de chaque fichier deviendra automatiquement le mot de l'élément
+                        </p>
+                        <label style={{
+                            backgroundColor: '#10b981',
+                            color: 'white',
+                            padding: '12px 24px',
+                            borderRadius: '8px',
+                            cursor: isProcessingImages ? 'not-allowed' : 'pointer',
+                            display: 'inline-block',
+                            fontSize: '14px',
+                            fontWeight: 'bold',
+                            opacity: isProcessingImages ? 0.6 : 1
+                        }}>
+                            📂 Sélectionner plusieurs images
+                            <input
+                                type="file"
+                                multiple
+                                accept="image/*"
+                                onChange={handleFileInputChange}
+                                disabled={isProcessingImages}
+                                style={{ display: 'none' }}
+                            />
+                        </label>
+                    </div>
+
                     {/* Formulaire d'ajout d'élément */}
                     {isAddingElement && (
                         <div style={{
@@ -852,6 +1211,56 @@ export default function CreerImagier() {
                                 }}>
                                     Image *
                                 </label>
+
+                                {/* Boutons de recherche et capture */}
+                                <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
+                                    <button
+                                        type="button"
+                                        onClick={openGoogleImages}
+                                        disabled={!currentElement.mot.trim()}
+                                        style={{
+                                            flex: 1,
+                                            backgroundColor: currentElement.mot.trim() ? '#3b82f6' : '#ccc',
+                                            color: 'white',
+                                            padding: '10px',
+                                            border: 'none',
+                                            borderRadius: '6px',
+                                            fontSize: '14px',
+                                            fontWeight: 'bold',
+                                            cursor: currentElement.mot.trim() ? 'pointer' : 'not-allowed'
+                                        }}
+                                    >
+                                        🔍 Chercher sur Google Images
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={captureScreen}
+                                        disabled={isCapturing}
+                                        style={{
+                                            flex: 1,
+                                            backgroundColor: isCapturing ? '#ccc' : '#10b981',
+                                            color: 'white',
+                                            padding: '10px',
+                                            border: 'none',
+                                            borderRadius: '6px',
+                                            fontSize: '14px',
+                                            fontWeight: 'bold',
+                                            cursor: isCapturing ? 'not-allowed' : 'pointer'
+                                        }}
+                                    >
+                                        {isCapturing ? '⏳ Capture...' : '📸 Capturer l\'image'}
+                                    </button>
+                                </div>
+
+                                <p style={{
+                                    fontSize: '12px',
+                                    color: '#666',
+                                    marginBottom: '10px',
+                                    fontStyle: 'italic'
+                                }}>
+                                    💡 Astuce : Saisissez d'abord le mot, puis cliquez sur "Chercher" pour ouvrir Google Images. Ensuite, cliquez sur "Capturer" et sélectionnez l'onglet Google.
+                                </p>
+
                                 <input
                                     type="file"
                                     accept="image/*"
@@ -999,7 +1408,77 @@ export default function CreerImagier() {
                                         alignItems: 'flex-start',
                                         marginBottom: '10px'
                                     }}>
-                                        <h4 style={{ margin: 0, color: '#333' }}>{element.mot}</h4>
+                                        {editingElementId === element.id ? (
+                                            <div style={{ flex: 1, marginRight: '8px' }}>
+                                                <input
+                                                    type="text"
+                                                    value={editingElementName}
+                                                    onChange={(e) => setEditingElementName(e.target.value)}
+                                                    onKeyPress={(e) => {
+                                                        if (e.key === 'Enter') {
+                                                            saveElementName(element.id)
+                                                        }
+                                                    }}
+                                                    autoFocus
+                                                    style={{
+                                                        width: '100%',
+                                                        padding: '5px 8px',
+                                                        borderRadius: '4px',
+                                                        border: '2px solid #10b981',
+                                                        fontSize: '14px',
+                                                        fontWeight: 'bold'
+                                                    }}
+                                                />
+                                                <div style={{ display: 'flex', gap: '5px', marginTop: '5px' }}>
+                                                    <button
+                                                        onClick={() => saveElementName(element.id)}
+                                                        style={{
+                                                            backgroundColor: '#10b981',
+                                                            color: 'white',
+                                                            padding: '3px 8px',
+                                                            border: 'none',
+                                                            borderRadius: '3px',
+                                                            fontSize: '11px',
+                                                            cursor: 'pointer'
+                                                        }}
+                                                    >
+                                                        ✓
+                                                    </button>
+                                                    <button
+                                                        onClick={cancelEditingElementName}
+                                                        style={{
+                                                            backgroundColor: '#6b7280',
+                                                            color: 'white',
+                                                            padding: '3px 8px',
+                                                            border: 'none',
+                                                            borderRadius: '3px',
+                                                            fontSize: '11px',
+                                                            cursor: 'pointer'
+                                                        }}
+                                                    >
+                                                        ✗
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <h4
+                                                onClick={() => startEditingElementName(element)}
+                                                style={{
+                                                    margin: 0,
+                                                    color: '#333',
+                                                    cursor: 'pointer',
+                                                    flex: 1,
+                                                    padding: '4px',
+                                                    borderRadius: '4px',
+                                                    transition: 'background 0.2s'
+                                                }}
+                                                onMouseOver={(e) => e.target.style.background = '#f0f0f0'}
+                                                onMouseOut={(e) => e.target.style.background = 'transparent'}
+                                                title="Cliquer pour modifier"
+                                            >
+                                                {element.mot} ✏️
+                                            </h4>
+                                        )}
                                         <div style={{ display: 'flex', gap: '5px' }}>
                                             <button
                                                 onClick={() => speakText(element.mot)}
@@ -1119,6 +1598,152 @@ export default function CreerImagier() {
                     </button>
                 </div>
             </div>
+
+            {/* Modal de recadrage */}
+            {isCropping && capturedImage && (
+                <div style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    backgroundColor: 'rgba(0, 0, 0, 0.9)',
+                    zIndex: 9999,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '20px'
+                }}>
+                    <div style={{
+                        backgroundColor: 'white',
+                        borderRadius: '12px',
+                        padding: '20px',
+                        maxWidth: '90vw',
+                        maxHeight: '90vh',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '15px'
+                    }}>
+                        <h3 style={{ margin: 0, color: '#333', textAlign: 'center' }}>
+                            ✂️ Recadrer l'image
+                        </h3>
+
+                        <p style={{ margin: 0, color: '#666', fontSize: '14px', textAlign: 'center' }}>
+                            {isSelecting && cropData.width > 0 && cropData.height > 0
+                                ? '✅ Zone sélectionnée ! Cliquez sur "Utiliser cette zone" ou "Recommencer"'
+                                : 'Cliquez et glissez pour sélectionner la zone à garder'}
+                        </p>
+
+                        <div style={{
+                            position: 'relative',
+                            maxWidth: '800px',
+                            maxHeight: '600px',
+                            overflow: 'auto',
+                            border: '2px solid #ddd',
+                            borderRadius: '8px'
+                        }}>
+                            <img
+                                src={capturedImage}
+                                alt="Capture"
+                                id="cropImage"
+                                style={{
+                                    display: 'block',
+                                    maxWidth: '100%',
+                                    userSelect: 'none',
+                                    cursor: isSelecting ? 'default' : 'crosshair'
+                                }}
+                                onMouseDown={(e) => {
+                                    // Ne pas créer de nouvelle zone si une zone existe déjà
+                                    if (isSelecting) return
+
+                                    setIsSelecting(true)
+                                    const rect = e.target.getBoundingClientRect()
+                                    const x = e.clientX - rect.left
+                                    const y = e.clientY - rect.top
+                                    setCropData({ x, y, width: 0, height: 0 })
+
+                                    const handleMouseMove = (moveEvent) => {
+                                        const newWidth = moveEvent.clientX - rect.left - x
+                                        const newHeight = moveEvent.clientY - rect.top - y
+                                        setCropData({ x, y, width: Math.abs(newWidth), height: Math.abs(newHeight) })
+                                    }
+
+                                    const handleMouseUp = () => {
+                                        document.removeEventListener('mousemove', handleMouseMove)
+                                        document.removeEventListener('mouseup', handleMouseUp)
+                                    }
+
+                                    document.addEventListener('mousemove', handleMouseMove)
+                                    document.addEventListener('mouseup', handleMouseUp)
+                                }}
+                            />
+                            {cropData.width > 0 && cropData.height > 0 && (
+                                <div style={{
+                                    position: 'absolute',
+                                    left: cropData.x,
+                                    top: cropData.y,
+                                    width: cropData.width,
+                                    height: cropData.height,
+                                    border: '3px dashed #10b981',
+                                    backgroundColor: 'rgba(16, 185, 129, 0.2)',
+                                    pointerEvents: 'none'
+                                }} />
+                            )}
+                        </div>
+
+                        <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
+                            <button
+                                onClick={applyCrop}
+                                disabled={cropData.width === 0 || cropData.height === 0}
+                                style={{
+                                    backgroundColor: (cropData.width === 0 || cropData.height === 0) ? '#ccc' : '#10b981',
+                                    color: 'white',
+                                    padding: '12px 24px',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    fontSize: '16px',
+                                    fontWeight: 'bold',
+                                    cursor: (cropData.width === 0 || cropData.height === 0) ? 'not-allowed' : 'pointer'
+                                }}
+                            >
+                                ✅ Utiliser cette zone
+                            </button>
+                            <button
+                                onClick={resetCropSelection}
+                                disabled={!isSelecting}
+                                style={{
+                                    backgroundColor: !isSelecting ? '#ccc' : '#f59e0b',
+                                    color: 'white',
+                                    padding: '12px 24px',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    fontSize: '16px',
+                                    fontWeight: 'bold',
+                                    cursor: !isSelecting ? 'not-allowed' : 'pointer'
+                                }}
+                            >
+                                🔄 Recommencer
+                            </button>
+                            <button
+                                onClick={cancelCrop}
+                                style={{
+                                    backgroundColor: '#ef4444',
+                                    color: 'white',
+                                    padding: '12px 24px',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    fontSize: '16px',
+                                    fontWeight: 'bold',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                ❌ Annuler
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     )
 }

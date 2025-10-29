@@ -15,6 +15,31 @@ export default function MesImagiers() {
         { name: 'Julie', type: 'elevenlabs', id: 'tMyQcCxfGDdIt7wJ2RQw' }
     ])
     const [selectedVoice, setSelectedVoice] = useState('Paul')
+
+    // États pour le mode édition
+    const [editedTitre, setEditedTitre] = useState('')
+    const [editedDescription, setEditedDescription] = useState('')
+    const [editedTheme, setEditedTheme] = useState('')
+    const [editedVoix, setEditedVoix] = useState('Paul')
+    const [editedElements, setEditedElements] = useState([])
+    const [isSaving, setIsSaving] = useState(false)
+    const [isAddingElement, setIsAddingElement] = useState(false)
+    const [newElement, setNewElement] = useState({
+        mot: '',
+        image_url: '',
+        commentaire: '',
+        question: '',
+        reponse: ''
+    })
+
+    // États pour la capture d'écran
+    const [isCapturing, setIsCapturing] = useState(false)
+    const [capturedImage, setCapturedImage] = useState(null)
+    const [isCropping, setIsCropping] = useState(false)
+    const [cropData, setCropData] = useState({ x: 0, y: 0, width: 0, height: 0 })
+    const [isSelecting, setIsSelecting] = useState(false)
+    const [captureContext, setCaptureContext] = useState(null) // 'new' ou index
+
     const router = useRouter()
 
     // Système audio intelligent (ElevenLabs + Web Speech fallback)
@@ -171,6 +196,12 @@ export default function MesImagiers() {
         const imagierWithElements = await loadImagierWithElements(imagier.id)
         if (imagierWithElements) {
             setSelectedImagier(imagierWithElements)
+            // Initialiser les états d'édition
+            setEditedTitre(imagierWithElements.titre)
+            setEditedDescription(imagierWithElements.description || '')
+            setEditedTheme(imagierWithElements.theme || '')
+            setEditedVoix(imagierWithElements.voix || 'Paul')
+            setEditedElements(imagierWithElements.elements || [])
             setMode('edit')
         }
     }
@@ -244,47 +275,132 @@ export default function MesImagiers() {
         }
     }
 
-    const regenerateImages = async (imagier) => {
-        if (!confirm(`Régénérer les images de l'imagier "${imagier.titre}" ?\n\nCela remplacera toutes les images actuelles par de nouvelles images cohérentes.`)) {
-            return
-        }
+    // Fonctions de capture d'écran Google Images
+    const openGoogleImages = (mot) => {
+        const searchTerm = mot?.trim() || 'image'
+        const googleUrl = `https://www.google.com/search?q=${encodeURIComponent(searchTerm)}&udm=2`
+        window.open(googleUrl, '_blank', 'width=1200,height=800')
+    }
 
+    const captureScreen = async (context) => {
         try {
-            const token = localStorage.getItem('token')
-            const response = await fetch('/api/imagiers/regenerate-images', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({
-                    imagierId: imagier.id
-                })
+            setIsCapturing(true)
+            setCaptureContext(context)
+
+            const stream = await navigator.mediaDevices.getDisplayMedia({
+                video: { mediaSource: 'screen' }
             })
 
-            if (response.ok) {
-                const data = await response.json()
-                alert(`✅ ${data.elements_updated} images régénérées avec succès !`)
+            const video = document.createElement('video')
+            video.srcObject = stream
+            video.play()
 
-                // Recharger l'imagier si on est en mode vue
-                if (mode === 'view' && selectedImagier?.id === imagier.id) {
-                    const updatedImagier = await loadImagierWithElements(imagier.id)
-                    if (updatedImagier) {
-                        setSelectedImagier(updatedImagier)
-                    }
-                }
-            } else {
-                const error = await response.json()
-                alert(`❌ Erreur lors de la régénération: ${error.message}`)
-            }
+            await new Promise(resolve => {
+                video.onloadedmetadata = resolve
+            })
+
+            const canvas = document.createElement('canvas')
+            canvas.width = video.videoWidth
+            canvas.height = video.videoHeight
+            const ctx = canvas.getContext('2d')
+            ctx.drawImage(video, 0, 0)
+
+            stream.getTracks().forEach(track => track.stop())
+
+            const imageData = canvas.toDataURL('image/png')
+            setCapturedImage(imageData)
+            setIsCropping(true)
+            setIsCapturing(false)
+
         } catch (error) {
-            console.error('Erreur régénération images:', error)
-            alert('❌ Erreur lors de la régénération des images')
+            console.error('Erreur capture:', error)
+            if (error.name === 'NotAllowedError') {
+                alert('❌ Vous devez autoriser la capture d\'écran pour utiliser cette fonctionnalité')
+            } else {
+                alert('❌ Erreur lors de la capture d\'écran')
+            }
+            setIsCapturing(false)
         }
     }
 
+    const applyCrop = async () => {
+        if (!capturedImage || cropData.width === 0 || cropData.height === 0) return
+
+        try {
+            const img = new Image()
+            img.src = capturedImage
+
+            await new Promise((resolve) => {
+                img.onload = resolve
+            })
+
+            const displayedImg = document.getElementById('cropImage')
+            const scaleX = img.naturalWidth / displayedImg.offsetWidth
+            const scaleY = img.naturalHeight / displayedImg.offsetHeight
+
+            const realX = cropData.x * scaleX
+            const realY = cropData.y * scaleY
+            const realWidth = cropData.width * scaleX
+            const realHeight = cropData.height * scaleY
+
+            const canvas = document.createElement('canvas')
+            canvas.width = realWidth
+            canvas.height = realHeight
+            const ctx = canvas.getContext('2d')
+
+            ctx.drawImage(
+                img,
+                realX, realY, realWidth, realHeight,
+                0, 0, realWidth, realHeight
+            )
+
+            const compressedImage = canvas.toDataURL('image/jpeg', 0.7)
+
+            // Assignation conditionnelle selon le contexte
+            if (captureContext === 'new') {
+                // Nouvel élément
+                setNewElement(prev => ({
+                    ...prev,
+                    image_url: compressedImage
+                }))
+            } else {
+                // Modification d'élément existant (captureContext = index)
+                const newElements = [...editedElements]
+                newElements[captureContext].image_url = compressedImage
+                setEditedElements(newElements)
+            }
+
+            // Réinitialiser
+            setCapturedImage(null)
+            setIsCropping(false)
+            setCropData({ x: 0, y: 0, width: 0, height: 0 })
+            setIsSelecting(false)
+            setCaptureContext(null)
+
+        } catch (error) {
+            console.error('Erreur recadrage:', error)
+            alert('❌ Erreur lors du recadrage')
+        }
+    }
+
+    const cancelCrop = () => {
+        setCapturedImage(null)
+        setIsCropping(false)
+        setCropData({ x: 0, y: 0, width: 0, height: 0 })
+        setIsSelecting(false)
+        setCaptureContext(null)
+    }
+
+    const resetCropSelection = () => {
+        setCropData({ x: 0, y: 0, width: 0, height: 0 })
+        setIsSelecting(false)
+    }
+
+    // Variable pour stocker le contenu principal
+    let mainContent = null
+
     if (isLoading) {
-        return (
+        mainContent = (
             <div style={{
                 minHeight: '100vh',
                 background: 'white',
@@ -295,13 +411,10 @@ export default function MesImagiers() {
                 <div style={{ color: '#3b82f6', fontSize: '18px' }}>Chargement...</div>
             </div>
         )
-    }
-
-    if (!user) return null
-
-    // Mode Liste - Affichage des imagiers
-    if (mode === 'list') {
-        return (
+    } else if (!user) {
+        mainContent = null
+    } else if (mode === 'list') {
+        mainContent = (
             <div style={{
                 minHeight: '100vh',
                 background: 'white',
@@ -417,21 +530,6 @@ export default function MesImagiers() {
                                                     📋
                                                 </button>
                                                 <button
-                                                    onClick={() => regenerateImages(imagier)}
-                                                    style={{
-                                                        backgroundColor: '#8b5cf6',
-                                                        color: 'white',
-                                                        padding: '4px 8px',
-                                                        border: 'none',
-                                                        borderRadius: '4px',
-                                                        fontSize: '12px',
-                                                        cursor: 'pointer'
-                                                    }}
-                                                    title="Régénérer les images"
-                                                >
-                                                    🖼️
-                                                </button>
-                                                <button
                                                     onClick={() => deleteImagier(imagier.id)}
                                                     style={{
                                                         backgroundColor: '#ef4444',
@@ -469,7 +567,7 @@ export default function MesImagiers() {
                                             fontSize: '14px',
                                             color: '#666'
                                         }}>
-                                            <span>📷 {imagier.elements?.length || 0} images</span>
+                                            <span>📷 {imagier.nombre_elements || 0} {imagier.nombre_elements > 1 ? 'images' : 'image'}</span>
                                             <span>🎵 Voix: {imagier.voix || 'Paul'}</span>
                                         </div>
 
@@ -580,13 +678,10 @@ export default function MesImagiers() {
                 </div>
             </div>
         )
-    }
-
-    // Mode Visualisation - Diaporama
-    if (mode === 'view' && selectedImagier && selectedImagier.elements && selectedImagier.elements.length > 0) {
+    } else if (mode === 'view' && selectedImagier && selectedImagier.elements && selectedImagier.elements.length > 0) {
         const currentElement = selectedImagier.elements[currentIndex]
 
-        return (
+        mainContent = (
             <div style={{
                 minHeight: '100vh',
                 background: '#1f2937',
@@ -851,11 +946,167 @@ export default function MesImagiers() {
                 </div>
             </div>
         )
-    }
+    } else if (mode === 'edit' && selectedImagier) {
+        const handleUpdateElement = (index, field, value) => {
+            const newElements = [...editedElements]
+            newElements[index][field] = value
+            setEditedElements(newElements)
+        }
 
-    // Mode Modification (à développer)
-    if (mode === 'edit' && selectedImagier) {
-        return (
+        const handleDeleteElement = async (elementId, index) => {
+            if (!confirm('Êtes-vous sûr de vouloir supprimer cet élément ?')) return
+
+            try {
+                const token = localStorage.getItem('token')
+                const response = await fetch('/api/imagiers/delete-element', {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ element_id: elementId })
+                })
+
+                if (response.ok) {
+                    const newElements = editedElements.filter((_, i) => i !== index)
+                    setEditedElements(newElements)
+                    alert('✅ Élément supprimé')
+                } else {
+                    alert('❌ Erreur lors de la suppression')
+                }
+            } catch (error) {
+                console.error('Erreur suppression élément:', error)
+                alert('❌ Erreur lors de la suppression')
+            }
+        }
+
+        const handleAddElement = async () => {
+            if (!newElement.mot.trim()) {
+                alert('❌ Le mot est obligatoire')
+                return
+            }
+            if (!newElement.image_url) {
+                alert('❌ L\'image est obligatoire')
+                return
+            }
+
+            try {
+                const token = localStorage.getItem('token')
+
+                // Créer le nouvel élément via API
+                const response = await fetch('/api/imagiers/add-element', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        imagier_id: selectedImagier.id,
+                        mot: newElement.mot,
+                        image_url: newElement.image_url,
+                        commentaire: newElement.commentaire,
+                        question: newElement.question,
+                        reponse: newElement.reponse,
+                        ordre: editedElements.length
+                    })
+                })
+
+                if (!response.ok) {
+                    throw new Error('Erreur ajout élément')
+                }
+
+                const data = await response.json()
+
+                // Ajouter à la liste locale
+                setEditedElements([...editedElements, data.element])
+
+                // Réinitialiser le formulaire
+                setNewElement({
+                    mot: '',
+                    image_url: '',
+                    commentaire: '',
+                    question: '',
+                    reponse: ''
+                })
+                setIsAddingElement(false)
+
+                alert('✅ Élément ajouté avec succès !')
+
+            } catch (error) {
+                console.error('Erreur ajout élément:', error)
+                alert('❌ Erreur lors de l\'ajout de l\'élément')
+            }
+        }
+
+        const handleSave = async () => {
+            setIsSaving(true)
+
+            try {
+                const token = localStorage.getItem('token')
+
+                // 1. Mettre à jour l'imagier
+                const imagierResponse = await fetch('/api/imagiers/update', {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        imagier_id: selectedImagier.id,
+                        titre: editedTitre,
+                        description: editedDescription,
+                        theme: editedTheme,
+                        voix: editedVoix
+                    })
+                })
+
+                if (!imagierResponse.ok) {
+                    throw new Error('Erreur mise à jour imagier')
+                }
+
+                // 2. Mettre à jour les éléments
+                for (const element of editedElements) {
+                    // Préparer les données - n'envoyer image_url QUE si c'est une nouvelle image (base64)
+                    const updateData = {
+                        element_id: element.id,
+                        mot: element.mot,
+                        commentaire: element.commentaire,
+                        question: element.question,
+                        reponse: element.reponse
+                    }
+
+                    // Envoyer l'image seulement si elle a été changée (commence par data:image)
+                    if (element.image_url && element.image_url.startsWith('data:image')) {
+                        updateData.image_url = element.image_url
+                    }
+
+                    const elementResponse = await fetch('/api/imagiers/update-element', {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify(updateData)
+                    })
+
+                    if (!elementResponse.ok) {
+                        throw new Error(`Erreur mise à jour élément ${element.mot}`)
+                    }
+                }
+
+                alert('✅ Imagier mis à jour avec succès !')
+                setMode('list')
+                loadImagiers()
+
+            } catch (error) {
+                console.error('Erreur sauvegarde:', error)
+                alert('❌ Erreur lors de la sauvegarde')
+            } finally {
+                setIsSaving(false)
+            }
+        }
+
+        mainContent = (
             <div style={{
                 minHeight: '100vh',
                 background: 'white',
@@ -863,59 +1114,793 @@ export default function MesImagiers() {
             }}>
                 <div style={{
                     maxWidth: '900px',
-                    margin: '0 auto',
-                    textAlign: 'center',
-                    padding: '60px 20px'
+                    margin: '0 auto'
                 }}>
+                    {/* Titre */}
                     <h1 style={{
-                        fontSize: '32px',
+                        fontSize: 'clamp(24px, 5vw, 32px)',
+                        fontWeight: 'bold',
                         marginBottom: '20px',
-                        color: '#3b82f6'
+                        background: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
+                        WebkitBackgroundClip: 'text',
+                        WebkitTextFillColor: 'transparent',
+                        textAlign: 'center'
                     }}>
-                        ✏️ Mode Modification
+                        ✏️ Modifier l'imagier
                     </h1>
-                    <p style={{
-                        fontSize: '18px',
-                        color: '#666',
-                        marginBottom: '30px'
-                    }}>
-                        Fonctionnalités avancées en cours de développement...
-                    </p>
+
+                    {/* Formulaire imagier */}
                     <div style={{
-                        background: '#f0f9ff',
-                        padding: '25px',
+                        background: '#f9fafb',
+                        border: '2px solid #e5e7eb',
                         borderRadius: '12px',
-                        marginBottom: '30px',
-                        textAlign: 'left'
+                        padding: '20px',
+                        marginBottom: '20px'
                     }}>
-                        <h3 style={{ color: '#0369a1', marginBottom: '15px' }}>🚀 Fonctionnalités à venir :</h3>
-                        <ul style={{ color: '#666', lineHeight: '1.8' }}>
-                            <li>✏️ Modifier images, mots, commentaires</li>
-                            <li>🎙️ Enregistrer sa propre voix</li>
-                            <li>➕ Ajouter/supprimer des éléments</li>
-                            <li>🤖 Génération automatique Q&R avec Gemini</li>
-                            <li>📋 Duplication et organisation avancée</li>
-                        </ul>
+                        <h3 style={{ marginBottom: '15px', color: '#1f2937' }}>📝 Informations générales</h3>
+
+                        <div style={{ marginBottom: '15px' }}>
+                            <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: '#4b5563' }}>
+                                Titre *
+                            </label>
+                            <input
+                                type="text"
+                                value={editedTitre}
+                                onChange={(e) => setEditedTitre(e.target.value)}
+                                style={{
+                                    width: '100%',
+                                    padding: '10px',
+                                    border: '1px solid #d1d5db',
+                                    borderRadius: '6px',
+                                    fontSize: '16px'
+                                }}
+                            />
+                        </div>
+
+                        <div style={{ marginBottom: '15px' }}>
+                            <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: '#4b5563' }}>
+                                Description
+                            </label>
+                            <textarea
+                                value={editedDescription}
+                                onChange={(e) => setEditedDescription(e.target.value)}
+                                rows={3}
+                                style={{
+                                    width: '100%',
+                                    padding: '10px',
+                                    border: '1px solid #d1d5db',
+                                    borderRadius: '6px',
+                                    fontSize: '16px',
+                                    resize: 'vertical'
+                                }}
+                            />
+                        </div>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+                            <div>
+                                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: '#4b5563' }}>
+                                    Thème
+                                </label>
+                                <input
+                                    type="text"
+                                    value={editedTheme}
+                                    onChange={(e) => setEditedTheme(e.target.value)}
+                                    style={{
+                                        width: '100%',
+                                        padding: '10px',
+                                        border: '1px solid #d1d5db',
+                                        borderRadius: '6px',
+                                        fontSize: '16px'
+                                    }}
+                                />
+                            </div>
+
+                            <div>
+                                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: '#4b5563' }}>
+                                    Voix
+                                </label>
+                                <select
+                                    value={editedVoix}
+                                    onChange={(e) => setEditedVoix(e.target.value)}
+                                    style={{
+                                        width: '100%',
+                                        padding: '10px',
+                                        border: '1px solid #d1d5db',
+                                        borderRadius: '6px',
+                                        fontSize: '16px'
+                                    }}
+                                >
+                                    <option value="Paul">Paul</option>
+                                    <option value="Julie">Julie</option>
+                                </select>
+                            </div>
+                        </div>
                     </div>
-                    <button
-                        onClick={() => setMode('list')}
-                        style={{
-                            backgroundColor: '#6b7280',
-                            color: 'white',
-                            padding: '12px 30px',
-                            border: 'none',
-                            borderRadius: '8px',
-                            fontSize: '16px',
-                            fontWeight: 'bold',
-                            cursor: 'pointer'
-                        }}
-                    >
-                        ← Retour à la liste
-                    </button>
+
+                    {/* Liste des éléments */}
+                    <div style={{
+                        background: '#f9fafb',
+                        border: '2px solid #e5e7eb',
+                        borderRadius: '12px',
+                        padding: '20px',
+                        marginBottom: '20px'
+                    }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+                            <h3 style={{ margin: 0, color: '#1f2937' }}>🖼️ Éléments ({editedElements.length})</h3>
+                            <button
+                                onClick={() => setIsAddingElement(true)}
+                                style={{
+                                    backgroundColor: '#10b981',
+                                    color: 'white',
+                                    padding: '8px 16px',
+                                    border: 'none',
+                                    borderRadius: '6px',
+                                    fontSize: '14px',
+                                    fontWeight: 'bold',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                ➕ Ajouter un élément
+                            </button>
+                        </div>
+
+                        {/* Formulaire ajout élément */}
+                        {isAddingElement && (
+                            <div style={{
+                                background: '#ecfdf5',
+                                border: '2px solid #10b981',
+                                borderRadius: '8px',
+                                padding: '15px',
+                                marginBottom: '15px'
+                            }}>
+                                <h4 style={{ marginBottom: '12px', color: '#10b981' }}>Nouvel élément</h4>
+
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+                                    <div>
+                                        <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: 'bold', color: '#374151' }}>
+                                            Mot *
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={newElement.mot}
+                                            onChange={(e) => setNewElement({ ...newElement, mot: e.target.value })}
+                                            placeholder="Ex: aspirateur"
+                                            style={{
+                                                width: '100%',
+                                                padding: '8px',
+                                                border: '1px solid #d1d5db',
+                                                borderRadius: '6px',
+                                                fontSize: '14px'
+                                            }}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: 'bold', color: '#374151' }}>
+                                            Image *
+                                        </label>
+                                        <input
+                                            type="file"
+                                            accept="image/*"
+                                            onChange={(e) => {
+                                                const file = e.target.files[0]
+                                                if (file) {
+                                                    const img = new Image()
+                                                    const reader = new FileReader()
+                                                    reader.onload = (event) => { img.src = event.target.result }
+                                                    img.onload = () => {
+                                                        const maxWidth = 800
+                                                        const maxHeight = 600
+                                                        let width = img.width
+                                                        let height = img.height
+                                                        if (width > maxWidth) { height = (height * maxWidth) / width; width = maxWidth }
+                                                        if (height > maxHeight) { width = (width * maxHeight) / height; height = maxHeight }
+                                                        const canvas = document.createElement('canvas')
+                                                        canvas.width = width
+                                                        canvas.height = height
+                                                        const ctx = canvas.getContext('2d')
+                                                        ctx.drawImage(img, 0, 0, width, height)
+                                                        const compressedBase64 = canvas.toDataURL('image/jpeg', 0.7)
+                                                        setNewElement({ ...newElement, image_url: compressedBase64 })
+                                                    }
+                                                    reader.readAsDataURL(file)
+                                                }
+                                            }}
+                                            style={{
+                                                width: '100%',
+                                                padding: '6px',
+                                                border: '1px solid #d1d5db',
+                                                borderRadius: '6px',
+                                                fontSize: '13px'
+                                            }}
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Boutons de capture d'écran */}
+                                <div style={{ display: 'flex', gap: '10px', marginBottom: '15px' }}>
+                                    <button
+                                        type="button"
+                                        onClick={() => openGoogleImages(newElement.mot)}
+                                        disabled={!newElement.mot.trim()}
+                                        style={{
+                                            flex: 1,
+                                            backgroundColor: newElement.mot.trim() ? '#3b82f6' : '#ccc',
+                                            color: 'white',
+                                            padding: '10px',
+                                            border: 'none',
+                                            borderRadius: '6px',
+                                            fontSize: '14px',
+                                            fontWeight: 'bold',
+                                            cursor: newElement.mot.trim() ? 'pointer' : 'not-allowed'
+                                        }}
+                                    >
+                                        🔍 Chercher sur Google Images
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => captureScreen('new')}
+                                        disabled={isCapturing}
+                                        style={{
+                                            flex: 1,
+                                            backgroundColor: isCapturing ? '#ccc' : '#10b981',
+                                            color: 'white',
+                                            padding: '10px',
+                                            border: 'none',
+                                            borderRadius: '6px',
+                                            fontSize: '14px',
+                                            fontWeight: 'bold',
+                                            cursor: isCapturing ? 'not-allowed' : 'pointer'
+                                        }}
+                                    >
+                                        {isCapturing ? '⏳ Capture...' : '📸 Capturer l\'image'}
+                                    </button>
+                                </div>
+                                <p style={{ fontSize: '12px', color: '#6b7280', marginBottom: '12px', textAlign: 'center' }}>
+                                    💡 Astuce : Saisissez d'abord le mot, puis cherchez et capturez l'image depuis Google Images
+                                </p>
+
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+                                    <div>
+                                        <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: 'bold', color: '#374151' }}>
+                                            Commentaire
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={newElement.commentaire}
+                                            onChange={(e) => setNewElement({ ...newElement, commentaire: e.target.value })}
+                                            placeholder="Description..."
+                                            style={{
+                                                width: '100%',
+                                                padding: '8px',
+                                                border: '1px solid #d1d5db',
+                                                borderRadius: '6px',
+                                                fontSize: '14px'
+                                            }}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: 'bold', color: '#374151' }}>
+                                            Question
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={newElement.question}
+                                            onChange={(e) => setNewElement({ ...newElement, question: e.target.value })}
+                                            placeholder="Ex: À quoi sert cet objet ?"
+                                            style={{
+                                                width: '100%',
+                                                padding: '8px',
+                                                border: '1px solid #d1d5db',
+                                                borderRadius: '6px',
+                                                fontSize: '14px'
+                                            }}
+                                        />
+                                    </div>
+                                </div>
+
+                                <div style={{ marginBottom: '12px' }}>
+                                    <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: 'bold', color: '#374151' }}>
+                                        Réponse
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={newElement.reponse}
+                                        onChange={(e) => setNewElement({ ...newElement, reponse: e.target.value })}
+                                        placeholder="Ex: À nettoyer le sol"
+                                        style={{
+                                            width: '100%',
+                                            padding: '8px',
+                                            border: '1px solid #d1d5db',
+                                            borderRadius: '6px',
+                                            fontSize: '14px'
+                                        }}
+                                    />
+                                </div>
+
+                                {newElement.image_url && (
+                                    <div style={{ marginBottom: '12px', textAlign: 'center' }}>
+                                        <img
+                                            src={newElement.image_url}
+                                            alt="Aperçu"
+                                            style={{
+                                                width: '150px',
+                                                height: '150px',
+                                                objectFit: 'cover',
+                                                borderRadius: '8px',
+                                                border: '2px solid #10b981'
+                                            }}
+                                        />
+                                    </div>
+                                )}
+
+                                <div style={{ display: 'flex', gap: '10px' }}>
+                                    <button
+                                        onClick={handleAddElement}
+                                        style={{
+                                            backgroundColor: '#10b981',
+                                            color: 'white',
+                                            padding: '10px 20px',
+                                            border: 'none',
+                                            borderRadius: '6px',
+                                            fontSize: '14px',
+                                            fontWeight: 'bold',
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        ✅ Ajouter
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            setIsAddingElement(false)
+                                            setNewElement({ mot: '', image_url: '', commentaire: '', question: '', reponse: '' })
+                                        }}
+                                        style={{
+                                            backgroundColor: '#6b7280',
+                                            color: 'white',
+                                            padding: '10px 20px',
+                                            border: 'none',
+                                            borderRadius: '6px',
+                                            fontSize: '14px',
+                                            fontWeight: 'bold',
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        ❌ Annuler
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
+                        {editedElements.length === 0 ? (
+                            <p style={{ color: '#9ca3af', textAlign: 'center', padding: '20px' }}>
+                                Aucun élément dans cet imagier
+                            </p>
+                        ) : (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                                {editedElements.map((element, index) => (
+                                    <div
+                                        key={element.id || index}
+                                        style={{
+                                            background: 'white',
+                                            border: '1px solid #e5e7eb',
+                                            borderRadius: '8px',
+                                            padding: '15px',
+                                            display: 'grid',
+                                            gridTemplateColumns: '100px 1fr',
+                                            gap: '15px',
+                                            alignItems: 'start'
+                                        }}
+                                    >
+                                        {/* Image + Bouton supprimer */}
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'center' }}>
+                                            <button
+                                                onClick={() => handleDeleteElement(element.id, index)}
+                                                title="Supprimer cet élément"
+                                                style={{
+                                                    backgroundColor: '#ef4444',
+                                                    color: 'white',
+                                                    padding: '6px',
+                                                    border: 'none',
+                                                    borderRadius: '6px',
+                                                    fontSize: '16px',
+                                                    cursor: 'pointer',
+                                                    width: '100%',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center'
+                                                }}
+                                            >
+                                                🗑️
+                                            </button>
+                                            <img
+                                                src={element.image_url}
+                                                alt={element.mot}
+                                                style={{
+                                                    width: '100px',
+                                                    height: '100px',
+                                                    objectFit: 'cover',
+                                                    borderRadius: '8px',
+                                                    border: '1px solid #e5e7eb'
+                                                }}
+                                            />
+                                        </div>
+
+                                        {/* Champs de modification */}
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                            <div>
+                                                <label style={{ display: 'block', marginBottom: '3px', fontSize: '12px', fontWeight: 'bold', color: '#6b7280' }}>
+                                                    Mot *
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    value={element.mot}
+                                                    onChange={(e) => handleUpdateElement(index, 'mot', e.target.value)}
+                                                    style={{
+                                                        width: '100%',
+                                                        padding: '8px',
+                                                        border: '1px solid #d1d5db',
+                                                        borderRadius: '6px',
+                                                        fontSize: '14px'
+                                                    }}
+                                                />
+                                            </div>
+                                            <div>
+                                                <label style={{ display: 'block', marginBottom: '3px', fontSize: '12px', fontWeight: 'bold', color: '#6b7280' }}>
+                                                    Commentaire
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    value={element.commentaire || ''}
+                                                    onChange={(e) => handleUpdateElement(index, 'commentaire', e.target.value)}
+                                                    placeholder="Description de l'image..."
+                                                    style={{
+                                                        width: '100%',
+                                                        padding: '8px',
+                                                        border: '1px solid #d1d5db',
+                                                        borderRadius: '6px',
+                                                        fontSize: '14px'
+                                                    }}
+                                                />
+                                            </div>
+                                            <div>
+                                                <label style={{ display: 'block', marginBottom: '3px', fontSize: '12px', fontWeight: 'bold', color: '#6b7280' }}>
+                                                    Question
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    value={element.question || ''}
+                                                    onChange={(e) => handleUpdateElement(index, 'question', e.target.value)}
+                                                    placeholder="Ex: À quoi sert cet objet ?"
+                                                    style={{
+                                                        width: '100%',
+                                                        padding: '8px',
+                                                        border: '1px solid #d1d5db',
+                                                        borderRadius: '6px',
+                                                        fontSize: '14px'
+                                                    }}
+                                                />
+                                            </div>
+                                            <div>
+                                                <label style={{ display: 'block', marginBottom: '3px', fontSize: '12px', fontWeight: 'bold', color: '#6b7280' }}>
+                                                    Réponse
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    value={element.reponse || ''}
+                                                    onChange={(e) => handleUpdateElement(index, 'reponse', e.target.value)}
+                                                    placeholder="Ex: À nettoyer le sol"
+                                                    style={{
+                                                        width: '100%',
+                                                        padding: '8px',
+                                                        border: '1px solid #d1d5db',
+                                                        borderRadius: '6px',
+                                                        fontSize: '14px'
+                                                    }}
+                                                />
+                                            </div>
+
+                                            {/* Boutons de capture d'écran pour cet élément */}
+                                            <div style={{ gridColumn: '1 / -1' }}>
+                                                <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => openGoogleImages(element.mot)}
+                                                        disabled={!element.mot?.trim()}
+                                                        style={{
+                                                            flex: 1,
+                                                            backgroundColor: element.mot?.trim() ? '#3b82f6' : '#ccc',
+                                                            color: 'white',
+                                                            padding: '8px',
+                                                            border: 'none',
+                                                            borderRadius: '6px',
+                                                            fontSize: '12px',
+                                                            fontWeight: 'bold',
+                                                            cursor: element.mot?.trim() ? 'pointer' : 'not-allowed'
+                                                        }}
+                                                    >
+                                                        🔍 Chercher sur Google Images
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => captureScreen(index)}
+                                                        disabled={isCapturing}
+                                                        style={{
+                                                            flex: 1,
+                                                            backgroundColor: isCapturing ? '#ccc' : '#10b981',
+                                                            color: 'white',
+                                                            padding: '8px',
+                                                            border: 'none',
+                                                            borderRadius: '6px',
+                                                            fontSize: '12px',
+                                                            fontWeight: 'bold',
+                                                            cursor: isCapturing ? 'not-allowed' : 'pointer'
+                                                        }}
+                                                    >
+                                                        {isCapturing ? '⏳ Capture...' : '📸 Capturer'}
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            <div>
+                                                <label style={{ display: 'block', marginBottom: '3px', fontSize: '12px', fontWeight: 'bold', color: '#6b7280' }}>
+                                                    Changer l'image
+                                                </label>
+                                                <input
+                                                    type="file"
+                                                    accept="image/*"
+                                                    onChange={(e) => {
+                                                        const file = e.target.files[0]
+                                                        if (file) {
+                                                            // Compresser l'image avant de l'envoyer
+                                                            const img = new Image()
+                                                            const reader = new FileReader()
+
+                                                            reader.onload = (event) => {
+                                                                img.src = event.target.result
+                                                            }
+
+                                                            img.onload = () => {
+                                                                // Redimensionner max 800x600
+                                                                const maxWidth = 800
+                                                                const maxHeight = 600
+                                                                let width = img.width
+                                                                let height = img.height
+
+                                                                if (width > maxWidth) {
+                                                                    height = (height * maxWidth) / width
+                                                                    width = maxWidth
+                                                                }
+                                                                if (height > maxHeight) {
+                                                                    width = (width * maxHeight) / height
+                                                                    height = maxHeight
+                                                                }
+
+                                                                const canvas = document.createElement('canvas')
+                                                                canvas.width = width
+                                                                canvas.height = height
+                                                                const ctx = canvas.getContext('2d')
+                                                                ctx.drawImage(img, 0, 0, width, height)
+
+                                                                // Compresser en JPEG qualité 0.7
+                                                                const compressedBase64 = canvas.toDataURL('image/jpeg', 0.7)
+                                                                handleUpdateElement(index, 'image_url', compressedBase64)
+                                                            }
+
+                                                            reader.readAsDataURL(file)
+                                                        }
+                                                    }}
+                                                    style={{
+                                                        width: '100%',
+                                                        padding: '6px',
+                                                        border: '1px solid #d1d5db',
+                                                        borderRadius: '6px',
+                                                        fontSize: '12px'
+                                                    }}
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Boutons d'action */}
+                    <div style={{
+                        display: 'flex',
+                        gap: '15px',
+                        justifyContent: 'center',
+                        marginBottom: '20px'
+                    }}>
+                        <button
+                            onClick={handleSave}
+                            disabled={isSaving || !editedTitre.trim()}
+                            style={{
+                                backgroundColor: isSaving || !editedTitre.trim() ? '#9ca3af' : '#10b981',
+                                color: 'white',
+                                padding: '15px 40px',
+                                border: 'none',
+                                borderRadius: '8px',
+                                fontSize: '16px',
+                                fontWeight: 'bold',
+                                cursor: isSaving || !editedTitre.trim() ? 'not-allowed' : 'pointer'
+                            }}
+                        >
+                            {isSaving ? '💾 Sauvegarde...' : '💾 Sauvegarder'}
+                        </button>
+
+                        <button
+                            onClick={() => setMode('list')}
+                            disabled={isSaving}
+                            style={{
+                                backgroundColor: '#6b7280',
+                                color: 'white',
+                                padding: '15px 40px',
+                                border: 'none',
+                                borderRadius: '8px',
+                                fontSize: '16px',
+                                fontWeight: 'bold',
+                                cursor: isSaving ? 'not-allowed' : 'pointer'
+                            }}
+                        >
+                            ❌ Annuler
+                        </button>
+                    </div>
                 </div>
             </div>
         )
     }
 
-    return null
+    // Rendu final : contenu principal + modal de recadrage
+    return (
+        <>
+            {mainContent}
+
+            {/* Modal de recadrage (s'affiche par-dessus tout) */}
+            {isCropping && capturedImage && (
+                <div style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    backgroundColor: 'rgba(0, 0, 0, 0.9)',
+                    zIndex: 9999,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '20px'
+                }}>
+                    <div style={{
+                        backgroundColor: 'white',
+                        borderRadius: '12px',
+                        padding: '20px',
+                        maxWidth: '90vw',
+                        maxHeight: '90vh',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '15px'
+                    }}>
+                        <h3 style={{ margin: 0, color: '#333', textAlign: 'center' }}>
+                            ✂️ Recadrer l'image
+                        </h3>
+
+                        <p style={{ margin: 0, color: '#666', fontSize: '14px', textAlign: 'center' }}>
+                            {isSelecting && cropData.width > 0 && cropData.height > 0
+                                ? '✅ Zone sélectionnée ! Cliquez sur "Utiliser cette zone" ou "Recommencer"'
+                                : 'Cliquez et glissez pour sélectionner la zone à garder'}
+                        </p>
+
+                        <div style={{
+                            position: 'relative',
+                            maxWidth: '800px',
+                            maxHeight: '600px',
+                            overflow: 'auto',
+                            border: '2px solid #ddd',
+                            borderRadius: '8px'
+                        }}>
+                            <img
+                                src={capturedImage}
+                                alt="Capture"
+                                id="cropImage"
+                                style={{
+                                    display: 'block',
+                                    maxWidth: '100%',
+                                    userSelect: 'none',
+                                    cursor: isSelecting ? 'default' : 'crosshair'
+                                }}
+                                onMouseDown={(e) => {
+                                    // Ne pas créer de nouvelle zone si une zone existe déjà
+                                    if (isSelecting) return
+
+                                    setIsSelecting(true)
+                                    const rect = e.target.getBoundingClientRect()
+                                    const x = e.clientX - rect.left
+                                    const y = e.clientY - rect.top
+                                    setCropData({ x, y, width: 0, height: 0 })
+
+                                    const handleMouseMove = (moveEvent) => {
+                                        const newWidth = moveEvent.clientX - rect.left - x
+                                        const newHeight = moveEvent.clientY - rect.top - y
+                                        setCropData({ x, y, width: Math.abs(newWidth), height: Math.abs(newHeight) })
+                                    }
+
+                                    const handleMouseUp = () => {
+                                        document.removeEventListener('mousemove', handleMouseMove)
+                                        document.removeEventListener('mouseup', handleMouseUp)
+                                    }
+
+                                    document.addEventListener('mousemove', handleMouseMove)
+                                    document.addEventListener('mouseup', handleMouseUp)
+                                }}
+                            />
+                            {cropData.width > 0 && cropData.height > 0 && (
+                                <div style={{
+                                    position: 'absolute',
+                                    left: cropData.x,
+                                    top: cropData.y,
+                                    width: cropData.width,
+                                    height: cropData.height,
+                                    border: '3px dashed #10b981',
+                                    backgroundColor: 'rgba(16, 185, 129, 0.2)',
+                                    pointerEvents: 'none'
+                                }} />
+                            )}
+                        </div>
+
+                        <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
+                            <button
+                                onClick={applyCrop}
+                                disabled={cropData.width === 0 || cropData.height === 0}
+                                style={{
+                                    backgroundColor: (cropData.width === 0 || cropData.height === 0) ? '#ccc' : '#10b981',
+                                    color: 'white',
+                                    padding: '12px 24px',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    fontSize: '16px',
+                                    fontWeight: 'bold',
+                                    cursor: (cropData.width === 0 || cropData.height === 0) ? 'not-allowed' : 'pointer'
+                                }}
+                            >
+                                ✅ Utiliser cette zone
+                            </button>
+                            <button
+                                onClick={resetCropSelection}
+                                disabled={!isSelecting}
+                                style={{
+                                    backgroundColor: !isSelecting ? '#ccc' : '#f59e0b',
+                                    color: 'white',
+                                    padding: '12px 24px',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    fontSize: '16px',
+                                    fontWeight: 'bold',
+                                    cursor: !isSelecting ? 'not-allowed' : 'pointer'
+                                }}
+                            >
+                                🔄 Recommencer
+                            </button>
+                            <button
+                                onClick={cancelCrop}
+                                style={{
+                                    backgroundColor: '#ef4444',
+                                    color: 'white',
+                                    padding: '12px 24px',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    fontSize: '16px',
+                                    fontWeight: 'bold',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                ❌ Annuler
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </>
+    )
 }
