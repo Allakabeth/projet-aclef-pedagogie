@@ -225,7 +225,7 @@ export default function MesImagiers() {
 
         try {
             const token = localStorage.getItem('token')
-            const response = await fetch(`/api/imagiers/delete/${imagierId}`, {
+            const response = await fetch(`/api/imagiers/${imagierId}`, {
                 method: 'DELETE',
                 headers: {
                     'Authorization': `Bearer ${token}`
