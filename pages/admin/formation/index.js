@@ -65,6 +65,7 @@ export default function DashboardFormation() {
         }
     }
 
+
     return (
         <div style={styles.container}>
             <div style={styles.header}>
@@ -178,6 +179,18 @@ export default function DashboardFormation() {
                         À venir - Phase 5
                     </p>
                 </div>
+
+                {/* Réinitialisation des mots de passe */}
+                <div
+                    style={{ ...styles.menuCard, ...styles.menuCardWarning }}
+                    onClick={() => router.push('/admin/formation/reset-passwords')}
+                >
+                    <div style={styles.menuIcon}>🔄</div>
+                    <h3 style={styles.menuTitle}>Réinitialiser mots de passe</h3>
+                    <p style={styles.menuDescription}>
+                        Gérer les mots de passe des apprenants
+                    </p>
+                </div>
             </div>
 
             {/* Bouton retour */}
@@ -262,6 +275,10 @@ const styles = {
     menuCardDisabled: {
         opacity: 0.5,
         cursor: 'not-allowed'
+    },
+    menuCardWarning: {
+        border: '2px solid #f59e0b',
+        backgroundColor: '#fffbeb'
     },
     menuIcon: {
         fontSize: '48px',

@@ -27,7 +27,7 @@ export default async function handler(req, res) {
         // Récupérer la liste des apprenants
         const { data: apprenants, error } = await supabase
             .from('users')
-            .select('id, identifiant, prenom, nom, email, created_at')
+            .select('id, identifiant, prenom, nom, email, created_at, password_hash')
             .eq('role', 'apprenant')
             .order('identifiant')
 

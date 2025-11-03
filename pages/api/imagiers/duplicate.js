@@ -30,12 +30,16 @@ export default async function handler(req, res) {
             .from('imagiers')
             .select('*')
             .eq('id', imagier_id)
-            .eq('created_by', user.id)
             .single()
 
         if (imagierError || !imagierSource) {
             console.error('Erreur récupération imagier source:', imagierError)
             return res.status(404).json({ message: 'Imagier source non trouvé' })
+        }
+
+        // Vérifier que l'utilisateur a le droit (créateur OU imagier partagé)
+        if (imagierSource.created_by !== user.id && !imagierSource.shared) {
+            return res.status(403).json({ message: 'Vous n\'avez pas accès à cet imagier' })
         }
 
         // Récupérer les éléments de l'imagier source
