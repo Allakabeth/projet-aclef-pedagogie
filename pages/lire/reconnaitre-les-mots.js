@@ -8,12 +8,14 @@ import { supabase } from '@/lib/supabaseClient'
  * Étape située AVANT la syllabification où l'apprenant apprend
  * à associer le mot oral au mot écrit.
  *
- * 5 exercices progressifs :
+ * 7 exercices progressifs :
  * 1. Karaoké : Illumination synchronisée son/écrit
  * 2. Remettre dans l'ordre : Reconstruire la phrase à partir de mots mélangés
- * 3. Où est-ce ? : Audio → Trouver le mot écrit
- * 4. Qu'est-ce ? : Mot illuminé → Choisir le bon son
+ * 3. Où est-ce ? : Audio → Trouver le mot écrit (groupes de sens)
+ * 4. Qu'est-ce ? : Mot illuminé → Choisir le bon son (groupes de sens)
  * 5. Découpage : Séparer les mots collés
+ * 6. Écoute et trouve : Audio → Trouver le mot écrit (mots isolés, 4-12 choix)
+ * 7. Lis et trouve : Mot écrit → Trouver le bon son (mots isolés, 4-8 sons)
  */
 export default function ReconnaitreLesMotsPage() {
     const router = useRouter()
@@ -199,6 +201,7 @@ export default function ReconnaitreLesMotsPage() {
             .trim()
             .split(/\s+/)
             .filter(mot => mot && mot.trim().length > 0)
+            .filter(mot => !/^[.,:;!?]+$/.test(mot)) // Exclure ponctuation seule
 
         let index = 0
 
@@ -236,6 +239,7 @@ export default function ReconnaitreLesMotsPage() {
                 .trim()
                 .split(/\s+/)
                 .filter(mot => mot && mot.trim().length > 0)
+                .filter(mot => !/^[.,:;!?]+$/.test(mot)) // Exclure ponctuation seule
 
             // Ne créer des questions que pour les groupes avec des mots valides
             if (mots.length > 0) {
@@ -340,6 +344,7 @@ export default function ReconnaitreLesMotsPage() {
             .trim()
             .split(/\s+/)
             .filter(mot => mot && mot.trim().length > 0)
+            .filter(mot => !/^[.,:;!?]+$/.test(mot)) // Exclure ponctuation seule
 
         if (mots.length > 0) {
             const motAleatoire = mots[Math.floor(Math.random() * mots.length)]
@@ -405,6 +410,7 @@ export default function ReconnaitreLesMotsPage() {
             .trim()
             .split(/\s+/)
             .filter(mot => mot && mot.trim().length > 0)
+            .filter(mot => !/^[.,:;!?]+$/.test(mot)) // Exclure ponctuation seule
 
         // Mélanger les mots disponibles
         const motsMelanges = [...mots].sort(() => Math.random() - 0.5)
@@ -433,6 +439,7 @@ export default function ReconnaitreLesMotsPage() {
             .trim()
             .split(/\s+/)
             .filter(mot => mot && mot.trim().length > 0)
+            .filter(mot => !/^[.,:;!?]+$/.test(mot)) // Exclure ponctuation seule
 
         const correct =
             motsSelectionnes.length === motsAttendus.length &&
@@ -495,6 +502,7 @@ export default function ReconnaitreLesMotsPage() {
             .trim()
             .split(/\s+/)
             .filter(mot => mot && mot.trim().length > 0)
+            .filter(mot => !/^[.,:;!?]+$/.test(mot)) // Exclure ponctuation seule
 
         // Ne préparer que si on a des mots valides
         if (motsValides.length > 0) {
@@ -520,6 +528,7 @@ export default function ReconnaitreLesMotsPage() {
             .trim()
             .split(/\s+/)
             .filter(mot => mot && mot.trim().length > 0)
+            .filter(mot => !/^[.,:;!?]+$/.test(mot)) // Exclure ponctuation seule
 
         // Calculer les positions attendues
         const positionsAttendues = []
@@ -694,6 +703,22 @@ export default function ReconnaitreLesMotsPage() {
                             Sépare les mots qui sont collés
                         </p>
                     </div>
+
+                    <div style={styles.exerciceCard} onClick={() => router.push('/lire/ecoute-et-trouve')}>
+                        <div style={styles.exerciceIcon}>🎯</div>
+                        <h3 style={styles.exerciceTitle}>Écoute et trouve</h3>
+                        <p style={styles.exerciceDescription}>
+                            Écoute un mot et trouve-le parmi plusieurs choix
+                        </p>
+                    </div>
+
+                    <div style={styles.exerciceCard} onClick={() => router.push('/lire/lis-et-trouve')}>
+                        <div style={styles.exerciceIcon}>📖</div>
+                        <h3 style={styles.exerciceTitle}>Lis et trouve</h3>
+                        <p style={styles.exerciceDescription}>
+                            Lis un mot et trouve le bon son parmi plusieurs audios
+                        </p>
+                    </div>
                 </div>
 
                 <div style={styles.actions}>
@@ -711,6 +736,7 @@ export default function ReconnaitreLesMotsPage() {
             .trim()
             .split(/\s+/)
             .filter(mot => mot && mot.trim().length > 0)
+            .filter(mot => !/^[.,:;!?]+$/.test(mot)) // Exclure ponctuation seule
         return (
             <div style={styles.container}>
                 <div style={styles.header}>
@@ -751,7 +777,7 @@ export default function ReconnaitreLesMotsPage() {
 
     // EXERCICE 2 : OÙ EST-CE ?
     if (exerciceActif === 'ou-est-ce' && motActuel && groupeActuel) {
-        const motsAfficher = groupeActuel.motsDuGroupe || groupeActuel.contenu.trim().split(/\s+/)
+        const motsAfficher = groupeActuel.motsDuGroupe || groupeActuel.contenu.trim().split(/\s+/).filter(mot => !/^[.,:;!?]+$/.test(mot))
         return (
             <div style={styles.container}>
                 <div style={styles.header}>
@@ -888,6 +914,7 @@ export default function ReconnaitreLesMotsPage() {
             .trim()
             .split(/\s+/)
             .filter(mot => mot && mot.trim().length > 0)
+            .filter(mot => !/^[.,:;!?]+$/.test(mot)) // Exclure ponctuation seule
         return (
             <div style={styles.container}>
                 <div style={styles.header}>
