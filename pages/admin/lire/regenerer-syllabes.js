@@ -32,7 +32,7 @@ export default function RegenereSyllabes() {
 
     const loadTextes = async () => {
         try {
-            const token = localStorage.getItem('token')
+            const token = localStorage.getItem('quiz-admin-token')
             const response = await fetch('/api/textes/list', {
                 headers: {
                     'Authorization': `Bearer ${token}`
@@ -53,7 +53,7 @@ export default function RegenereSyllabes() {
         setResult(null)
 
         try {
-            const token = localStorage.getItem('token')
+            const token = localStorage.getItem('quiz-admin-token')
             const response = await fetch('/api/syllabes-mots/regenerer', {
                 method: 'POST',
                 headers: {

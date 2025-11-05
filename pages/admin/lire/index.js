@@ -232,9 +232,9 @@ export default function AdminDashboard() {
                     
                     <button
                         onClick={() => {
-                            localStorage.removeItem('token')
-                            localStorage.removeItem('user')
-                            router.push('/login')
+                            localStorage.removeItem('quiz-admin-token')
+                            localStorage.removeItem('quiz-admin-user')
+                            router.push('/aclef-pedagogie-admin')
                         }}
                         style={{
                             backgroundColor: '#ef4444',

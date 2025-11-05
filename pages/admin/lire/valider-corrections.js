@@ -43,7 +43,7 @@ export default function ValiderCorrections() {
 
     const loadCorrections = async () => {
         try {
-            const token = localStorage.getItem('token')
+            const token = localStorage.getItem('quiz-admin-token')
             const response = await fetch(`/api/corrections/lister?statut=${filtreStatut}`, {
                 headers: {
                     'Authorization': `Bearer ${token}`
@@ -66,7 +66,7 @@ export default function ValiderCorrections() {
     const traiterCorrection = async (correctionId, action, commentaire = '') => {
         setIsProcessing(true)
         try {
-            const token = localStorage.getItem('token')
+            const token = localStorage.getItem('quiz-admin-token')
             const response = await fetch('/api/corrections/traiter', {
                 method: 'POST',
                 headers: {

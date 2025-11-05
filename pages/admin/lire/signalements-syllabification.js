@@ -12,11 +12,11 @@ export default function SignalementsSyllabification() {
     const router = useRouter()
 
     useEffect(() => {
-        const token = localStorage.getItem('token')
-        const userData = localStorage.getItem('user')
+        const token = localStorage.getItem('quiz-admin-token')
+        const userData = localStorage.getItem('quiz-admin-user')
 
         if (!token || !userData) {
-            router.push('/login')
+            router.push('/aclef-pedagogie-admin')
             return
         }
 
@@ -25,7 +25,7 @@ export default function SignalementsSyllabification() {
             loadSignalements()
         } catch (error) {
             console.error('Erreur parsing user data:', error)
-            router.push('/login')
+            router.push('/aclef-pedagogie-admin')
             return
         }
 
@@ -34,7 +34,7 @@ export default function SignalementsSyllabification() {
 
     const loadSignalements = async () => {
         try {
-            const token = localStorage.getItem('token')
+            const token = localStorage.getItem('quiz-admin-token')
             const response = await fetch('/api/admin/signalements-list', {
                 headers: {
                     'Authorization': `Bearer ${token}`
@@ -59,7 +59,7 @@ export default function SignalementsSyllabification() {
 
     const appliquerCorrection = async (signalement, typeCorrection, correction) => {
         try {
-            const token = localStorage.getItem('token')
+            const token = localStorage.getItem('quiz-admin-token')
             
             const body = {
                 mot: signalement.mot,
@@ -521,7 +521,7 @@ export default function SignalementsSyllabification() {
                                                         fetch('/api/admin/accepter-les-deux', {
                                                             method: 'POST',
                                                             headers: {
-                                                                'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                                                                'Authorization': `Bearer ${localStorage.getItem('quiz-admin-token')}`,
                                                                 'Content-Type': 'application/json'
                                                             },
                                                             body: JSON.stringify({
@@ -583,7 +583,7 @@ export default function SignalementsSyllabification() {
                                                             fetch('/api/admin/rouvrir-signalement', {
                                                                 method: 'POST',
                                                                 headers: {
-                                                                    'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                                                                    'Authorization': `Bearer ${localStorage.getItem('quiz-admin-token')}`,
                                                                     'Content-Type': 'application/json'
                                                                 },
                                                                 body: JSON.stringify({
@@ -618,7 +618,7 @@ export default function SignalementsSyllabification() {
                                                             fetch('/api/admin/accepter-les-deux', {
                                                                 method: 'POST',
                                                                 headers: {
-                                                                    'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                                                                    'Authorization': `Bearer ${localStorage.getItem('quiz-admin-token')}`,
                                                                     'Content-Type': 'application/json'
                                                                 },
                                                                 body: JSON.stringify({

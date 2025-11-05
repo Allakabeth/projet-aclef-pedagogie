@@ -12,25 +12,20 @@ export default function VueDonneesApprenant() {
 
     useEffect(() => {
         // Vérifier l'authentification admin
-        const token = localStorage.getItem('token')
-        const userData = localStorage.getItem('user')
+        const token = localStorage.getItem('quiz-admin-token')
+        const userData = localStorage.getItem('quiz-admin-user')
 
         if (!token || !userData) {
-            router.push('/login')
+            router.push('/aclef-pedagogie-admin')
             return
         }
 
         try {
             const parsedUser = JSON.parse(userData)
-            // TEMPORAIRE : Pas de vérification admin pour le moment
-            // if (parsedUser.role !== 'admin') {
-            //     router.push('/dashboard')
-            //     return
-            // }
             setUser(parsedUser)
         } catch (error) {
             console.error('Erreur parsing user data:', error)
-            router.push('/login')
+            router.push('/aclef-pedagogie-admin')
             return
         }
 
@@ -40,8 +35,12 @@ export default function VueDonneesApprenant() {
 
     const loadApprenants = async () => {
         try {
-            // TEMPORAIRE : Pas de token pour le moment
-            const response = await fetch('/api/admin/apprenants-list')
+            const token = localStorage.getItem('quiz-admin-token')
+            const response = await fetch('/api/admin/apprenants-list', {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            })
 
             if (response.ok) {
                 const data = await response.json()
@@ -59,8 +58,12 @@ export default function VueDonneesApprenant() {
 
         setLoadingData(true)
         try {
-            // TEMPORAIRE : Pas de token pour le moment
-            const response = await fetch(`/api/admin/vue-donnees-apprenant/${apprenantId}`)
+            const token = localStorage.getItem('quiz-admin-token')
+            const response = await fetch(`/api/admin/vue-donnees-apprenant/${apprenantId}`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            })
 
             if (response.ok) {
                 const data = await response.json()

@@ -12,24 +12,20 @@ export default function VisualiserDonneesApprenant() {
 
     useEffect(() => {
         // Vérifier l'authentification admin
-        const token = localStorage.getItem('token')
-        const userData = localStorage.getItem('user')
+        const token = localStorage.getItem('quiz-admin-token')
+        const userData = localStorage.getItem('quiz-admin-user')
 
         if (!token || !userData) {
-            router.push('/login')
+            router.push('/aclef-pedagogie-admin')
             return
         }
 
         try {
             const parsedUser = JSON.parse(userData)
-            if (parsedUser.role !== 'admin') {
-                router.push('/dashboard')
-                return
-            }
             setUser(parsedUser)
         } catch (error) {
             console.error('Erreur parsing user data:', error)
-            router.push('/login')
+            router.push('/aclef-pedagogie-admin')
             return
         }
 
@@ -39,7 +35,7 @@ export default function VisualiserDonneesApprenant() {
 
     const loadApprenants = async () => {
         try {
-            const token = localStorage.getItem('token')
+            const token = localStorage.getItem('quiz-admin-token')
             const response = await fetch('/api/admin/apprenants-list', {
                 headers: {
                     'Authorization': `Bearer ${token}`
@@ -62,7 +58,7 @@ export default function VisualiserDonneesApprenant() {
 
         setLoadingData(true)
         try {
-            const token = localStorage.getItem('token')
+            const token = localStorage.getItem('quiz-admin-token')
             const response = await fetch(`/api/admin/donnees-apprenant/${apprenantId}`, {
                 headers: {
                     'Authorization': `Bearer ${token}`
