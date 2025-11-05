@@ -207,7 +207,7 @@ export default function AdminDashboard() {
                 </div>
 
                 {/* Navigation */}
-                <div style={{ 
+                <div style={{
                     textAlign: 'center',
                     display: 'flex',
                     gap: '15px',
@@ -215,7 +215,7 @@ export default function AdminDashboard() {
                     flexWrap: 'wrap'
                 }}>
                     <button
-                        onClick={() => router.push('/')}
+                        onClick={() => router.push('/admin')}
                         style={{
                             backgroundColor: '#6b7280',
                             color: 'white',
@@ -227,7 +227,7 @@ export default function AdminDashboard() {
                             fontWeight: 'bold'
                         }}
                     >
-                        🏠 Retour à l'accueil
+                        ← Retour admin
                     </button>
                     
                     <button
