@@ -2509,6 +2509,7 @@ export default function ReconnaitreLesMotsPage() {
                                 key={index}
                                 style={{
                                     display: 'inline-block',
+                                    ...(!isMobile ? { marginRight: '24px' } : {}),
                                     ...(isMobile && mot === motActuel ? {
                                         backgroundColor: '#fef08a',
                                         padding: '4px 6px',
