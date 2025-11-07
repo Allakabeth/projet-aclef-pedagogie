@@ -1247,24 +1247,38 @@ export default function ReconnaitreLesMotsPage() {
         return (
             <div style={styles.container}>
                 <div style={styles.header}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
-                        <div style={{ flex: 1 }}>
-                            <h1 style={styles.title}>🎤 Karaoké</h1>
-                            <p style={styles.subtitle}>
+                    {isMobile ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', width: '100%' }}>
+                            <h1 style={{ ...styles.title, fontSize: '20px', margin: 0 }}>🎤 Karaoké</h1>
+                            <p style={{ ...styles.subtitle, margin: 0, fontSize: '14px' }}>
                                 Groupe {indexGroupe + 1} / {groupesSens.length}
                             </p>
-                        </div>
-                        {isMobile && (
-                            <div style={{ display: 'flex', gap: '8px', marginLeft: '12px' }}>
+                            <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                                <button
+                                    onClick={() => setExerciceActif(null)}
+                                    style={{
+                                        padding: '8px 12px',
+                                        backgroundColor: 'white',
+                                        border: '2px solid #6b7280',
+                                        borderRadius: '8px',
+                                        cursor: 'pointer',
+                                        fontSize: '20px',
+                                        display: 'flex',
+                                        alignItems: 'center'
+                                    }}
+                                    title="Menu exercices"
+                                >
+                                    ←
+                                </button>
                                 <button
                                     onClick={() => router.push('/lire/ma-voix-mes-mots')}
                                     style={{
-                                        padding: '6px 10px',
+                                        padding: '8px 12px',
                                         backgroundColor: 'white',
                                         border: '2px solid #3b82f6',
                                         borderRadius: '8px',
                                         cursor: 'pointer',
-                                        fontSize: '18px',
+                                        fontSize: '20px',
                                         display: 'flex',
                                         alignItems: 'center'
                                     }}
@@ -1275,12 +1289,12 @@ export default function ReconnaitreLesMotsPage() {
                                 <button
                                     onClick={() => router.push('/lire')}
                                     style={{
-                                        padding: '6px 10px',
+                                        padding: '8px 12px',
                                         backgroundColor: 'white',
                                         border: '2px solid #10b981',
                                         borderRadius: '8px',
                                         cursor: 'pointer',
-                                        fontSize: '18px',
+                                        fontSize: '20px',
                                         display: 'flex',
                                         alignItems: 'center'
                                     }}
@@ -1288,43 +1302,50 @@ export default function ReconnaitreLesMotsPage() {
                                 >
                                     📖
                                 </button>
+                                <button
+                                    onClick={() => router.push('/dashboard')}
+                                    style={{
+                                        padding: '8px 12px',
+                                        backgroundColor: 'white',
+                                        border: '2px solid #f59e0b',
+                                        borderRadius: '8px',
+                                        cursor: 'pointer',
+                                        fontSize: '20px',
+                                        display: 'flex',
+                                        alignItems: 'center'
+                                    }}
+                                    title="Accueil"
+                                >
+                                    🏠
+                                </button>
+                                <button
+                                    onClick={lireGroupeDeSens}
+                                    style={{
+                                        padding: '8px 12px',
+                                        backgroundColor: 'white',
+                                        border: '2px solid #8b5cf6',
+                                        borderRadius: '8px',
+                                        cursor: 'pointer',
+                                        fontSize: '20px',
+                                        display: 'flex',
+                                        alignItems: 'center'
+                                    }}
+                                    title="Écouter le groupe de sens"
+                                >
+                                    🔊
+                                </button>
                             </div>
-                        )}
-                    </div>
-                </div>
-
-                {/* Bouton écouter le groupe de sens */}
-                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px' }}>
-                    <button
-                        onClick={lireGroupeDeSens}
-                        style={{
-                            padding: '12px 24px',
-                            backgroundColor: '#10b981',
-                            color: 'white',
-                            border: 'none',
-                            borderRadius: '8px',
-                            cursor: 'pointer',
-                            fontSize: '16px',
-                            fontWeight: '600',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '8px',
-                            boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-                            transition: 'all 0.2s'
-                        }}
-                        onMouseEnter={(e) => {
-                            e.target.style.backgroundColor = '#059669'
-                            e.target.style.transform = 'translateY(-2px)'
-                            e.target.style.boxShadow = '0 4px 8px rgba(0,0,0,0.15)'
-                        }}
-                        onMouseLeave={(e) => {
-                            e.target.style.backgroundColor = '#10b981'
-                            e.target.style.transform = 'translateY(0)'
-                            e.target.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)'
-                        }}
-                    >
-                        🔊 Écouter le groupe de sens
-                    </button>
+                        </div>
+                    ) : (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                            <div style={{ flex: 1 }}>
+                                <h1 style={styles.title}>🎤 Karaoké</h1>
+                                <p style={styles.subtitle}>
+                                    Groupe {indexGroupe + 1} / {groupesSens.length}
+                                </p>
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 <div
@@ -1384,15 +1405,12 @@ export default function ReconnaitreLesMotsPage() {
                     )}
                 </div>
 
-                <div style={styles.actions}>
+                <div style={{ ...styles.actions, justifyContent: 'space-between', flexWrap: 'nowrap' }}>
                     <button onClick={jouerKaraoke} style={styles.primaryButton}>
                         ▶️ Jouer
                     </button>
                     <button onClick={groupeSuivantKaraoke} style={styles.secondaryButton}>
                         Groupe suivant →
-                    </button>
-                    <button onClick={() => setExerciceActif(null)} style={styles.secondaryButton}>
-                        ← Menu exercices
                     </button>
                 </div>
 
