@@ -2037,15 +2037,32 @@ export default function ReconnaitreLesMotsPage() {
         return (
             <div style={styles.container}>
                 <div style={styles.header}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
-                        <div style={{ flex: 1 }}>
-                            <h1 style={styles.title}>🔊 Qu'est-ce ?</h1>
-                            <p style={styles.subtitle}>
-                                Question {indexGroupe + 1} / {groupesSens.length} • Score : {score.bonnes}/{score.total}
-                            </p>
-                        </div>
-                        {isMobile && (
-                            <div style={{ display: 'flex', gap: '8px', marginLeft: '12px' }}>
+                    {isMobile ? (
+                        <div style={{ width: '100%' }}>
+                            <h1 style={{ ...styles.title, fontSize: '20px', marginBottom: '8px', textAlign: 'center' }}>
+                                🔊 Qu'est-ce ?
+                            </h1>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '14px', marginBottom: '12px', color: '#64748b' }}>
+                                <span>Question {indexGroupe + 1} / {groupesSens.length}</span>
+                                <span>Score : {score.bonnes}/{score.total}</span>
+                            </div>
+                            <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                                <button
+                                    onClick={() => setExerciceActif(null)}
+                                    style={{
+                                        padding: '8px 12px',
+                                        backgroundColor: 'white',
+                                        border: '2px solid #64748b',
+                                        borderRadius: '8px',
+                                        cursor: 'pointer',
+                                        fontSize: '20px',
+                                        display: 'flex',
+                                        alignItems: 'center'
+                                    }}
+                                    title="Menu exercices"
+                                >
+                                    ←
+                                </button>
                                 <button
                                     onClick={() => router.push('/lire/ma-voix-mes-mots')}
                                     style={{
@@ -2078,9 +2095,34 @@ export default function ReconnaitreLesMotsPage() {
                                 >
                                     📖
                                 </button>
+                                <button
+                                    onClick={() => router.push('/dashboard')}
+                                    style={{
+                                        padding: '8px 12px',
+                                        backgroundColor: 'white',
+                                        border: '2px solid #8b5cf6',
+                                        borderRadius: '8px',
+                                        cursor: 'pointer',
+                                        fontSize: '20px',
+                                        display: 'flex',
+                                        alignItems: 'center'
+                                    }}
+                                    title="Accueil"
+                                >
+                                    🏠
+                                </button>
                             </div>
-                        )}
-                    </div>
+                        </div>
+                    ) : (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                            <div style={{ flex: 1 }}>
+                                <h1 style={styles.title}>🔊 Qu'est-ce ?</h1>
+                                <p style={styles.subtitle}>
+                                    Question {indexGroupe + 1} / {groupesSens.length} • Score : {score.bonnes}/{score.total}
+                                </p>
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 {feedback && (
@@ -2092,14 +2134,30 @@ export default function ReconnaitreLesMotsPage() {
                     </div>
                 )}
 
-                <div style={styles.questionBox}>
-                    <p style={styles.consigne}>Le mot illuminé est :</p>
-                    <div style={styles.phraseBox}>
+                <div style={isMobile ? { marginTop: '16px', marginBottom: '16px', padding: '8px', textAlign: 'center', width: '100%' } : styles.questionBox}>
+                    {!isMobile && <p style={styles.consigne}>Le mot illuminé est :</p>}
+                    <div style={isMobile ? {
+                        display: 'flex',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        gap: '4px',
+                        fontSize: '18px',
+                        fontWeight: 'bold',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        width: '100%',
+                        padding: '0 4px'
+                    } : styles.phraseBox}>
                         {mots.map((mot, index) => (
                             <span
                                 key={index}
                                 style={{
                                     ...styles.motPhrase,
+                                    ...(isMobile && mot === motActuel ? {
+                                        backgroundColor: '#fef08a',
+                                        padding: '1px 2px',
+                                        borderRadius: '3px'
+                                    } : {}),
                                     ...(mot === motActuel ? styles.motIllumine : {})
                                 }}
                             >
@@ -2107,10 +2165,18 @@ export default function ReconnaitreLesMotsPage() {
                             </span>
                         ))}
                     </div>
-                    <p style={styles.consigne}>🔊 Écoute les sons et choisis le bon :</p>
+                    {!isMobile && <p style={styles.consigne}>🔊 Écoute les sons et choisis le bon :</p>}
                 </div>
 
-                <div style={styles.motsGrid}>
+                <div style={{
+                    ...styles.motsGrid,
+                    ...(isMobile ? {
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(2, 1fr)',
+                        gap: '12px',
+                        marginBottom: '16px'
+                    } : {})
+                }}>
                     {sonsDesordre.map((mot, index) => (
                         <button
                             key={index}
@@ -2121,6 +2187,10 @@ export default function ReconnaitreLesMotsPage() {
                             disabled={feedback !== null}
                             style={{
                                 ...styles.audioButton,
+                                ...(isMobile ? {
+                                    padding: '16px',
+                                    fontSize: '18px'
+                                } : {}),
                                 ...(sonSelectionne === mot ? styles.audioButtonSelected : {}),
                                 ...(feedback ? { opacity: 0.5, cursor: 'not-allowed' } : {})
                             }}
