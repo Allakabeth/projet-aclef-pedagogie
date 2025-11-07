@@ -46,6 +46,8 @@ export default function ReconnaitreLesMotsPage() {
     // Remettre dans l'ordre
     const [motsSelectionnes, setMotsSelectionnes] = useState([])
     const [motsDisponibles, setMotsDisponibles] = useState([])
+    const [motsValidation, setMotsValidation] = useState([]) // 'correct' | 'incorrect' pour chaque mot
+    const [motEnCoursLecture, setMotEnCoursLecture] = useState(-1) // Index du mot en cours de lecture
 
     // Karaoké
     const [motIllumineIndex, setMotIllumineIndex] = useState(-1)
@@ -443,6 +445,33 @@ export default function ReconnaitreLesMotsPage() {
         lireMotSuivant()
     }
 
+    // ==================== LECTURE PHRASE DANS L'ORDRE (Remettre dans l'ordre) ====================
+    function lirePhraseDansOrdre(motsALire) {
+        if (!motsALire || motsALire.length === 0) return
+
+        let index = 0
+
+        function lireMotSuivant() {
+            if (index >= motsALire.length) {
+                // Fin de la lecture, réinitialiser l'index
+                setMotEnCoursLecture(-1)
+                return
+            }
+
+            // Illuminer le mot en cours
+            setMotEnCoursLecture(index)
+
+            const onEnded = () => {
+                index++
+                setTimeout(lireMotSuivant, 100) // Petite pause entre les mots
+            }
+
+            lireTTS(motsALire[index], onEnded)
+        }
+
+        lireMotSuivant()
+    }
+
     // ==================== EXERCICE 1 : KARAOKÉ ====================
     function demarrerKaraoke() {
         if (groupesSens.length === 0) return
@@ -694,6 +723,9 @@ export default function ReconnaitreLesMotsPage() {
         setGroupeActuel(groupe)
         setMotsDisponibles(motsMelanges)
         setMotsSelectionnes([])
+        setMotsValidation([]) // Réinitialiser la validation
+        setMotEnCoursLecture(-1) // Réinitialiser l'index de lecture
+        setFeedback(null) // Réinitialiser le feedback
     }
 
     function ajouterMotDansOrdre(mot) {
@@ -716,6 +748,12 @@ export default function ReconnaitreLesMotsPage() {
             .split(/\s+/)
             .filter(mot => mot && mot.trim().length > 0)
             .filter(mot => !/^[.,:;!?]+$/.test(mot)) // Exclure ponctuation seule
+
+        // Vérifier chaque mot individuellement
+        const validation = motsSelectionnes.map((mot, i) =>
+            mot === motsAttendus[i] ? 'correct' : 'incorrect'
+        )
+        setMotsValidation(validation)
 
         const correct =
             motsSelectionnes.length === motsAttendus.length &&
@@ -742,17 +780,18 @@ export default function ReconnaitreLesMotsPage() {
             }))
             setFeedback({
                 type: 'error',
-                message: `❌ Non, c'était : "${groupeActuel.contenu}"`
+                message: `❌ Certains mots ne sont pas au bon endroit`
             })
         }
 
-        // Phrase suivante après 2 sec
-        setTimeout(() => {
-            setFeedback(null)
-            const nextIndex = indexGroupe + 1
-            setIndexGroupe(nextIndex)
-            preparerQuestionRemettreOrdre(nextIndex)
-        }, 2000)
+        // Lire la phrase dans l'ordre choisi par l'apprenant
+        lirePhraseDansOrdre(motsSelectionnes)
+    }
+
+    function phraseSuivante() {
+        const nextIndex = indexGroupe + 1
+        setIndexGroupe(nextIndex)
+        preparerQuestionRemettreOrdre(nextIndex)
     }
 
     // ==================== EXERCICE 4 : DÉCOUPAGE ====================
@@ -1704,15 +1743,25 @@ export default function ReconnaitreLesMotsPage() {
         return (
             <div style={styles.container}>
                 <div style={styles.header}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
-                        <div style={{ flex: 1 }}>
-                            <h1 style={styles.title}>🔄 Remettre dans l'ordre</h1>
-                            <p style={styles.subtitle}>
+                    {isMobile ? (
+                        // VERSION MOBILE : Layout vertical
+                        <div style={{ width: '100%' }}>
+                            <h1 style={{
+                                ...styles.title,
+                                fontSize: '20px',
+                                marginBottom: '8px',
+                                textAlign: 'center'
+                            }}>
+                                🔄 Remettre dans l'ordre
+                            </h1>
+                            <p style={{
+                                ...styles.subtitle,
+                                textAlign: 'center',
+                                marginBottom: '12px'
+                            }}>
                                 Phrase {indexGroupe + 1} / {groupesSens.length} • Score : {score.bonnes}/{score.total}
                             </p>
-                        </div>
-                        {isMobile && (
-                            <div style={{ display: 'flex', gap: '8px', marginLeft: '12px' }}>
+                            <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
                                 <button
                                     onClick={() => router.push('/lire/ma-voix-mes-mots')}
                                     style={{
@@ -1745,9 +1794,35 @@ export default function ReconnaitreLesMotsPage() {
                                 >
                                     📖
                                 </button>
+                                <button
+                                    onClick={() => router.push('/dashboard')}
+                                    style={{
+                                        padding: '8px 12px',
+                                        backgroundColor: 'white',
+                                        border: '2px solid #f59e0b',
+                                        borderRadius: '8px',
+                                        cursor: 'pointer',
+                                        fontSize: '20px',
+                                        display: 'flex',
+                                        alignItems: 'center'
+                                    }}
+                                    title="Accueil"
+                                >
+                                    🏠
+                                </button>
                             </div>
-                        )}
-                    </div>
+                        </div>
+                    ) : (
+                        // VERSION DESKTOP : Layout horizontal
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                            <div style={{ flex: 1 }}>
+                                <h1 style={styles.title}>🔄 Remettre dans l'ordre</h1>
+                                <p style={styles.subtitle}>
+                                    Phrase {indexGroupe + 1} / {groupesSens.length} • Score : {score.bonnes}/{score.total}
+                                </p>
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 {feedback && (
@@ -1759,12 +1834,9 @@ export default function ReconnaitreLesMotsPage() {
                     </div>
                 )}
 
-                <div style={styles.questionBox}>
-                    <p style={styles.consigne}>
-                        🔊 Écoute la phrase et remets les mots dans le bon ordre :
-                    </p>
+                <div style={{ textAlign: 'center', marginBottom: '24px', marginTop: '8px' }}>
                     <button
-                        onClick={() => lireTTS(groupeActuel.contenu)}
+                        onClick={lireGroupeDeSens}
                         style={styles.ecouterButton}
                     >
                         🔊 Écouter la phrase
@@ -1772,9 +1844,29 @@ export default function ReconnaitreLesMotsPage() {
                 </div>
 
                 {/* Zone des mots sélectionnés (phrase en construction) */}
-                <div style={styles.ordreSection}>
-                    <h3 style={styles.ordreSectionTitle}>Ta phrase :</h3>
-                    <div style={styles.phraseEnCours}>
+                <div style={{
+                    ...styles.ordreSection,
+                    ...(isMobile ? { 
+                        marginTop: '8px', 
+                        width: '100%',
+                        padding: '8px',
+                        marginLeft: '0',
+                        marginRight: '0',
+                        boxSizing: 'border-box'
+                    } : {})
+                }}>
+                    <div style={{
+                        ...styles.phraseEnCours,
+                        ...(isMobile ? {
+                            width: '100%',
+                            minHeight: '80px',
+                            display: 'flex',
+                            flexWrap: 'nowrap',
+                            alignItems: 'center',
+                            gap: '4px',
+                            justifyContent: 'center'
+                        } : {})
+                    }}>
                         {motsSelectionnes.length === 0 ? (
                             <span style={styles.placeholderPhrase}>
                                 Clique sur les mots ci-dessous pour construire ta phrase...
@@ -1787,10 +1879,38 @@ export default function ReconnaitreLesMotsPage() {
                                     disabled={feedback !== null}
                                     style={{
                                         ...styles.motSelectionne,
-                                        ...(feedback ? { opacity: 0.5, cursor: 'not-allowed' } : {})
+                                        ...(feedback !== null ? { cursor: 'not-allowed' } : {}),
+                                        ...(isMobile ? {
+                                            flexShrink: 1,
+                                            whiteSpace: 'nowrap',
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: '2px',
+                                            fontSize: '12px',
+                                            padding: '6px 8px',
+                                            minWidth: '0'
+                                        } : {}),
+                                        // Afficher couleur si déjà lu (index < motEnCoursLecture) OU en cours de lecture (index === motEnCoursLecture)
+                                        ...(motsValidation[index] === 'correct' && (index <= motEnCoursLecture || motEnCoursLecture === -1) ? {
+                                            backgroundColor: '#10b981',
+                                            color: 'white',
+                                            border: '2px solid #059669',
+                                            fontWeight: 'bold'
+                                        } : {}),
+                                        ...(motsValidation[index] === 'incorrect' && (index <= motEnCoursLecture || motEnCoursLecture === -1) ? {
+                                            backgroundColor: '#ef4444',
+                                            color: 'white',
+                                            border: '2px solid #dc2626',
+                                            fontWeight: 'bold'
+                                        } : {}),
+                                        // Animation scale uniquement pour le mot en cours de lecture
+                                        ...(motEnCoursLecture === index ? {
+                                            transform: 'scale(1.15)'
+                                        } : {})
                                     }}
                                 >
-                                    {mot} ✕
+                                    <span>{mot}</span>
+                                    {feedback === null && <span style={{ fontSize: '14px', marginLeft: '2px' }}>✕</span>}
                                 </button>
                             ))
                         )}
@@ -1799,7 +1919,6 @@ export default function ReconnaitreLesMotsPage() {
 
                 {/* Zone des mots disponibles (mélangés) */}
                 <div style={styles.ordreSection}>
-                    <h3 style={styles.ordreSectionTitle}>Mots disponibles :</h3>
                     <div style={styles.motsDisponiblesGrid}>
                         {motsDisponibles.map((mot, index) => (
                             <button
@@ -1823,25 +1942,50 @@ export default function ReconnaitreLesMotsPage() {
                         disabled={motsSelectionnes.length === 0 || feedback !== null}
                         style={{
                             ...styles.primaryButton,
-                            ...(motsSelectionnes.length === 0 || feedback ? { opacity: 0.5, cursor: 'not-allowed' } : {})
+                            ...(motsSelectionnes.length === 0 || feedback ? { opacity: 0.5, cursor: 'not-allowed' } : {}),
+                            ...(isMobile ? { padding: '8px 12px', fontSize: '14px' } : {})
                         }}
                     >
                         Vérifier
                     </button>
-                    <button
-                        onClick={() => {
-                            setMotsDisponibles([...motsDisponibles, ...motsSelectionnes].sort(() => Math.random() - 0.5))
-                            setMotsSelectionnes([])
-                        }}
-                        disabled={motsSelectionnes.length === 0 || feedback !== null}
+                    {feedback !== null && (
+                        <button
+                            onClick={phraseSuivante}
+                            style={{
+                                ...styles.primaryButton,
+                                backgroundColor: '#3b82f6',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                ...(isMobile ? { padding: '8px 12px', fontSize: '14px' } : {})
+                            }}
+                        >
+                            Phrase suivante ➡️
+                        </button>
+                    )}
+                    {!isMobile && (
+                        <button
+                            onClick={() => {
+                                setMotsDisponibles([...motsDisponibles, ...motsSelectionnes].sort(() => Math.random() - 0.5))
+                                setMotsSelectionnes([])
+                                setMotsValidation([])
+                            }}
+                            disabled={motsSelectionnes.length === 0 || feedback !== null}
+                            style={{
+                                ...styles.secondaryButton,
+                                ...(motsSelectionnes.length === 0 || feedback ? { opacity: 0.5, cursor: 'not-allowed' } : {})
+                            }}
+                        >
+                            Réinitialiser
+                        </button>
+                    )}
+                    <button 
+                        onClick={() => setExerciceActif(null)} 
                         style={{
                             ...styles.secondaryButton,
-                            ...(motsSelectionnes.length === 0 || feedback ? { opacity: 0.5, cursor: 'not-allowed' } : {})
+                            ...(isMobile ? { padding: '8px 12px', fontSize: '14px' } : {})
                         }}
                     >
-                        Réinitialiser
-                    </button>
-                    <button onClick={() => setExerciceActif(null)} style={styles.secondaryButton}>
                         ← Menu exercices
                     </button>
                 </div>
