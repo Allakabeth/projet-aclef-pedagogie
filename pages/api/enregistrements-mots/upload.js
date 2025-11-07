@@ -89,8 +89,16 @@ export default async function handler(req, res) {
 
         const fileBuffer = fs.readFileSync(audioFile.filepath)
         const fileExt = audioFile.originalFilename?.split('.').pop() || 'webm'
-        const fileName = `mots/apprenant_${apprenantId}/${motNormalized}.${fileExt}`
 
+        // Normaliser le nom du fichier : supprimer accents et caractères spéciaux
+        const motSanitized = motNormalized
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '') // Supprimer les accents
+            .replace(/[^a-z0-9]/g, '_') // Remplacer caractères spéciaux par underscore
+
+        const fileName = `mots/apprenant_${apprenantId}/${motSanitized}.${fileExt}`
+
+        console.log('🔧 Mot original:', motNormalized, '- Mot sanitized:', motSanitized)
         console.log('📁 Upload vers Storage:', fileName)
 
         const { data: uploadData, error: uploadError } = await supabaseAdmin.storage

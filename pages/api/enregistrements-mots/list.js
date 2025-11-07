@@ -53,29 +53,28 @@ export default async function handler(req, res) {
 
         const enregistrementsWithSignedUrls = await Promise.all(
             (enregistrements || []).map(async (enreg) => {
-                // Extraire le chemin depuis l'URL existante
-                const urlParts = enreg.audio_url.split('/storage/v1/object/')
-                if (urlParts.length > 1) {
-                    const storagePath = urlParts[1].split('?')[0] // Enlever query params
-                    const pathWithoutBucket = storagePath.replace('enregistrements-audio/', '')
+                // Reconstruire le chemin avec le même sanitization que l'upload
+                const motSanitized = enreg.mot
+                    .normalize('NFD')
+                    .replace(/[\u0300-\u036f]/g, '') // Supprimer les accents
+                    .replace(/[^a-z0-9]/g, '_') // Remplacer caractères spéciaux par underscore
 
-                    // Générer nouvelle URL signée (expire dans 1 heure)
-                    const { data: urlData, error: urlError } = await supabaseAdmin.storage
-                        .from('enregistrements-audio')
-                        .createSignedUrl(pathWithoutBucket, 3600) // 1 heure
+                const pathWithoutBucket = `mots/apprenant_${apprenantId}/${motSanitized}.webm`
 
-                    if (urlError) {
-                        console.error('⚠️ Erreur génération URL signée:', urlError)
-                        return enreg // Retourner l'ancienne URL
-                    }
+                // Générer nouvelle URL signée (expire dans 1 heure)
+                const { data: urlData, error: urlError } = await supabaseAdmin.storage
+                    .from('enregistrements-audio')
+                    .createSignedUrl(pathWithoutBucket, 3600) // 1 heure
 
-                    return {
-                        ...enreg,
-                        audio_url: urlData.signedUrl
-                    }
+                if (urlError) {
+                    console.error('⚠️ Erreur génération URL signée:', urlError)
+                    return enreg // Retourner l'ancienne URL
                 }
 
-                return enreg
+                return {
+                    ...enreg,
+                    audio_url: urlData.signedUrl
+                }
             })
         )
 

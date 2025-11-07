@@ -43,6 +43,12 @@ export default function MaVoixMesMotsPage() {
     // Progression
     const [statsProgression, setStatsProgression] = useState({ enregistres: 0, total: 0 })
 
+    // Navigation mobile : affichage d'un mot à la fois
+    const [indexMotActuel, setIndexMotActuel] = useState(0)
+
+    // Détection mobile/desktop
+    const [isMobile, setIsMobile] = useState(false)
+
     // ========================================================================
     // 1. AUTHENTIFICATION
     // ========================================================================
@@ -50,6 +56,39 @@ export default function MaVoixMesMotsPage() {
     useEffect(() => {
         checkAuth()
     }, [router])
+
+    // Détection de la taille de l'écran
+    useEffect(() => {
+        const checkMobile = () => {
+            setIsMobile(window.innerWidth <= 768)
+        }
+        checkMobile()
+        window.addEventListener('resize', checkMobile)
+        return () => window.removeEventListener('resize', checkMobile)
+    }, [])
+
+    // Détection automatique des textes présélectionnés
+    useEffect(() => {
+        console.log('🔍 Debug auto-start:', {
+            isReady: router.isReady,
+            texte_ids: router.query.texte_ids,
+            hasUser: !!user,
+            textesCount: textes.length,
+            etape: etape
+        })
+
+        if (router.isReady && router.query.texte_ids && user && textes.length > 0 && etape === 'selection') {
+            const ids = router.query.texte_ids.split(',').map(id => parseInt(id))
+            console.log('✅ Toutes les conditions remplies, IDs parsés:', ids)
+            if (ids.length === 1) {
+                // Un seul texte → démarrer automatiquement
+                console.log('🎯 Démarrage automatique avec texte ID:', ids[0])
+                demarrerExercice(ids[0])
+            } else if (ids.length > 1) {
+                console.log('⚠️ Plusieurs textes détectés, pas de démarrage auto')
+            }
+        }
+    }, [router.isReady, router.query.texte_ids, user, textes, etape])
 
     async function checkAuth() {
         try {
@@ -76,6 +115,25 @@ export default function MaVoixMesMotsPage() {
     // ========================================================================
     // 2. CHARGEMENT DES DONNÉES
     // ========================================================================
+
+    // Fonction TTS pour lire du texte avec Web Speech API
+    function lireTexte(texte) {
+        if ('speechSynthesis' in window) {
+            window.speechSynthesis.cancel()
+            const utterance = new SpeechSynthesisUtterance(texte)
+            utterance.lang = 'fr-FR'
+            utterance.rate = 0.9
+            utterance.pitch = 1.0
+
+            const voices = window.speechSynthesis.getVoices()
+            const frenchVoice = voices.find(voice => voice.lang.includes('fr'))
+            if (frenchVoice) {
+                utterance.voice = frenchVoice
+            }
+
+            window.speechSynthesis.speak(utterance)
+        }
+    }
 
     async function loadTextes(apprenantId) {
         try {
@@ -130,7 +188,12 @@ export default function MaVoixMesMotsPage() {
 
             if (err) throw err
 
-            const groupes = data || []
+            // Filtrer les groupes vides ou avec seulement des espaces/sauts de ligne
+            const groupes = (data || []).filter(g => {
+                const contenuNettoyé = g.contenu.replace(/[\r\n\s]+/g, ' ').trim()
+                return contenuNettoyé.length > 0
+            })
+
             setGroupesSens(groupes)
             setTexteSelectionne(texteId)
             setIndexGroupe(0)
@@ -186,6 +249,7 @@ export default function MaVoixMesMotsPage() {
 
     function extraireMots(contenu) {
         return contenu
+            .replace(/[\r\n]+/g, ' ') // Remplacer tous les sauts de ligne par des espaces
             .trim()
             .split(/\s+/)
             .filter(mot => mot && mot.trim().length > 0)
@@ -388,85 +452,297 @@ export default function MaVoixMesMotsPage() {
 
         return (
             <div style={styles.container}>
-                <div style={styles.header}>
-                    <h1 style={styles.title}>🎤 Ma voix, mes mots</h1>
-                    <p style={styles.subtitle}>
-                        Groupe {indexGroupe + 1} / {groupesSens.length}
-                    </p>
-                </div>
-
-                {/* Barre de progression globale */}
-                <div style={styles.progressionBox}>
-                    <div style={styles.progressionText}>
-                        📊 Progression : {statsProgression.enregistres} / {statsProgression.total} mots ({pourcentage}%)
+                {/* En-tête compact - IDENTIQUE mobile et desktop */}
+                <div style={{
+                    background: 'rgba(255, 255, 255, 0.95)',
+                    backdropFilter: 'blur(10px)',
+                    borderRadius: '12px',
+                    padding: '12px 16px',
+                    marginBottom: '16px',
+                    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)'
+                }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                        <h1 style={{ fontSize: isMobile ? '14px' : '18px', fontWeight: 'bold', color: '#3b82f6', margin: 0, flex: 1, textAlign: 'center', whiteSpace: 'nowrap' }}>
+                            🎤 Ma voix, mes mots
+                        </h1>
+                        {isMobile && (
+                            <div style={{ display: 'flex', gap: '8px' }}>
+                                <button
+                                    onClick={() => router.push('/lire/reconnaitre-les-mots')}
+                                    style={{
+                                        padding: '6px 10px',
+                                        backgroundColor: 'white',
+                                        border: '2px solid #3b82f6',
+                                        borderRadius: '8px',
+                                        cursor: 'pointer',
+                                        fontSize: '18px',
+                                        display: 'flex',
+                                        alignItems: 'center'
+                                    }}
+                                    title="Reconnaître les mots"
+                                >
+                                    👁️
+                                </button>
+                                <button
+                                    onClick={() => router.push('/lire')}
+                                    style={{
+                                        padding: '6px 10px',
+                                        backgroundColor: 'white',
+                                        border: '2px solid #10b981',
+                                        borderRadius: '8px',
+                                        cursor: 'pointer',
+                                        fontSize: '18px',
+                                        display: 'flex',
+                                        alignItems: 'center'
+                                    }}
+                                    title="Menu Lire"
+                                >
+                                    📖
+                                </button>
+                            </div>
+                        )}
                     </div>
-                    <div style={styles.progressBarContainer}>
-                        <div
-                            style={{
-                                ...styles.progressBarFill,
-                                width: `${pourcentage}%`
-                            }}
-                        />
-                    </div>
-                </div>
 
-                {/* Affichage du groupe de sens */}
-                <div style={styles.groupeBox}>
-                    <h3 style={styles.groupeTitle}>📝 Groupe de sens :</h3>
-                    <p style={styles.groupeContenu}>{groupeActuel.contenu}</p>
+                    {/* Ligne 1: Groupe et Progression */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                        <span style={{ fontSize: '14px', color: '#666' }}>
+                            Groupe {indexGroupe + 1}/{groupesSens.length}
+                        </span>
+                        <span style={{ fontSize: '12px', color: '#666' }}>
+                            {isMobile
+                                ? `Mots ${statsProgression.enregistres}/${statsProgression.total}`
+                                : `📊 ${statsProgression.enregistres}/${statsProgression.total} (${pourcentage}%)`
+                            }
+                        </span>
+                    </div>
+
+                    {/* Ligne 2: Bouton écouter */}
+                    <button
+                        onClick={() => lireTexte(groupeActuel.contenu)}
+                        style={{
+                            background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '8px',
+                            padding: '8px 16px',
+                            fontSize: '14px',
+                            fontWeight: '600',
+                            cursor: 'pointer',
+                            boxShadow: '0 2px 8px rgba(16, 185, 129, 0.3)',
+                            width: '100%'
+                        }}
+                    >
+                        🔊 Écouter le groupe de sens
+                    </button>
                 </div>
 
                 {/* Liste des mots à enregistrer */}
-                <div style={styles.motsSection}>
-                    <h3 style={styles.motsSectionTitle}>
-                        Enregistre chaque mot ({motsUniques.length} mots) :
-                    </h3>
-                    <div style={styles.motsGrid}>
-                        {motsUniques.map((mot, index) => {
+                {isMobile ? (
+                    <>
+                        {/* En-tête avec navigation - MOBILE */}
+                        <div>
+                            <h3 style={{ fontSize: '16px', fontWeight: 'bold', color: '#333', marginBottom: '12px', textAlign: 'center' }}>
+                                Enregistre chaque mot ({motsUniques.length} mots) :
+                            </h3>
+                            <div style={styles.mobileNavigation}>
+                                <button
+                                    onClick={() => setIndexMotActuel(Math.max(0, indexMotActuel - 1))}
+                                    disabled={indexMotActuel === 0}
+                                    style={{
+                                        ...styles.navButton,
+                                        opacity: indexMotActuel === 0 ? 0.3 : 1,
+                                        cursor: indexMotActuel === 0 ? 'not-allowed' : 'pointer'
+                                    }}
+                                >
+                                    ←
+                                </button>
+                                <span style={styles.mobileCounter}>
+                                    {indexMotActuel + 1} / {motsUniques.length}
+                                </span>
+                                <button
+                                    onClick={() => setIndexMotActuel(Math.min(motsUniques.length - 1, indexMotActuel + 1))}
+                                    disabled={indexMotActuel === motsUniques.length - 1}
+                                    style={{
+                                        ...styles.navButton,
+                                        opacity: indexMotActuel === motsUniques.length - 1 ? 0.3 : 1,
+                                        cursor: indexMotActuel === motsUniques.length - 1 ? 'not-allowed' : 'pointer'
+                                    }}
+                                >
+                                    →
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Mot actuel mobile - EN DEHORS du cadre blanc */}
+                        {motsUniques.length > 0 && (() => {
+                            const mot = motsUniques[indexMotActuel]
                             const motNormalized = mot.toLowerCase().trim()
                             const dejaEnregistre = !!enregistrementsMap[motNormalized]
 
                             return (
-                                <div key={index} style={styles.motCard}>
-                                    <div style={styles.motTexte}>{mot}</div>
+                                <div style={styles.motCardMobile}>
+                                    <div style={styles.motTexteMobile}>{mot}</div>
 
-                                    {dejaEnregistre ? (
-                                        <div style={styles.motActions}>
-                                            <span style={styles.motStatut}>✅ Enregistré</span>
-                                            <button
-                                                onClick={() => rejouerEnregistrement(mot)}
-                                                style={styles.ecouterButton}
-                                            >
-                                                🔊 Écouter
-                                            </button>
+                                    <div style={styles.motActions}>
+                                        {/* Bouton Écouter (TTS ordinateur) */}
+                                        <button
+                                            onClick={() => lireTexte(mot)}
+                                            style={styles.buttonMobile}
+                                        >
+                                            🔊 Écouter
+                                        </button>
+
+                                        {dejaEnregistre ? (
+                                            <>
+                                                <button
+                                                    onClick={() => rejouerEnregistrement(mot)}
+                                                    style={{ ...styles.buttonMobile, background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)' }}
+                                                >
+                                                    🎤 Ma voix
+                                                </button>
+                                                <button
+                                                    onClick={() => ouvrirEnregistreur(mot)}
+                                                    disabled={isUploading}
+                                                    style={{
+                                                        ...styles.buttonMobile,
+                                                        background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+                                                        opacity: isUploading ? 0.5 : 1,
+                                                        cursor: isUploading ? 'not-allowed' : 'pointer'
+                                                    }}
+                                                >
+                                                    🎤 Réenregistrer
+                                                </button>
+                                            </>
+                                        ) : (
                                             <button
                                                 onClick={() => ouvrirEnregistreur(mot)}
                                                 disabled={isUploading}
                                                 style={{
-                                                    ...styles.reEnregistrerButton,
-                                                    opacity: isUploading ? 0.5 : 1
+                                                    ...styles.buttonMobile,
+                                                    background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+                                                    opacity: isUploading ? 0.5 : 1,
+                                                    cursor: isUploading ? 'not-allowed' : 'pointer'
                                                 }}
                                             >
-                                                🎤 Réenregistrer
+                                                🎤 Enregistrer
                                             </button>
-                                        </div>
-                                    ) : (
-                                        <button
-                                            onClick={() => ouvrirEnregistreur(mot)}
-                                            disabled={isUploading}
-                                            style={{
-                                                ...styles.enregistrerButton,
-                                                opacity: isUploading ? 0.5 : 1
-                                            }}
-                                        >
-                                            🎤 Enregistrer
-                                        </button>
-                                    )}
+                                        )}
+                                    </div>
                                 </div>
                             )
-                        })}
+                        })()}
+                    </>
+                ) : (
+                    /* VERSION DESKTOP : Scroll horizontal */
+                    <div style={styles.motsSection}>
+                        <h3 style={{ fontSize: '16px', fontWeight: 'bold', color: '#333', marginBottom: '12px' }}>
+                            Enregistre chaque mot ({motsUniques.length} mots) :
+                        </h3>
+                        <div style={styles.motsGrid}>
+                            {motsUniques.map((mot, index) => {
+                                const motNormalized = mot.toLowerCase().trim()
+                                const dejaEnregistre = !!enregistrementsMap[motNormalized]
+
+                                return (
+                                    <div key={index} style={styles.motCard}>
+                                        <div style={styles.motTexte}>{mot}</div>
+
+                                        <div style={styles.motActions}>
+                                            {/* Bouton Écouter (TTS ordinateur) */}
+                                            <button
+                                                onClick={() => lireTexte(mot)}
+                                                style={{
+                                                    background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                                                    color: 'white',
+                                                    border: 'none',
+                                                    borderRadius: '10px',
+                                                    padding: '12px 16px',
+                                                    fontSize: '15px',
+                                                    fontWeight: '600',
+                                                    cursor: 'pointer',
+                                                    boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)',
+                                                    transition: 'transform 0.2s, box-shadow 0.2s'
+                                                }}
+                                                onMouseEnter={(e) => {
+                                                    e.target.style.transform = 'translateY(-2px)'
+                                                    e.target.style.boxShadow = '0 6px 16px rgba(16, 185, 129, 0.4)'
+                                                }}
+                                                onMouseLeave={(e) => {
+                                                    e.target.style.transform = 'translateY(0)'
+                                                    e.target.style.boxShadow = '0 4px 12px rgba(16, 185, 129, 0.3)'
+                                                }}
+                                            >
+                                                🔊 Écouter
+                                            </button>
+
+                                            {dejaEnregistre ? (
+                                                <>
+                                                    <button
+                                                        onClick={() => rejouerEnregistrement(mot)}
+                                                        style={styles.ecouterButton}
+                                                        onMouseEnter={(e) => {
+                                                            e.target.style.transform = 'translateY(-2px)'
+                                                            e.target.style.boxShadow = '0 6px 16px rgba(59, 130, 246, 0.4)'
+                                                        }}
+                                                        onMouseLeave={(e) => {
+                                                            e.target.style.transform = 'translateY(0)'
+                                                            e.target.style.boxShadow = '0 4px 12px rgba(59, 130, 246, 0.3)'
+                                                        }}
+                                                    >
+                                                        🎤 Ma voix
+                                                    </button>
+                                                    <button
+                                                        onClick={() => ouvrirEnregistreur(mot)}
+                                                        disabled={isUploading}
+                                                        style={{
+                                                            ...styles.reEnregistrerButton,
+                                                            opacity: isUploading ? 0.5 : 1,
+                                                            cursor: isUploading ? 'not-allowed' : 'pointer'
+                                                        }}
+                                                        onMouseEnter={(e) => {
+                                                            if (!isUploading) {
+                                                                e.target.style.transform = 'translateY(-2px)'
+                                                                e.target.style.boxShadow = '0 6px 16px rgba(245, 158, 11, 0.4)'
+                                                            }
+                                                        }}
+                                                        onMouseLeave={(e) => {
+                                                            e.target.style.transform = 'translateY(0)'
+                                                            e.target.style.boxShadow = '0 4px 12px rgba(245, 158, 11, 0.3)'
+                                                        }}
+                                                    >
+                                                        🎤 Réenregistrer
+                                                    </button>
+                                                </>
+                                            ) : (
+                                                <button
+                                                    onClick={() => ouvrirEnregistreur(mot)}
+                                                    disabled={isUploading}
+                                                    style={{
+                                                        ...styles.enregistrerButton,
+                                                        opacity: isUploading ? 0.5 : 1,
+                                                        cursor: isUploading ? 'not-allowed' : 'pointer'
+                                                    }}
+                                                    onMouseEnter={(e) => {
+                                                        if (!isUploading) {
+                                                            e.target.style.transform = 'translateY(-2px)'
+                                                            e.target.style.boxShadow = '0 6px 16px rgba(239, 68, 68, 0.4)'
+                                                        }
+                                                    }}
+                                                    onMouseLeave={(e) => {
+                                                        e.target.style.transform = 'translateY(0)'
+                                                        e.target.style.boxShadow = '0 4px 12px rgba(239, 68, 68, 0.3)'
+                                                    }}
+                                                >
+                                                    🎤 Enregistrer
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+                                )
+                            })}
+                        </div>
                     </div>
-                </div>
+                )}
 
                 {/* Modal d'enregistrement */}
                 {showRecorder && motEnCours && (
@@ -479,15 +755,6 @@ export default function MaVoixMesMotsPage() {
                                 onRecordingComplete={handleRecordingComplete}
                                 maxDuration={5}
                             />
-                            <button
-                                onClick={() => {
-                                    setShowRecorder(false)
-                                    setMotEnCours(null)
-                                }}
-                                style={styles.modalCancelButton}
-                            >
-                                Annuler
-                            </button>
                         </div>
                     </div>
                 )}
@@ -500,7 +767,7 @@ export default function MaVoixMesMotsPage() {
                 )}
 
                 {/* Navigation */}
-                <div style={styles.actions}>
+                <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', marginTop: '24px' }}>
                     <button
                         onClick={groupePrecedent}
                         disabled={indexGroupe === 0}
@@ -527,14 +794,45 @@ export default function MaVoixMesMotsPage() {
                             ✓ Terminer
                         </button>
                     )}
-
-                    <button
-                        onClick={retourSelection}
-                        style={styles.secondaryButton}
-                    >
-                        ← Changer de texte
-                    </button>
                 </div>
+
+                {/* Icônes de navigation - Desktop uniquement */}
+                {!isMobile && (
+                    <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', marginTop: '16px' }}>
+                        <button
+                            onClick={() => router.push('/lire/reconnaitre-les-mots')}
+                            style={{
+                                padding: '8px 12px',
+                                backgroundColor: 'white',
+                                border: '2px solid #3b82f6',
+                                borderRadius: '8px',
+                                cursor: 'pointer',
+                                fontSize: '20px',
+                                display: 'flex',
+                                alignItems: 'center'
+                            }}
+                            title="Reconnaître les mots"
+                        >
+                            👁️
+                        </button>
+                        <button
+                            onClick={() => router.push('/lire')}
+                            style={{
+                                padding: '8px 12px',
+                                backgroundColor: 'white',
+                                border: '2px solid #10b981',
+                                borderRadius: '8px',
+                                cursor: 'pointer',
+                                fontSize: '20px',
+                                display: 'flex',
+                                alignItems: 'center'
+                            }}
+                            title="Menu Lire"
+                        >
+                            📖
+                        </button>
+                    </div>
+                )}
             </div>
         )
     }
@@ -594,22 +892,28 @@ export default function MaVoixMesMotsPage() {
 const styles = {
     container: {
         minHeight: '100vh',
-        backgroundColor: '#f9fafb',
+        background: '#ffffff',
         padding: '20px',
-        fontFamily: 'Arial, sans-serif'
+        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
     },
     header: {
         textAlign: 'center',
-        marginBottom: '32px'
+        marginBottom: '32px',
+        padding: '20px',
+        backgroundColor: 'rgba(255, 255, 255, 0.95)',
+        borderRadius: '20px',
+        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)'
     },
     title: {
-        fontSize: '32px',
+        fontSize: 'clamp(28px, 5vw, 40px)',
         fontWeight: 'bold',
-        color: '#ef4444',
+        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        WebkitBackgroundClip: 'text',
+        WebkitTextFillColor: 'transparent',
         margin: '0 0 8px 0'
     },
     subtitle: {
-        fontSize: '16px',
+        fontSize: 'clamp(14px, 3vw, 18px)',
         color: '#666',
         margin: 0
     },
@@ -669,119 +973,214 @@ const styles = {
         color: '#666'
     },
     progressionBox: {
-        backgroundColor: '#fff',
-        borderRadius: '12px',
-        padding: '20px',
-        marginBottom: '24px'
+        backgroundColor: 'rgba(255, 255, 255, 0.95)',
+        borderRadius: '20px',
+        padding: '24px',
+        marginBottom: '24px',
+        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+        backdropFilter: 'blur(10px)'
     },
     progressionText: {
-        fontSize: '16px',
+        fontSize: 'clamp(14px, 3vw, 18px)',
         fontWeight: '600',
         color: '#333',
-        marginBottom: '12px',
+        marginBottom: '16px',
         textAlign: 'center'
     },
     progressBarContainer: {
         width: '100%',
-        height: '24px',
+        height: '32px',
         backgroundColor: '#e5e7eb',
-        borderRadius: '12px',
-        overflow: 'hidden'
+        borderRadius: '16px',
+        overflow: 'hidden',
+        boxShadow: 'inset 0 2px 4px rgba(0, 0, 0, 0.1)'
     },
     progressBarFill: {
         height: '100%',
-        backgroundColor: '#10b981',
-        transition: 'width 0.3s ease'
+        background: 'linear-gradient(90deg, #10b981 0%, #059669 100%)',
+        transition: 'width 0.3s ease',
+        boxShadow: '0 2px 8px rgba(16, 185, 129, 0.4)'
     },
     groupeBox: {
-        backgroundColor: '#fff',
-        borderRadius: '12px',
-        padding: '24px',
-        marginBottom: '24px'
+        backgroundColor: 'rgba(255, 255, 255, 0.95)',
+        borderRadius: '20px',
+        padding: '28px',
+        marginBottom: '24px',
+        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+        backdropFilter: 'blur(10px)',
+        border: '2px solid rgba(255, 255, 255, 0.3)'
     },
     groupeTitle: {
-        fontSize: '18px',
-        fontWeight: '600',
+        fontSize: 'clamp(16px, 3.5vw, 22px)',
+        fontWeight: '700',
         color: '#333',
-        marginBottom: '12px'
+        margin: 0
     },
     groupeContenu: {
-        fontSize: '20px',
-        lineHeight: '1.6',
-        color: '#555'
+        fontSize: 'clamp(18px, 4vw, 24px)',
+        lineHeight: '1.8',
+        color: '#444',
+        fontWeight: '500',
+        padding: '16px',
+        backgroundColor: '#f8fafc',
+        borderRadius: '12px',
+        borderLeft: '4px solid #667eea'
     },
     motsSection: {
-        backgroundColor: '#fff',
-        borderRadius: '12px',
-        padding: '24px',
-        marginBottom: '24px'
+        backgroundColor: 'rgba(255, 255, 255, 0.95)',
+        borderRadius: '8px',
+        padding: '8px 10px',
+        marginBottom: '10px',
+        boxShadow: '0 1px 4px rgba(0, 0, 0, 0.05)',
+        backdropFilter: 'blur(10px)'
     },
     motsSectionTitle: {
-        fontSize: '18px',
-        fontWeight: '600',
+        fontSize: 'clamp(16px, 3.5vw, 22px)',
+        fontWeight: '700',
         color: '#333',
-        marginBottom: '20px'
+        marginBottom: '24px',
+        textAlign: 'center'
     },
     motsGrid: {
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
-        gap: '16px'
+        display: 'flex',
+        flexWrap: 'nowrap',
+        gap: '20px',
+        paddingBottom: '16px',
+        overflowX: 'auto'
     },
     motCard: {
-        padding: '16px',
-        backgroundColor: '#f9fafb',
+        flex: '1 1 auto',
+        minWidth: '200px',
+        maxWidth: '300px',
+        padding: '20px',
+        background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
         border: '2px solid #e5e7eb',
-        borderRadius: '8px',
+        borderRadius: '16px',
         display: 'flex',
         flexDirection: 'column',
-        gap: '12px'
+        gap: '16px',
+        boxShadow: '0 4px 16px rgba(0, 0, 0, 0.08)',
+        transition: 'transform 0.2s, box-shadow 0.2s',
+        cursor: 'default',
+        flexShrink: 0
     },
     motTexte: {
-        fontSize: '20px',
+        fontSize: 'clamp(22px, 4.5vw, 28px)',
         fontWeight: 'bold',
         color: '#333',
-        textAlign: 'center'
+        textAlign: 'center',
+        padding: '12px',
+        backgroundColor: '#f0f4ff',
+        borderRadius: '12px',
+        border: '2px solid #667eea'
     },
     motActions: {
         display: 'flex',
         flexDirection: 'column',
-        gap: '8px'
+        gap: '10px'
     },
     motStatut: {
-        fontSize: '14px',
+        fontSize: '16px',
         color: '#10b981',
-        fontWeight: '600',
-        textAlign: 'center'
+        fontWeight: '700',
+        textAlign: 'center',
+        padding: '4px'
     },
     ecouterButton: {
-        padding: '8px 12px',
-        backgroundColor: '#3b82f6',
+        padding: '12px 16px',
+        background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
         color: 'white',
         border: 'none',
-        borderRadius: '6px',
-        fontSize: '14px',
+        borderRadius: '10px',
+        fontSize: '15px',
         fontWeight: '600',
-        cursor: 'pointer'
+        cursor: 'pointer',
+        boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)',
+        transition: 'transform 0.2s, box-shadow 0.2s'
     },
     reEnregistrerButton: {
-        padding: '8px 12px',
-        backgroundColor: '#f59e0b',
+        padding: '12px 16px',
+        background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
         color: 'white',
         border: 'none',
-        borderRadius: '6px',
-        fontSize: '14px',
+        borderRadius: '10px',
+        fontSize: '15px',
         fontWeight: '600',
-        cursor: 'pointer'
+        cursor: 'pointer',
+        boxShadow: '0 4px 12px rgba(245, 158, 11, 0.3)',
+        transition: 'transform 0.2s, box-shadow 0.2s'
     },
     enregistrerButton: {
-        padding: '12px 16px',
-        backgroundColor: '#ef4444',
+        padding: '14px 20px',
+        background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
         color: 'white',
         border: 'none',
-        borderRadius: '6px',
-        fontSize: '16px',
+        borderRadius: '10px',
+        fontSize: '17px',
         fontWeight: 'bold',
-        cursor: 'pointer'
+        cursor: 'pointer',
+        boxShadow: '0 4px 12px rgba(239, 68, 68, 0.3)',
+        transition: 'transform 0.2s, box-shadow 0.2s'
+    },
+    // Styles mobile
+    mobileNavigation: {
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: '20px',
+        gap: '12px'
+    },
+    navButton: {
+        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        color: 'white',
+        border: 'none',
+        borderRadius: '10px',
+        padding: '12px 20px',
+        fontSize: '14px',
+        fontWeight: '600',
+        cursor: 'pointer',
+        boxShadow: '0 4px 12px rgba(102, 126, 234, 0.3)',
+        transition: 'all 0.2s'
+    },
+    mobileCounter: {
+        fontSize: '18px',
+        fontWeight: '700',
+        color: '#667eea',
+        textAlign: 'center'
+    },
+    motCardMobile: {
+        width: '100%',
+        padding: '16px',
+        background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
+        border: '2px solid #e5e7eb',
+        borderRadius: '16px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '12px',
+        boxShadow: '0 4px 16px rgba(0, 0, 0, 0.08)',
+        boxSizing: 'border-box'
+    },
+    motTexteMobile: {
+        fontSize: 'clamp(28px, 7vw, 40px)',
+        fontWeight: 'bold',
+        color: '#333',
+        textAlign: 'center',
+        padding: '12px',
+        backgroundColor: '#f0f4ff',
+        borderRadius: '12px',
+        border: '2px solid #667eea'
+    },
+    buttonMobile: {
+        padding: '16px 20px',
+        background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+        color: 'white',
+        border: 'none',
+        borderRadius: '12px',
+        fontSize: '18px',
+        fontWeight: '600',
+        cursor: 'pointer',
+        boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)',
+        transition: 'transform 0.2s'
     },
     modalOverlay: {
         position: 'fixed',
@@ -836,16 +1235,16 @@ const styles = {
     },
     actions: {
         display: 'flex',
+        flexDirection: 'column',
         gap: '12px',
-        justifyContent: 'center',
-        flexWrap: 'wrap',
+        alignItems: 'center',
         marginTop: '24px'
     },
     primaryButton: {
         padding: '12px 24px',
-        backgroundColor: '#ef4444',
-        color: '#fff',
-        border: 'none',
+        backgroundColor: '#f3f4f6',
+        color: '#333',
+        border: '1px solid #d1d5db',
         borderRadius: '8px',
         fontSize: '16px',
         fontWeight: '600',
