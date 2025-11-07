@@ -36,6 +36,7 @@ export default function MaVoixMesMotsPage() {
 
     // Enregistrements
     const [enregistrementsMap, setEnregistrementsMap] = useState({}) // { mot: { audio_url, ... } }
+    const [enregistrementsGroupesMap, setEnregistrementsGroupesMap] = useState({}) // { groupe_id: { audio_url, ... } }
     const [motEnCours, setMotEnCours] = useState(null) // Mot en cours d'enregistrement
     const [showRecorder, setShowRecorder] = useState(false)
     const [isUploading, setIsUploading] = useState(false)
@@ -104,6 +105,7 @@ export default function MaVoixMesMotsPage() {
             setUser(parsedUser)
             await loadTextes(parsedUser.id)
             await loadEnregistrements()
+            await loadEnregistrementsGroupes()
         } catch (err) {
             console.error('Erreur authentification:', err)
             router.push('/login')
@@ -116,23 +118,155 @@ export default function MaVoixMesMotsPage() {
     // 2. CHARGEMENT DES DONNÉES
     // ========================================================================
 
-    // Fonction TTS pour lire du texte avec Web Speech API
-    function lireTexte(texte) {
+    // ========================================================================
+    // FONCTIONS DE LECTURE AUDIO AVEC CASCADE
+    // ========================================================================
+
+    async function lireTTS(texte, onEnded = null) {
+        // Normaliser le texte pour la recherche
+        const motNormalise = texte
+            .toLowerCase()
+            .trim()
+            .replace(/^[.,;:!?¡¿'"«»\-—]+/, '')  // Ponctuation au début
+            .replace(/[.,;:!?¡¿'"«»\-—]+$/, '')  // Ponctuation à la fin
+
+        console.log(`🔍 Recherche "${motNormalise}" dans`, Object.keys(enregistrementsMap).length, 'enregistrements')
+
+        // PRIORITÉ 1 : VOIX PERSONNALISÉE (enregistrement de l'apprenant)
+        if (enregistrementsMap[motNormalise]) {
+            console.log(`✅ Enregistrement personnalisé trouvé pour "${motNormalise}"`)
+            const audio = new Audio(enregistrementsMap[motNormalise].audio_url)
+            if (onEnded) {
+                audio.addEventListener('ended', onEnded)
+            }
+            audio.play().catch(err => {
+                console.error('❌ Erreur lecture audio personnalisé:', err)
+                lireTTSElevenLabs(texte, onEnded)
+            })
+            return audio
+        }
+
+        // PRIORITÉ 2 : ELEVENLABS API
+        console.log(`⏭️ Pas d'enregistrement pour "${motNormalise}", tentative ElevenLabs`)
+        return await lireTTSElevenLabs(texte, onEnded)
+    }
+
+    async function lireTTSElevenLabs(texte, onEnded = null) {
+        try {
+            const token = localStorage.getItem('token')
+            const response = await fetch('/api/speech/elevenlabs', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ text: texte })
+            })
+
+            if (response.ok) {
+                const data = await response.json()
+                console.log(`🎙️ Audio ElevenLabs généré pour "${texte}"`)
+                const audio = new Audio(data.audio)
+                if (onEnded) {
+                    audio.addEventListener('ended', onEnded)
+                }
+                audio.play().catch(err => {
+                    console.error('❌ Erreur lecture ElevenLabs:', err)
+                    lireTTSFallback(texte, onEnded)
+                })
+                return audio
+            } else {
+                const errorData = await response.json()
+                if (response.status === 429 || errorData.error === 'QUOTA_EXCEEDED') {
+                    console.warn('⚠️ Quota ElevenLabs dépassé, fallback vers Web Speech API')
+                }
+                return lireTTSFallback(texte, onEnded)
+            }
+        } catch (error) {
+            console.error('❌ Erreur appel ElevenLabs:', error)
+            return lireTTSFallback(texte, onEnded)
+        }
+    }
+
+    function lireTTSFallback(texte, onEnded = null) {
+        console.log(`🔊 Fallback Web Speech API pour "${texte}"`)
+
         if ('speechSynthesis' in window) {
             window.speechSynthesis.cancel()
+            const voices = window.speechSynthesis.getVoices()
             const utterance = new SpeechSynthesisUtterance(texte)
             utterance.lang = 'fr-FR'
-            utterance.rate = 0.9
-            utterance.pitch = 1.0
+            utterance.rate = 0.8
+            utterance.pitch = 0.6
 
-            const voices = window.speechSynthesis.getVoices()
-            const frenchVoice = voices.find(voice => voice.lang.includes('fr'))
-            if (frenchVoice) {
-                utterance.voice = frenchVoice
+            // Sélectionner une voix française SAUF Hortense
+            const frenchVoices = voices.filter(v =>
+                v.lang.startsWith('fr') &&
+                !v.name.toLowerCase().includes('hortense')
+            )
+
+            if (frenchVoices.length > 0) {
+                const preferredVoice = frenchVoices.find(v =>
+                    v.name.toLowerCase().includes('thomas') ||
+                    v.name.toLowerCase().includes('daniel')
+                ) || frenchVoices[0]
+
+                utterance.voice = preferredVoice
+                console.log(`🗣️ Voix sélectionnée: ${preferredVoice.name}`)
+            }
+
+            if (onEnded) {
+                utterance.addEventListener('end', onEnded)
             }
 
             window.speechSynthesis.speak(utterance)
+            return utterance
         }
+        return null
+    }
+
+    async function lireGroupeDeSens() {
+        if (!groupeActuel) return
+
+        // PRIORITÉ 1: Enregistrement du groupe complet
+        if (enregistrementsGroupesMap[groupeActuel.id]) {
+            console.log(`✅ Enregistrement de groupe trouvé pour groupe ${groupeActuel.id}`)
+            const audio = new Audio(enregistrementsGroupesMap[groupeActuel.id].audio_url)
+            audio.play().catch(err => {
+                console.error('❌ Erreur lecture groupe:', err)
+                console.log(`⏭️ Fallback: lecture mot par mot`)
+                lireGroupeMotParMot()
+            })
+        } else {
+            // FALLBACK: Lire mot par mot avec cascade audio
+            console.log(`⏭️ Pas d'enregistrement de groupe pour ${groupeActuel.id}, lecture mot par mot`)
+            lireGroupeMotParMot()
+        }
+    }
+
+    function lireGroupeMotParMot() {
+        if (!groupeActuel) return
+
+        const mots = groupeActuel.contenu
+            .trim()
+            .split(/\s+/)
+            .filter(mot => mot && mot.trim().length > 0)
+            .filter(mot => !/^[.,:;!?]+$/.test(mot))
+
+        let index = 0
+
+        function lireMotSuivant() {
+            if (index >= mots.length) return
+
+            const onEnded = () => {
+                index++
+                setTimeout(lireMotSuivant, 300)
+            }
+
+            lireTTS(mots[index], onEnded)
+        }
+
+        lireMotSuivant()
     }
 
     async function loadTextes(apprenantId) {
@@ -162,13 +296,35 @@ export default function MaVoixMesMotsPage() {
 
             if (response.ok) {
                 const data = await response.json()
-                console.log(`🎤 ${data.count} enregistrement(s) chargé(s)`)
+                console.log(`🎤 ${data.count} enregistrement(s) vocal(aux) chargé(s)`)
                 setEnregistrementsMap(data.enregistrementsMap || {})
             } else {
                 console.error('Erreur chargement enregistrements')
             }
         } catch (error) {
             console.error('Erreur chargement enregistrements:', error)
+        }
+    }
+
+    async function loadEnregistrementsGroupes() {
+        try {
+            const token = localStorage.getItem('token')
+            const response = await fetch('/api/enregistrements-groupes/list', {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            })
+
+            if (response.ok) {
+                const data = await response.json()
+                console.log(`🎤 ${data.count} enregistrement(s) de groupe(s) chargé(s)`)
+                console.log('📋 Groupes enregistrés:', Object.keys(data.enregistrementsMap || {}))
+                setEnregistrementsGroupesMap(data.enregistrementsMap || {})
+            } else {
+                console.error('Erreur chargement enregistrements groupes')
+            }
+        } catch (error) {
+            console.error('Erreur chargement enregistrements groupes:', error)
         }
     }
 
@@ -518,7 +674,7 @@ export default function MaVoixMesMotsPage() {
 
                     {/* Ligne 2: Bouton écouter */}
                     <button
-                        onClick={() => lireTexte(groupeActuel.contenu)}
+                        onClick={lireGroupeDeSens}
                         style={{
                             background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
                             color: 'white',
