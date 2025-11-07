@@ -69,6 +69,10 @@ export default function ReconnaitreLesMotsPage() {
 
     // Détection mobile
     const [isMobile, setIsMobile] = useState(false)
+    
+    // Où est - taille dynamique des mots sur mobile
+    const [taillePoliceOuEst, setTaillePoliceOuEst] = useState(16)
+    const motsGridOuEstRef = useRef(null)
 
     // Référence pour le conteneur karaoké (scroll automatique mobile)
     const karaokeContainerRef = useRef(null)
@@ -127,15 +131,80 @@ export default function ReconnaitreLesMotsPage() {
     useEffect(() => {
         if (exerciceActif === 'ou-est-ce' && motActuel && tousLesMots.length > 0 && indexQuestion < tousLesMots.length) {
             const timer = setTimeout(() => {
-                lireTTS('Où est')
-                setTimeout(() => {
-                    lireTTS(`${motActuel} ?`)
-                }, 600)
+                lireQuestionOuEstCe(motActuel)
             }, 300)
 
             return () => clearTimeout(timer)
         }
     }, [exerciceActif, indexQuestion, motActuel, tousLesMots.length])
+
+    // Calcul dynamique de la taille de police pour l'exercice "Où est" sur mobile
+    useEffect(() => {
+        if (!isMobile || exerciceActif !== 'ou-est-ce' || !groupeActuel) return
+
+        const motsAfficher = groupeActuel.motsDuGroupe || groupeActuel.contenu.trim().split(/\s+/).filter(mot => !/^[.,:;!?]+$/.test(mot))
+        if (motsAfficher.length === 0) return
+
+        // Calculer l'espace disponible avec plus de précision
+        const viewportHeight = window.innerHeight
+        const headerElement = document.querySelector('div[style*="flexDirection: \'column\'"]') // Header mobile
+        const headerHeight = headerElement ? headerElement.offsetHeight + 20 : 160
+        const feedbackHeight = feedback ? 70 : 0
+        const margins = 20 // Réduire les marges
+        
+        const availableHeight = viewportHeight - headerHeight - feedbackHeight - margins
+
+        // Calculer avec tous les mots (longueur totale et individuelle)
+        const nombreMots = motsAfficher.length
+        const longueurMax = Math.max(...motsAfficher.map(mot => mot.length))
+        const longueurMoyenne = motsAfficher.reduce((acc, mot) => acc + mot.length, 0) / nombreMots
+
+        // Fonction d'estimation plus précise
+        const estimerLayout = (fontSize) => {
+            const largeurEcran = window.innerWidth - 16 // padding réduit
+            const paddingButton = fontSize * 1.6 // padding horizontal proportionnel
+            const gapBetweenButtons = 8
+            
+            // Calculer combien de mots par ligne en moyenne
+            let largeurLigneActuelle = 0
+            let lignes = 1
+            
+            motsAfficher.forEach(mot => {
+                const largeurMot = mot.length * fontSize * 0.6 + paddingButton
+                if (largeurLigneActuelle + largeurMot + gapBetweenButtons > largeurEcran && largeurLigneActuelle > 0) {
+                    lignes++
+                    largeurLigneActuelle = largeurMot
+                } else {
+                    largeurLigneActuelle += largeurMot + (largeurLigneActuelle > 0 ? gapBetweenButtons : 0)
+                }
+            })
+            
+            const hauteurBouton = fontSize * 2.5 + 16 // padding vertical + borders
+            const gapVertical = 8
+            const hauteurTotale = lignes * hauteurBouton + (lignes - 1) * gapVertical + 16 // padding conteneur
+            
+            return { lignes, hauteurTotale }
+        }
+
+        // Recherche dichotomique pour trouver la taille optimale
+        let tailleMin = 12
+        let tailleMax = 36 // Augmenter la limite max
+        let tailleTrouvee = tailleMin
+
+        while (tailleMax - tailleMin > 0.5) {
+            const tailleMoyenne = (tailleMin + tailleMax) / 2
+            const { hauteurTotale } = estimerLayout(tailleMoyenne)
+            
+            if (hauteurTotale <= availableHeight) {
+                tailleTrouvee = tailleMoyenne
+                tailleMin = tailleMoyenne
+            } else {
+                tailleMax = tailleMoyenne
+            }
+        }
+
+        setTaillePoliceOuEst(Math.max(12, Math.min(36, Math.floor(tailleTrouvee))))
+    }, [exerciceActif, groupeActuel, isMobile, feedback])
 
     async function checkAuth() {
         try {
@@ -667,6 +736,48 @@ export default function ReconnaitreLesMotsPage() {
                 setIndexQuestion(nextIndex)
             }
         }, 1500)
+    }
+
+    // Fonction pour lire la question "Où est [mot]" avec cascade audio
+    function lireQuestionOuEstCe(mot) {
+        // Normaliser le mot pour chercher dans enregistrementsMap
+        const motNormalise = mot
+            .toLowerCase()
+            .trim()
+            .replace(/^[.,;:!?¡¿'\"«»\-—]+/, '')  // Ponctuation au début
+            .replace(/[.,;:!?¡¿'\"«»\-—]+$/, '')  // Ponctuation à la fin
+
+        console.log(`🔍 Recherche enregistrement pour "Où est ${motNormalise}"`)
+
+        // ========================================================================
+        // PRIORITÉ 1 : ENREGISTREMENT PERSONNALISÉ DU MOT
+        // ========================================================================
+        if (enregistrementsMap[motNormalise]) {
+            console.log(`✅ Enregistrement personnalisé trouvé pour "${motNormalise}"`)
+            console.log(`🎵 URL:`, enregistrementsMap[motNormalise].audio_url)
+            
+            const audio = new Audio(enregistrementsMap[motNormalise].audio_url)
+            audio.play().catch(err => {
+                console.error('❌ Erreur lecture audio personnalisé:', err)
+                // Fallback sur TTS en cas d'erreur
+                lireQuestionAvecTTS(mot)
+            })
+            return
+        }
+
+        // ========================================================================
+        // PRIORITÉ 2 : "OÙ EST" + 200ms + MOT VIA TTS (ELEVENLABS OU FALLBACK)
+        // ========================================================================
+        console.log(`⏭️ Pas d'enregistrement perso, lecture via TTS`)
+        lireQuestionAvecTTS(mot)
+    }
+
+    // Fonction auxiliaire pour lire "Où est" + mot via TTS
+    function lireQuestionAvecTTS(mot) {
+        lireTTS('Où est')
+        setTimeout(() => {
+            lireTTS(mot)
+        }, 200) // Pause de 200ms entre "Où est" et le mot
     }
 
     // ==================== EXERCICE 3 : QU'EST-CE ? ====================
@@ -1348,15 +1459,29 @@ export default function ReconnaitreLesMotsPage() {
         return (
             <div style={styles.container}>
                 <div style={styles.header}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
-                        <div style={{ flex: 1 }}>
-                            <h1 style={styles.title}>📍 Où est-ce ?</h1>
-                            <p style={styles.subtitle}>
+                    {isMobile ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', width: '100%' }}>
+                            <h1 style={{ ...styles.title, fontSize: '20px', margin: 0 }}>📍 Où est-ce ?</h1>
+                            <p style={{ ...styles.subtitle, margin: 0, fontSize: '14px' }}>
                                 Question {indexQuestion + 1} / {tousLesMots.length} • Score : {score.bonnes}/{score.total}
                             </p>
-                        </div>
-                        {isMobile && (
-                            <div style={{ display: 'flex', gap: '8px', marginLeft: '12px' }}>
+                            <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                                <button
+                                    onClick={() => setExerciceActif(null)}
+                                    style={{
+                                        padding: '8px 12px',
+                                        backgroundColor: 'white',
+                                        border: '2px solid #6b7280',
+                                        borderRadius: '8px',
+                                        cursor: 'pointer',
+                                        fontSize: '20px',
+                                        display: 'flex',
+                                        alignItems: 'center'
+                                    }}
+                                    title="Menu exercices"
+                                >
+                                    ←
+                                </button>
                                 <button
                                     onClick={() => router.push('/lire/ma-voix-mes-mots')}
                                     style={{
@@ -1389,9 +1514,50 @@ export default function ReconnaitreLesMotsPage() {
                                 >
                                     📖
                                 </button>
+                                <button
+                                    onClick={() => router.push('/dashboard')}
+                                    style={{
+                                        padding: '8px 12px',
+                                        backgroundColor: 'white',
+                                        border: '2px solid #f59e0b',
+                                        borderRadius: '8px',
+                                        cursor: 'pointer',
+                                        fontSize: '20px',
+                                        display: 'flex',
+                                        alignItems: 'center'
+                                    }}
+                                    title="Accueil"
+                                >
+                                    🏠
+                                </button>
+                                <button
+                                    onClick={() => lireQuestionOuEstCe(motActuel)}
+                                    style={{
+                                        padding: '8px 12px',
+                                        backgroundColor: 'white',
+                                        border: '2px solid #8b5cf6',
+                                        borderRadius: '8px',
+                                        cursor: 'pointer',
+                                        fontSize: '20px',
+                                        display: 'flex',
+                                        alignItems: 'center'
+                                    }}
+                                    title="Écouter"
+                                >
+                                    🔊
+                                </button>
                             </div>
-                        )}
-                    </div>
+                        </div>
+                    ) : (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                            <div style={{ flex: 1 }}>
+                                <h1 style={styles.title}>📍 Où est-ce ?</h1>
+                                <p style={styles.subtitle}>
+                                    Question {indexQuestion + 1} / {tousLesMots.length} • Score : {score.bonnes}/{score.total}
+                                </p>
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 {feedback && (
@@ -1403,22 +1569,28 @@ export default function ReconnaitreLesMotsPage() {
                     </div>
                 )}
 
-                <div style={styles.questionBox}>
-                    <p style={styles.consigne}>🔊 Écoute bien et clique sur le bon mot :</p>
-                    <button
-                        onClick={() => {
-                            lireTTS('Où est')
-                            setTimeout(() => {
-                                lireTTS(`${motActuel} ?`)
-                            }, 600)
-                        }}
-                        style={styles.ecouterButton}
-                    >
-                        🔊 Écouter la question
-                    </button>
-                </div>
+                {!isMobile && (
+                    <div style={styles.questionBox}>
+                        <p style={styles.consigne}>🔊 Écoute bien et clique sur le bon mot :</p>
+                        <button
+                            onClick={() => lireQuestionOuEstCe(motActuel)}
+                            style={styles.ecouterButton}
+                        >
+                            🔊 Écouter la question
+                        </button>
+                    </div>
+                )}
 
-                <div style={styles.motsGrid}>
+                <div 
+                    ref={motsGridOuEstRef}
+                    style={{
+                        ...styles.motsGrid,
+                        ...(isMobile ? {
+                            gap: '8px',
+                            padding: '8px'
+                        } : {})
+                    }}
+                >
                     {motsAfficher.map((mot, index) => (
                         <button
                             key={index}
@@ -1426,7 +1598,13 @@ export default function ReconnaitreLesMotsPage() {
                             disabled={feedback !== null}
                             style={{
                                 ...styles.motButton,
-                                ...(feedback ? { opacity: 0.5, cursor: 'not-allowed' } : {})
+                                ...(feedback ? { opacity: 0.5, cursor: 'not-allowed' } : {}),
+                                ...(isMobile ? {
+                                    fontSize: `${taillePoliceOuEst}px`,
+                                    padding: `${taillePoliceOuEst * 0.5}px ${taillePoliceOuEst * 0.8}px`,
+                                    minWidth: 'auto',
+                                    flexShrink: 1
+                                } : {})
                             }}
                         >
                             {mot}
@@ -1434,11 +1612,13 @@ export default function ReconnaitreLesMotsPage() {
                     ))}
                 </div>
 
-                <div style={styles.actions}>
-                    <button onClick={() => setExerciceActif(null)} style={styles.secondaryButton}>
-                        ← Menu exercices
-                    </button>
-                </div>
+                {!isMobile && (
+                    <div style={styles.actions}>
+                        <button onClick={() => setExerciceActif(null)} style={styles.secondaryButton}>
+                            ← Menu exercices
+                        </button>
+                    </div>
+                )}
 
                 {/* Icônes de navigation (desktop uniquement) */}
                 {!isMobile && (
@@ -1551,9 +1731,21 @@ export default function ReconnaitreLesMotsPage() {
                             </h2>
                             <div style={styles.motsListeReussis}>
                                 {resultats.reussis.map((mot, index) => (
-                                    <span key={index} style={styles.motReussi}>
+                                    <button
+                                        key={index}
+                                        onClick={() => lireQuestionOuEstCe(mot)}
+                                        style={{
+                                            ...styles.motReussi,
+                                            cursor: 'pointer',
+                                            transition: 'transform 0.1s',
+                                            border: 'none'
+                                        }}
+                                        onMouseEnter={(e) => e.target.style.transform = 'scale(1.05)'}
+                                        onMouseLeave={(e) => e.target.style.transform = 'scale(1)'}
+                                        title="🔊 Écouter"
+                                    >
                                         {mot}
-                                    </span>
+                                    </button>
                                 ))}
                             </div>
                         </div>
@@ -1566,9 +1758,21 @@ export default function ReconnaitreLesMotsPage() {
                             </h2>
                             <div style={styles.motsListeRates}>
                                 {resultats.rates.map((mot, index) => (
-                                    <span key={index} style={styles.motRate}>
+                                    <button
+                                        key={index}
+                                        onClick={() => lireQuestionOuEstCe(mot)}
+                                        style={{
+                                            ...styles.motRate,
+                                            cursor: 'pointer',
+                                            transition: 'transform 0.1s',
+                                            border: 'none'
+                                        }}
+                                        onMouseEnter={(e) => e.target.style.transform = 'scale(1.05)'}
+                                        onMouseLeave={(e) => e.target.style.transform = 'scale(1)'}
+                                        title="🔊 Écouter"
+                                    >
                                         {mot}
-                                    </span>
+                                    </button>
                                 ))}
                             </div>
                         </div>
