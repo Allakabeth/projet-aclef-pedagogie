@@ -74,6 +74,9 @@ export default function ReconnaitreLesMotsPage() {
     const [taillePoliceOuEst, setTaillePoliceOuEst] = useState(16)
     const motsGridOuEstRef = useRef(null)
 
+    // Effet de célébration (confettis + son)
+    const [showConfetti, setShowConfetti] = useState(false)
+
     // Référence pour le conteneur karaoké (scroll automatique mobile)
     const karaokeContainerRef = useRef(null)
     const phraseContexteRef = useRef(null)
@@ -126,6 +129,22 @@ export default function ReconnaitreLesMotsPage() {
     useEffect(() => {
         checkAuth()
     }, [router])
+
+    // 🎉 Célébration pour score parfait
+    useEffect(() => {
+        if (exerciceActif === 'remettre-ordre-resultats' && score.total > 0 && score.bonnes === score.total) {
+            // Lancer la célébration
+            setShowConfetti(true)
+            jouerSonApplaudissement()
+
+            // Arrêter après 3 secondes
+            const timer = setTimeout(() => {
+                setShowConfetti(false)
+            }, 3000)
+
+            return () => clearTimeout(timer)
+        }
+    }, [exerciceActif, score.bonnes, score.total])
 
     // Lancer automatiquement la question audio pour "Où est-ce ?"
     useEffect(() => {
@@ -469,6 +488,32 @@ export default function ReconnaitreLesMotsPage() {
             return utterance
         }
         return null
+    }
+
+    // ==================== SON APPLAUDISSEMENT ====================
+    function jouerSonApplaudissement() {
+        console.log('🎉 Célébration : score parfait !')
+        
+        if ('speechSynthesis' in window) {
+            window.speechSynthesis.cancel()
+            
+            const utterance = new SpeechSynthesisUtterance('Bravo !!! Score parfait !!!')
+            utterance.lang = 'fr-FR'
+            utterance.rate = 1.0
+            utterance.pitch = 1.2
+            utterance.volume = 1.0
+            
+            const voices = window.speechSynthesis.getVoices()
+            const frenchVoices = voices.filter(v => 
+                v.lang.startsWith('fr') && 
+                !v.name.toLowerCase().includes('hortense')
+            )
+            if (frenchVoices.length > 0) {
+                utterance.voice = frenchVoices[0]
+            }
+            
+            window.speechSynthesis.speak(utterance)
+        }
     }
 
     // ==================== FONCTION LECTURE GROUPE DE SENS ====================
@@ -2045,14 +2090,33 @@ export default function ReconnaitreLesMotsPage() {
                             }}>
                                 🔄 Remettre dans l'ordre
                             </h1>
-                            <p style={{
-                                ...styles.subtitle,
-                                textAlign: 'center',
+                            <div style={{
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                fontSize: '14px',
+                                color: '#666',
                                 marginBottom: '12px'
                             }}>
-                                Phrase {indexGroupe + 1} / {groupesSens.length} • Score : {score.bonnes}/{score.total}
-                            </p>
+                                <span>Phrase {indexGroupe + 1}/{groupesSens.length}</span>
+                                <span>Score {score.bonnes}/{score.total}</span>
+                            </div>
                             <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                                <button
+                                    onClick={() => setExerciceActif(null)}
+                                    style={{
+                                        padding: '8px 12px',
+                                        backgroundColor: 'white',
+                                        border: '2px solid #6b7280',
+                                        borderRadius: '8px',
+                                        cursor: 'pointer',
+                                        fontSize: '20px',
+                                        display: 'flex',
+                                        alignItems: 'center'
+                                    }}
+                                    title="Menu exercices"
+                                >
+                                    ←
+                                </button>
                                 <button
                                     onClick={() => router.push('/lire/ma-voix-mes-mots')}
                                     style={{
@@ -2101,6 +2165,22 @@ export default function ReconnaitreLesMotsPage() {
                                 >
                                     🏠
                                 </button>
+                                <button
+                                    onClick={lireGroupeDeSens}
+                                    style={{
+                                        padding: '8px 12px',
+                                        backgroundColor: 'white',
+                                        border: '2px solid #10b981',
+                                        borderRadius: '8px',
+                                        cursor: 'pointer',
+                                        fontSize: '20px',
+                                        display: 'flex',
+                                        alignItems: 'center'
+                                    }}
+                                    title="Écouter la phrase"
+                                >
+                                    🔊
+                                </button>
                             </div>
                         </div>
                     ) : (
@@ -2124,15 +2204,6 @@ export default function ReconnaitreLesMotsPage() {
                         {feedback.message}
                     </div>
                 )}
-
-                <div style={{ textAlign: 'center', marginBottom: '24px', marginTop: '8px' }}>
-                    <button
-                        onClick={lireGroupeDeSens}
-                        style={styles.ecouterButton}
-                    >
-                        🔊 Écouter la phrase
-                    </button>
-                </div>
 
                 {/* Zone des mots sélectionnés (phrase en construction) */}
                 <div style={{
@@ -2283,15 +2354,6 @@ export default function ReconnaitreLesMotsPage() {
                             Réinitialiser
                         </button>
                     )}
-                    <button 
-                        onClick={() => setExerciceActif(null)} 
-                        style={{
-                            ...styles.secondaryButton,
-                            ...(isMobile ? { padding: '8px 12px', fontSize: '14px' } : {})
-                        }}
-                    >
-                        ← Menu exercices
-                    </button>
                 </div>
 
                 {/* Icônes de navigation (desktop uniquement) */}
@@ -2340,15 +2402,34 @@ export default function ReconnaitreLesMotsPage() {
         return (
             <div style={styles.container}>
                 <div style={styles.header}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
-                        <div style={{ flex: 1 }}>
-                            <h1 style={styles.title}>📊 Résultats</h1>
-                            <p style={styles.subtitle}>
-                                Exercice : Remettre dans l'ordre
-                            </p>
-                        </div>
-                        {isMobile && (
-                            <div style={{ display: 'flex', gap: '8px', marginLeft: '12px' }}>
+                    {isMobile ? (
+                        // VERSION MOBILE
+                        <div style={{ width: '100%' }}>
+                            <h1 style={{
+                                ...styles.title,
+                                fontSize: '20px',
+                                marginBottom: '12px',
+                                textAlign: 'center'
+                            }}>
+                                📊 Résultats
+                            </h1>
+                            <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', marginBottom: '16px' }}>
+                                <button
+                                    onClick={() => setExerciceActif(null)}
+                                    style={{
+                                        padding: '8px 12px',
+                                        backgroundColor: 'white',
+                                        border: '2px solid #6b7280',
+                                        borderRadius: '8px',
+                                        cursor: 'pointer',
+                                        fontSize: '20px',
+                                        display: 'flex',
+                                        alignItems: 'center'
+                                    }}
+                                    title="Menu exercices"
+                                >
+                                    ←
+                                </button>
                                 <button
                                     onClick={() => router.push('/lire/ma-voix-mes-mots')}
                                     style={{
@@ -2381,26 +2462,113 @@ export default function ReconnaitreLesMotsPage() {
                                 >
                                     📖
                                 </button>
+                                <button
+                                    onClick={() => router.push('/dashboard')}
+                                    style={{
+                                        padding: '8px 12px',
+                                        backgroundColor: 'white',
+                                        border: '2px solid #f59e0b',
+                                        borderRadius: '8px',
+                                        cursor: 'pointer',
+                                        fontSize: '20px',
+                                        display: 'flex',
+                                        alignItems: 'center'
+                                    }}
+                                    title="Accueil"
+                                >
+                                    🏠
+                                </button>
+                                <button
+                                    onClick={() => demarrerRemettreOrdre()}
+                                    style={{
+                                        padding: '8px 12px',
+                                        backgroundColor: 'white',
+                                        border: '2px solid #8b5cf6',
+                                        borderRadius: '8px',
+                                        cursor: 'pointer',
+                                        fontSize: '20px',
+                                        display: 'flex',
+                                        alignItems: 'center'
+                                    }}
+                                    title="Recommencer"
+                                >
+                                    🔄
+                                </button>
                             </div>
-                        )}
-                    </div>
+                            {/* Score intégré sous les icônes */}
+                            <div style={{
+                                display: 'flex',
+                                justifyContent: 'center',
+                                marginTop: '12px'
+                            }}>
+                                <div style={{
+                                    border: '3px solid #3b82f6',
+                                    borderRadius: '12px',
+                                    padding: '8px 20px',
+                                    backgroundColor: 'white',
+                                    fontSize: '24px',
+                                    fontWeight: 'bold',
+                                    color: '#1e293b',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '8px'
+                                }}>
+                                    <span>{score.bonnes}</span>
+                                    <span style={{ color: '#64748b' }}>/</span>
+                                    <span style={{ color: '#64748b' }}>{score.total}</span>
+                                </div>
+                            </div>
+                        </div>
+                    ) : (
+                        // VERSION DESKTOP
+                        <div style={{ width: '100%' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                                <div style={{ flex: 1 }}>
+                                    <h1 style={styles.title}>📊 Résultats</h1>
+                                </div>
+                                {/* Score pour desktop */}
+                                <div style={{
+                                    border: '3px solid #3b82f6',
+                                    borderRadius: '12px',
+                                    padding: '8px 20px',
+                                    backgroundColor: 'white',
+                                    fontSize: '32px',
+                                    fontWeight: 'bold',
+                                    color: '#1e293b',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '8px'
+                                }}>
+                                    <span>{score.bonnes}</span>
+                                    <span style={{ color: '#64748b' }}>/</span>
+                                    <span style={{ color: '#64748b' }}>{score.total}</span>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </div>
 
-                <div style={styles.resultatsBox}>
-                    <div style={styles.scoreGlobal}>
-                        <div style={styles.scoreCircle}>
-                            <span style={styles.scoreNumber}>{score.bonnes}</span>
-                            <span style={styles.scoreSlash}>/</span>
-                            <span style={styles.scoreTotal}>{score.total}</span>
-                        </div>
-                        <div style={styles.scorePourcentage}>
-                            {Math.round((score.bonnes / score.total) * 100)}%
-                        </div>
-                    </div>
-
+                <div style={{
+                    ...styles.resultatsBox,
+                    ...(isMobile ? { 
+                        padding: '8px',
+                        marginTop: '8px'
+                    } : {})
+                }}>
                     {resultats.reussis.length > 0 && (
-                        <div style={styles.resultatsSection}>
-                            <h2 style={styles.resultatsSectionTitle}>
+                        <div style={{
+                            ...styles.resultatsSection,
+                            ...(isMobile ? { 
+                                marginBottom: '12px'
+                            } : {})
+                        }}>
+                            <h2 style={{
+                                ...styles.resultatsSectionTitle,
+                                ...(isMobile ? { 
+                                    fontSize: '16px',
+                                    marginBottom: '8px'
+                                } : {})
+                            }}>
                                 ✅ Phrases réussies ({resultats.reussis.length})
                             </h2>
                             <div style={styles.phrasesListe}>
@@ -2414,8 +2582,19 @@ export default function ReconnaitreLesMotsPage() {
                     )}
 
                     {resultats.rates.length > 0 && (
-                        <div style={styles.resultatsSection}>
-                            <h2 style={styles.resultatsSectionTitle}>
+                        <div style={{
+                            ...styles.resultatsSection,
+                            ...(isMobile ? { 
+                                marginBottom: '12px'
+                            } : {})
+                        }}>
+                            <h2 style={{
+                                ...styles.resultatsSectionTitle,
+                                ...(isMobile ? { 
+                                    fontSize: '16px',
+                                    marginBottom: '8px'
+                                } : {})
+                            }}>
                                 ❌ Phrases ratées ({resultats.rates.length})
                             </h2>
                             <div style={styles.phrasesListe}>
@@ -2429,56 +2608,48 @@ export default function ReconnaitreLesMotsPage() {
                     )}
                 </div>
 
-                <div style={styles.actions}>
-                    <button
-                        onClick={() => demarrerRemettreOrdre()}
-                        style={styles.primaryButton}
-                    >
-                        🔄 Recommencer
-                    </button>
-                    <button
-                        onClick={() => setExerciceActif(null)}
-                        style={styles.secondaryButton}
-                    >
-                        ← Menu exercices
-                    </button>
-                </div>
-
-                {/* Icônes de navigation (desktop uniquement) */}
-                {!isMobile && (
-                    <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', marginTop: '16px' }}>
-                        <button
-                            onClick={() => router.push('/lire/ma-voix-mes-mots')}
-                            style={{
-                                padding: '8px 12px',
-                                backgroundColor: 'white',
-                                border: '2px solid #3b82f6',
-                                borderRadius: '8px',
-                                cursor: 'pointer',
-                                fontSize: '20px',
-                                display: 'flex',
-                                alignItems: 'center'
-                            }}
-                            title="Ma voix, mes mots"
-                        >
-                            👁️
-                        </button>
-                        <button
-                            onClick={() => router.push('/lire')}
-                            style={{
-                                padding: '8px 12px',
-                                backgroundColor: 'white',
-                                border: '2px solid #10b981',
-                                borderRadius: '8px',
-                                cursor: 'pointer',
-                                fontSize: '20px',
-                                display: 'flex',
-                                alignItems: 'center'
-                            }}
-                            title="Menu Lire"
-                        >
-                            📖
-                        </button>
+                {/* Confettis de célébration */}
+                {showConfetti && (
+                    <div style={{
+                        position: 'fixed',
+                        top: 0,
+                        left: 0,
+                        width: '100vw',
+                        height: '100vh',
+                        pointerEvents: 'none',
+                        zIndex: 9999,
+                        overflow: 'hidden'
+                    }}>
+                        {[...Array(50)].map((_, i) => (
+                            <div
+                                key={i}
+                                style={{
+                                    position: 'absolute',
+                                    top: '-10px',
+                                    left: `${Math.random() * 100}%`,
+                                    width: '10px',
+                                    height: '10px',
+                                    backgroundColor: ['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff'][Math.floor(Math.random() * 6)],
+                                    opacity: 0.8,
+                                    borderRadius: '50%',
+                                    animation: `confetti-fall ${2 + Math.random() * 2}s linear forwards`,
+                                    transform: `rotate(${Math.random() * 360}deg)`,
+                                    animationDelay: `${Math.random() * 0.5}s`
+                                }}
+                            />
+                        ))}
+                        <style jsx>{`
+                            @keyframes confetti-fall {
+                                0% {
+                                    transform: translateY(0) rotate(0deg);
+                                    opacity: 1;
+                                }
+                                100% {
+                                    transform: translateY(100vh) rotate(720deg);
+                                    opacity: 0;
+                                }
+                            }
+                        `}</style>
                     </div>
                 )}
             </div>
