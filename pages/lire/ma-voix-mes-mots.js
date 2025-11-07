@@ -91,6 +91,13 @@ export default function MaVoixMesMotsPage() {
         }
     }, [router.isReady, router.query.texte_ids, user, textes, etape])
 
+    // Recalculer automatiquement la progression quand enregistrementsMap change
+    useEffect(() => {
+        if (groupesSens.length > 0) {
+            calculerProgression()
+        }
+    }, [enregistrementsMap, groupesSens])
+
     async function checkAuth() {
         try {
             const token = localStorage.getItem('token')
@@ -469,11 +476,9 @@ export default function MaVoixMesMotsPage() {
                 const data = await response.json()
                 console.log('✅ Enregistrement sauvegardé:', data)
 
-                // Recharger les enregistrements
+                // Recharger les enregistrements puis recalculer
                 await loadEnregistrements()
-
-                // Recalculer progression
-                calculerProgression()
+                // La progression sera recalculée automatiquement via useEffect
 
                 alert(`✅ Enregistrement sauvegardé pour "${motEnCours}"`)
             } else {
@@ -608,98 +613,178 @@ export default function MaVoixMesMotsPage() {
 
         return (
             <div style={styles.container}>
-                {/* En-tête compact - IDENTIQUE mobile et desktop */}
-                <div style={{
-                    background: 'rgba(255, 255, 255, 0.95)',
-                    backdropFilter: 'blur(10px)',
-                    borderRadius: '12px',
-                    padding: '12px 16px',
-                    marginBottom: '16px',
-                    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)'
-                }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                        <h1 style={{ fontSize: isMobile ? '14px' : '18px', fontWeight: 'bold', color: '#3b82f6', margin: 0, flex: 1, textAlign: 'center', whiteSpace: 'nowrap' }}>
+                {/* En-tête mobile sans cadre */}
+                {isMobile ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', width: '100%', marginBottom: '16px' }}>
+                        <h1 style={{ fontSize: '20px', fontWeight: 'bold', color: '#3b82f6', margin: 0, textAlign: 'center' }}>
                             🎤 Ma voix, mes mots
                         </h1>
-                        {isMobile && (
-                            <div style={{ display: 'flex', gap: '8px' }}>
-                                <button
-                                    onClick={() => router.push('/lire/reconnaitre-les-mots')}
-                                    style={{
-                                        padding: '6px 10px',
-                                        backgroundColor: 'white',
-                                        border: '2px solid #3b82f6',
-                                        borderRadius: '8px',
-                                        cursor: 'pointer',
-                                        fontSize: '18px',
-                                        display: 'flex',
-                                        alignItems: 'center'
-                                    }}
-                                    title="Reconnaître les mots"
-                                >
-                                    👁️
-                                </button>
-                                <button
-                                    onClick={() => router.push('/lire')}
-                                    style={{
-                                        padding: '6px 10px',
-                                        backgroundColor: 'white',
-                                        border: '2px solid #10b981',
-                                        borderRadius: '8px',
-                                        cursor: 'pointer',
-                                        fontSize: '18px',
-                                        display: 'flex',
-                                        alignItems: 'center'
-                                    }}
-                                    title="Menu Lire"
-                                >
-                                    📖
-                                </button>
-                            </div>
-                        )}
-                    </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', color: '#666' }}>
+                            <span>Groupe {indexGroupe + 1}/{groupesSens.length}</span>
+                            <span>Mots {statsProgression.enregistres}/{statsProgression.total}</span>
+                        </div>
+                        <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                            <button
+                                onClick={groupePrecedent}
+                                disabled={indexGroupe === 0}
+                                style={{
+                                    padding: '8px 12px',
+                                    backgroundColor: 'white',
+                                    border: '2px solid #6b7280',
+                                    borderRadius: '8px',
+                                    cursor: indexGroupe === 0 ? 'not-allowed' : 'pointer',
+                                    fontSize: '20px',
+                                    opacity: indexGroupe === 0 ? 0.5 : 1,
+                                    display: 'flex',
+                                    alignItems: 'center'
+                                }}
+                                title="Groupe précédent"
+                            >
+                                ←
+                            </button>
+                            <button
+                                onClick={() => router.push('/lire/reconnaitre-les-mots')}
+                                style={{
+                                    padding: '8px 12px',
+                                    backgroundColor: 'white',
+                                    border: '2px solid #3b82f6',
+                                    borderRadius: '8px',
+                                    cursor: 'pointer',
+                                    fontSize: '20px',
+                                    display: 'flex',
+                                    alignItems: 'center'
+                                }}
+                                title="Reconnaître les mots"
+                            >
+                                👁️
+                            </button>
+                            <button
+                                onClick={() => router.push('/lire')}
+                                style={{
+                                    padding: '8px 12px',
+                                    backgroundColor: 'white',
+                                    border: '2px solid #10b981',
+                                    borderRadius: '8px',
+                                    cursor: 'pointer',
+                                    fontSize: '20px',
+                                    display: 'flex',
+                                    alignItems: 'center'
+                                }}
+                                title="Menu Lire"
+                            >
+                                📖
+                            </button>
+                            <button
+                                onClick={() => router.push('/dashboard')}
+                                style={{
+                                    padding: '8px 12px',
+                                    backgroundColor: 'white',
+                                    border: '2px solid #f59e0b',
+                                    borderRadius: '8px',
+                                    cursor: 'pointer',
+                                    fontSize: '20px',
+                                    display: 'flex',
+                                    alignItems: 'center'
+                                }}
+                                title="Accueil"
+                            >
+                                🏠
+                            </button>
+                            <button
+                                onClick={groupeSuivant}
+                                disabled={indexGroupe >= groupesSens.length - 1}
+                                style={{
+                                    padding: '8px 12px',
+                                    backgroundColor: 'white',
+                                    border: '2px solid #6b7280',
+                                    borderRadius: '8px',
+                                    cursor: indexGroupe >= groupesSens.length - 1 ? 'not-allowed' : 'pointer',
+                                    fontSize: '20px',
+                                    opacity: indexGroupe >= groupesSens.length - 1 ? 0.5 : 1,
+                                    display: 'flex',
+                                    alignItems: 'center'
+                                }}
+                                title="Groupe suivant"
+                            >
+                                →
+                            </button>
+                        </div>
 
-                    {/* Ligne 1: Groupe et Progression */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                        <span style={{ fontSize: '14px', color: '#666' }}>
-                            Groupe {indexGroupe + 1}/{groupesSens.length}
-                        </span>
-                        <span style={{ fontSize: '12px', color: '#666' }}>
-                            {isMobile
-                                ? `Mots ${statsProgression.enregistres}/${statsProgression.total}`
-                                : `📊 ${statsProgression.enregistres}/${statsProgression.total} (${pourcentage}%)`
-                            }
-                        </span>
-                    </div>
-
-                    {/* Ligne 2: Bouton écouter */}
-                    <button
-                        onClick={lireGroupeDeSens}
-                        style={{
-                            background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                            color: 'white',
-                            border: 'none',
-                            borderRadius: '8px',
-                            padding: '8px 16px',
-                            fontSize: '14px',
-                            fontWeight: '600',
-                            cursor: 'pointer',
-                            boxShadow: '0 2px 8px rgba(16, 185, 129, 0.3)',
+                        {/* Groupe de sens avec mot actuel illuminé */}
+                        <div style={{
+                            marginTop: '12px',
+                            fontSize: '16px',
+                            color: '#666',
+                            lineHeight: '1.5',
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
                             width: '100%'
-                        }}
-                    >
-                        🔊 Écouter le groupe de sens
-                    </button>
-                </div>
+                        }}>
+                            {groupeActuel?.contenu.split(' ').map((mot, idx) => {
+                                const motActuel = motsUniques[indexMotActuel]
+                                const isCurrentWord = mot.toLowerCase().replace(/[.,!?;:]/g, '') === motActuel.toLowerCase().replace(/[.,!?;:]/g, '')
+                                return (
+                                    <span key={idx} style={{
+                                        backgroundColor: isCurrentWord ? '#fef3c7' : 'transparent',
+                                        color: isCurrentWord ? '#92400e' : '#666',
+                                        fontWeight: isCurrentWord ? 'bold' : 'normal',
+                                        padding: isCurrentWord ? '2px 4px' : '0',
+                                        borderRadius: '4px'
+                                    }}>
+                                        {mot}{idx < groupeActuel.contenu.split(' ').length - 1 ? ' ' : ''}
+                                    </span>
+                                )
+                            })}
+                        </div>
+                    </div>
+                    ) : (
+                    <div style={{
+                        background: 'rgba(255, 255, 255, 0.95)',
+                        backdropFilter: 'blur(10px)',
+                        borderRadius: '12px',
+                        padding: '12px 16px',
+                        marginBottom: '16px',
+                        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)'
+                    }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                            <h1 style={{ fontSize: '18px', fontWeight: 'bold', color: '#3b82f6', margin: 0, flex: 1, textAlign: 'center', whiteSpace: 'nowrap' }}>
+                                🎤 Ma voix, mes mots
+                            </h1>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                            <span style={{ fontSize: '14px', color: '#666' }}>
+                                Groupe {indexGroupe + 1}/{groupesSens.length}
+                            </span>
+                            <span style={{ fontSize: '12px', color: '#666' }}>
+                                📊 {statsProgression.enregistres}/{statsProgression.total} ({pourcentage}%)
+                            </span>
+                        </div>
+                        <button
+                            onClick={lireGroupeDeSens}
+                            style={{
+                                background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '8px',
+                                padding: '8px 16px',
+                                fontSize: '14px',
+                                fontWeight: '600',
+                                cursor: 'pointer',
+                                boxShadow: '0 2px 8px rgba(16, 185, 129, 0.3)',
+                                width: '100%'
+                            }}
+                        >
+                            🔊 Écouter le groupe de sens
+                        </button>
+                    </div>
+                )}
 
                 {/* Liste des mots à enregistrer */}
                 {isMobile ? (
                     <>
-                        {/* En-tête avec navigation - MOBILE */}
+                        {/* Navigation mobile */}
                         <div>
-                            <h3 style={{ fontSize: '16px', fontWeight: 'bold', color: '#333', marginBottom: '12px', textAlign: 'center' }}>
-                                Enregistre chaque mot ({motsUniques.length} mots) :
-                            </h3>
                             <div style={styles.mobileNavigation}>
                                 <button
                                     onClick={() => setIndexMotActuel(Math.max(0, indexMotActuel - 1))}
@@ -742,7 +827,7 @@ export default function MaVoixMesMotsPage() {
                                     <div style={styles.motActions}>
                                         {/* Bouton Écouter (TTS ordinateur) */}
                                         <button
-                                            onClick={() => lireTexte(mot)}
+                                            onClick={() => lireTTS(mot)}
                                             style={styles.buttonMobile}
                                         >
                                             🔊 Écouter
@@ -766,7 +851,7 @@ export default function MaVoixMesMotsPage() {
                                                         cursor: isUploading ? 'not-allowed' : 'pointer'
                                                     }}
                                                 >
-                                                    🎤 Réenregistrer
+                                                    🎤 Recommencer
                                                 </button>
                                             </>
                                         ) : (
@@ -806,7 +891,7 @@ export default function MaVoixMesMotsPage() {
                                         <div style={styles.motActions}>
                                             {/* Bouton Écouter (TTS ordinateur) */}
                                             <button
-                                                onClick={() => lireTexte(mot)}
+                                                onClick={() => lireTTS(mot)}
                                                 style={{
                                                     background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
                                                     color: 'white',
@@ -866,7 +951,7 @@ export default function MaVoixMesMotsPage() {
                                                             e.target.style.boxShadow = '0 4px 12px rgba(245, 158, 11, 0.3)'
                                                         }}
                                                     >
-                                                        🎤 Réenregistrer
+                                                        🎤 Recommencer
                                                     </button>
                                                 </>
                                             ) : (
@@ -922,35 +1007,7 @@ export default function MaVoixMesMotsPage() {
                     </div>
                 )}
 
-                {/* Navigation */}
-                <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', marginTop: '24px' }}>
-                    <button
-                        onClick={groupePrecedent}
-                        disabled={indexGroupe === 0}
-                        style={{
-                            ...styles.secondaryButton,
-                            opacity: indexGroupe === 0 ? 0.5 : 1
-                        }}
-                    >
-                        ← Groupe précédent
-                    </button>
 
-                    {indexGroupe < groupesSens.length - 1 ? (
-                        <button
-                            onClick={groupeSuivant}
-                            style={styles.primaryButton}
-                        >
-                            Groupe suivant →
-                        </button>
-                    ) : (
-                        <button
-                            onClick={terminerExercice}
-                            style={styles.primaryButton}
-                        >
-                            ✓ Terminer
-                        </button>
-                    )}
-                </div>
 
                 {/* Icônes de navigation - Desktop uniquement */}
                 {!isMobile && (
