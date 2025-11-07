@@ -1913,10 +1913,11 @@ export default function ReconnaitreLesMotsPage() {
                                             flexShrink: 1,
                                             whiteSpace: 'nowrap',
                                             display: 'inline-flex',
+                                            flexDirection: 'column',
                                             alignItems: 'center',
-                                            gap: '2px',
+                                            gap: '0px',
                                             fontSize: `${taillePoliceMots}px`,
-                                            padding: `${Math.max(4, taillePoliceMots * 0.4)}px ${Math.max(6, taillePoliceMots * 0.6)}px`,
+                                            padding: `${Math.max(4, taillePoliceMots * 0.4)}px ${Math.max(6, taillePoliceMots * 0.6)}px ${Math.max(2, taillePoliceMots * 0.2)}px`,
                                             minWidth: '0'
                                         } : {}),
                                         // Afficher couleur si déjà lu (index < motEnCoursLecture) OU en cours de lecture (index === motEnCoursLecture)
@@ -1941,8 +1942,10 @@ export default function ReconnaitreLesMotsPage() {
                                     <span>{mot}</span>
                                     {feedback === null && (
                                         <span style={{ 
-                                            fontSize: isMobile ? `${taillePoliceMots * 0.9}px` : '14px', 
-                                            marginLeft: '2px' 
+                                            fontSize: isMobile ? `${taillePoliceMots * 0.5}px` : '14px', 
+                                            color: '#ef4444',
+                                            marginTop: isMobile ? '-2px' : '0',
+                                            lineHeight: '1'
                                         }}>
                                             ✕
                                         </span>
