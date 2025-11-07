@@ -8,14 +8,15 @@ import { supabase } from '@/lib/supabaseClient'
  * Étape située AVANT la syllabification où l'apprenant apprend
  * à associer le mot oral au mot écrit.
  *
- * 7 exercices progressifs :
- * 1. Karaoké : Illumination synchronisée son/écrit
- * 2. Remettre dans l'ordre : Reconstruire la phrase à partir de mots mélangés
- * 3. Où est-ce ? : Audio → Trouver le mot écrit (groupes de sens)
- * 4. Qu'est-ce ? : Mot illuminé → Choisir le bon son (groupes de sens)
- * 5. Découpage : Séparer les mots collés
- * 6. Écoute et trouve : Audio → Trouver le mot écrit (mots isolés, 4-12 choix)
- * 7. Lis et trouve : Mot écrit → Trouver le bon son (mots isolés, 4-8 sons)
+ * 8 exercices progressifs :
+ * 1. Ma voix, mes mots : Enregistrer sa voix pour chaque mot (bibliothèque vocale personnelle)
+ * 2. Karaoké : Illumination synchronisée son/écrit
+ * 3. Remettre dans l'ordre : Reconstruire la phrase à partir de mots mélangés
+ * 4. Où est-ce ? : Audio → Trouver le mot écrit (groupes de sens)
+ * 5. Qu'est-ce ? : Mot illuminé → Choisir le bon son (groupes de sens)
+ * 6. Découpage : Séparer les mots collés
+ * 7. Écoute et trouve : Audio → Trouver le mot écrit (mots isolés, 4-12 choix)
+ * 8. Lis et trouve : Mot écrit → Trouver le bon son (mots isolés, 4-8 sons)
  */
 export default function ReconnaitreLesMotsPage() {
     const router = useRouter()
@@ -56,6 +57,9 @@ export default function ReconnaitreLesMotsPage() {
     // Découpage
     const [separations, setSeparations] = useState([])
 
+    // Enregistrements vocaux personnalisés
+    const [enregistrementsMap, setEnregistrementsMap] = useState({})
+
     useEffect(() => {
         checkAuth()
     }, [router])
@@ -87,11 +91,33 @@ export default function ReconnaitreLesMotsPage() {
             const parsedUser = JSON.parse(userData)
             setUser(parsedUser)
             await loadTextes(parsedUser.id)
+            await loadEnregistrements()
         } catch (err) {
             console.error('Erreur authentification:', err)
             router.push('/login')
         } finally {
             setLoading(false)
+        }
+    }
+
+    async function loadEnregistrements() {
+        try {
+            const token = localStorage.getItem('token')
+            const response = await fetch('/api/enregistrements-mots/list', {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            })
+
+            if (response.ok) {
+                const data = await response.json()
+                console.log(`🎤 ${data.count} enregistrement(s) vocal(aux) chargé(s)`)
+                setEnregistrementsMap(data.enregistrementsMap || {})
+            } else {
+                console.error('Erreur chargement enregistrements vocaux')
+            }
+        } catch (error) {
+            console.error('Erreur chargement enregistrements vocaux:', error)
         }
     }
 
@@ -165,6 +191,25 @@ export default function ReconnaitreLesMotsPage() {
     }
 
     function lireTTS(texte) {
+        // Normaliser le texte pour la recherche dans les enregistrements
+        const motNormalise = texte.toLowerCase().trim()
+
+        // Priorité 1 : Voix personnalisée (enregistrement de l'apprenant)
+        if (enregistrementsMap[motNormalise]) {
+            const audio = new Audio(enregistrementsMap[motNormalise].audio_url)
+            audio.play().catch(err => {
+                console.error('Erreur lecture audio personnalisé:', err)
+                // Fallback sur Web Speech API en cas d'erreur
+                lireTTSFallback(texte)
+            })
+            return
+        }
+
+        // Priorité 2 : Web Speech API (fallback)
+        lireTTSFallback(texte)
+    }
+
+    function lireTTSFallback(texte) {
         if ('speechSynthesis' in window) {
             window.speechSynthesis.cancel()
             const utterance = new SpeechSynthesisUtterance(texte)
@@ -664,6 +709,14 @@ export default function ReconnaitreLesMotsPage() {
                 </div>
 
                 <div style={styles.exercicesGrid}>
+                    <div style={styles.exerciceCard} onClick={() => router.push('/lire/ma-voix-mes-mots')}>
+                        <div style={styles.exerciceIcon}>🎙️</div>
+                        <h3 style={styles.exerciceTitle}>Ma voix, mes mots</h3>
+                        <p style={styles.exerciceDescription}>
+                            Enregistre ta voix pour chaque mot de ton texte
+                        </p>
+                    </div>
+
                     <div style={styles.exerciceCard} onClick={demarrerKaraoke}>
                         <div style={styles.exerciceIcon}>🎤</div>
                         <h3 style={styles.exerciceTitle}>Karaoké</h3>

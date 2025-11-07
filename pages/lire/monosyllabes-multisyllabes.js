@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
 import { countSyllables, isMonosyllabic, syllabifyWord } from '../../utils/syllabify'
 import { convertNumberToWordsWithHyphens, isNumericString } from '../../lib/convertNumbers'
-import VoiceRecorder from '../../components/VoiceRecorder'
 
 // Styles pour masquer les éléments sur mobile
 const mobileStyles = `
@@ -36,9 +35,6 @@ export default function MonosyllabesMultisyllabes() {
     const [showNumbersModal, setShowNumbersModal] = useState(false)
     const [numbersChoices, setNumbersChoices] = useState({})
     const [pendingWords, setPendingWords] = useState([])
-    const [enregistrementsMap, setEnregistrementsMap] = useState({})
-    const [showRecorder, setShowRecorder] = useState(false)
-    const [isUploading, setIsUploading] = useState(false)
     const [correctionsMonoMulti, setCorrectionsMonoMulti] = useState({})
     const router = useRouter()
 
@@ -55,7 +51,6 @@ export default function MonosyllabesMultisyllabes() {
         try {
             setUser(JSON.parse(userData))
             loadTextes()
-            loadEnregistrements() // Charger les enregistrements de mots
         } catch (error) {
             console.error('Erreur parsing user data:', error)
             router.push('/login')
@@ -148,27 +143,6 @@ export default function MonosyllabesMultisyllabes() {
             console.error('Erreur chargement textes:', error)
         } finally {
             setIsLoadingTexte(false)
-        }
-    }
-
-    const loadEnregistrements = async () => {
-        try {
-            const token = localStorage.getItem('token')
-            const response = await fetch('/api/enregistrements-mots/list', {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            })
-
-            if (response.ok) {
-                const data = await response.json()
-                console.log(`🎤 ${data.count} enregistrement(s) de mots chargé(s)`)
-                setEnregistrementsMap(data.enregistrementsMap || {})
-            } else {
-                console.error('Erreur chargement enregistrements')
-            }
-        } catch (error) {
-            console.error('Erreur chargement enregistrements:', error)
         }
     }
 
@@ -543,29 +517,12 @@ export default function MonosyllabesMultisyllabes() {
         }
     }
 
-    // Fonction TTS intelligente avec priorité : Voix perso > ElevenLabs > Web Speech
+    // Fonction TTS intelligente avec priorité : ElevenLabs > Web Speech
     const speakText = async (text) => {
         if (!text.trim()) return
 
         // ====================================================================
-        // PRIORITÉ 1 : VOIX PERSONNALISÉE (si enregistrement existe)
-        // ====================================================================
-
-        const enregistrement = enregistrementsMap[text.toLowerCase().trim()]
-        if (enregistrement && enregistrement.audio_url) {
-            try {
-                console.log(`🎤 Lecture voix personnalisée pour: ${text}`)
-                const audio = new Audio(enregistrement.audio_url)
-                audio.play()
-                return // Arrêter ici, on a joué la voix perso
-            } catch (error) {
-                console.error('❌ Erreur lecture voix perso:', error)
-                // Continuer vers fallback
-            }
-        }
-
-        // ====================================================================
-        // PRIORITÉ 2 : ELEVENLABS (si voix sélectionnée)
+        // PRIORITÉ 1 : ELEVENLABS (si voix sélectionnée)
         // ====================================================================
 
         const selectedVoiceObj = availableVoices.find(v => v.name === selectedVoice)
@@ -644,52 +601,6 @@ export default function MonosyllabesMultisyllabes() {
             }
 
             window.speechSynthesis.speak(utterance)
-        }
-    }
-
-    const handleRecordingComplete = async (audioBlob) => {
-        if (!currentMot) return
-
-        setIsUploading(true)
-        setShowRecorder(false)
-
-        try {
-            const token = localStorage.getItem('token')
-            const formData = new FormData()
-            formData.append('audio', audioBlob, `${currentMot.clean}.webm`)
-            formData.append('mot', currentMot.clean)
-            if (selectedTexte) {
-                formData.append('texte_id', selectedTexte)
-            }
-
-            console.log(`📤 Upload enregistrement pour mot: ${currentMot.clean}`)
-
-            const response = await fetch('/api/enregistrements-mots/upload', {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                },
-                body: formData
-            })
-
-            if (response.ok) {
-                const data = await response.json()
-                console.log('✅ Enregistrement sauvegardé:', data)
-
-                // Recharger les enregistrements
-                await loadEnregistrements()
-
-                alert(`✅ Votre enregistrement pour "${currentMot.clean}" a été sauvegardé !`)
-            } else {
-                const error = await response.json()
-                console.error('❌ Erreur upload:', error)
-                alert(`❌ Erreur: ${error.error}`)
-            }
-        } catch (error) {
-            console.error('💥 Erreur upload:', error)
-            alert('❌ Erreur lors de l\'upload de l\'enregistrement')
-        } finally {
-            setIsUploading(false)
         }
     }
 
@@ -1278,96 +1189,6 @@ export default function MonosyllabesMultisyllabes() {
                                 >
                                     🔊 Écouter le mot
                                 </button>
-
-                                {/* Indicateur si enregistrement existe */}
-                                {enregistrementsMap[currentMot?.clean] && (
-                                    <div style={{
-                                        fontSize: '14px',
-                                        color: '#10b981',
-                                        marginBottom: '10px',
-                                        textAlign: 'center'
-                                    }}>
-                                        ✅ Vous avez un enregistrement pour ce mot
-                                    </div>
-                                )}
-
-                                {/* Bouton d'enregistrement */}
-                                {!showRecorder && !isUploading && (
-                                    <button
-                                        onClick={() => setShowRecorder(true)}
-                                        disabled={!!feedback}
-                                        style={{
-                                            backgroundColor: '#ef4444',
-                                            color: 'white',
-                                            padding: '8px 16px',
-                                            border: 'none',
-                                            borderRadius: '8px',
-                                            fontSize: '14px',
-                                            cursor: feedback ? 'not-allowed' : 'pointer',
-                                            opacity: feedback ? 0.5 : 1,
-                                            marginBottom: '15px',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '8px',
-                                            margin: '0 auto 15px auto'
-                                        }}
-                                    >
-                                        🎤 {enregistrementsMap[currentMot?.clean] ? 'Modifier mon enregistrement' : 'Enregistrer ma voix'}
-                                    </button>
-                                )}
-
-                                {/* Composant d'enregistrement */}
-                                {showRecorder && !isUploading && (
-                                    <div style={{
-                                        marginBottom: '20px',
-                                        padding: '15px',
-                                        background: '#f9fafb',
-                                        borderRadius: '8px',
-                                        border: '2px solid #e5e7eb'
-                                    }}>
-                                        <p style={{
-                                            fontSize: '14px',
-                                            color: '#666',
-                                            marginBottom: '10px',
-                                            textAlign: 'center'
-                                        }}>
-                                            Enregistrez le mot : <strong>{currentMot?.clean}</strong>
-                                        </p>
-                                        <VoiceRecorder
-                                            onRecordingComplete={handleRecordingComplete}
-                                            maxDuration={5}
-                                        />
-                                        <button
-                                            onClick={() => setShowRecorder(false)}
-                                            style={{
-                                                marginTop: '10px',
-                                                backgroundColor: '#6b7280',
-                                                color: 'white',
-                                                padding: '6px 12px',
-                                                border: 'none',
-                                                borderRadius: '6px',
-                                                fontSize: '12px',
-                                                cursor: 'pointer',
-                                                display: 'block',
-                                                margin: '10px auto 0'
-                                            }}
-                                        >
-                                            Annuler
-                                        </button>
-                                    </div>
-                                )}
-
-                                {/* Message d'upload */}
-                                {isUploading && (
-                                    <div style={{
-                                        fontSize: '14px',
-                                        color: '#3b82f6',
-                                        marginBottom: '15px',
-                                        textAlign: 'center'
-                                    }}>
-                                        📤 Upload en cours...
-                                    </div>
-                                )}
 
                             </div>
 

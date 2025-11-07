@@ -30,8 +30,26 @@ export default async function handler(req, res) {
 
     try {
         console.log(`🔐 [LOGIN-APPRENANT] Tentative login identifiant="${identifiant}"`)
-        
-        // 1. Chercher l'apprenant par identifiant exact
+
+        // 0. Vérifier d'abord si le compte existe mais est archivé
+        const { data: apprenantArchive, error: archiveError } = await supabase
+            .from('users')
+            .select('id, identifiant, prenom, nom, archive')
+            .eq('identifiant', identifiant)
+            .eq('role', 'apprenant')
+            .eq('archive', true)
+            .single()
+
+        if (apprenantArchive && !archiveError) {
+            console.log(`🔐 [LOGIN-APPRENANT] Compte archivé détecté: ${apprenantArchive.prenom} ${apprenantArchive.nom}`)
+            return res.status(403).json({
+                error: '⚠️ Votre compte a été archivé',
+                message: 'Votre compte a été archivé et ne peut plus se connecter. Contactez votre formateur pour le réactiver.',
+                archived: true
+            })
+        }
+
+        // 1. Chercher l'apprenant par identifiant exact (non archivé)
         const { data: apprenantExact, error: exactError } = await supabase
             .from('users')
             .select('*')
