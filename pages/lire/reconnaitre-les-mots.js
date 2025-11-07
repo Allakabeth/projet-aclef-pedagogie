@@ -58,7 +58,20 @@ export default function ReconnaitreLesMotsPage() {
     const [separations, setSeparations] = useState([])
 
     // Enregistrements vocaux personnalisés
-    const [enregistrementsMap, setEnregistrementsMap] = useState({})
+    const [enregistrementsMap, setEnregistrementsMap] = useState({}) // Mots individuels
+    const [enregistrementsGroupesMap, setEnregistrementsGroupesMap] = useState({}) // Groupes de sens
+
+    // Détection mobile
+    const [isMobile, setIsMobile] = useState(false)
+
+    useEffect(() => {
+        const checkMobile = () => {
+            setIsMobile(window.innerWidth <= 768)
+        }
+        checkMobile()
+        window.addEventListener('resize', checkMobile)
+        return () => window.removeEventListener('resize', checkMobile)
+    }, [])
 
     useEffect(() => {
         checkAuth()
@@ -92,6 +105,7 @@ export default function ReconnaitreLesMotsPage() {
             setUser(parsedUser)
             await loadTextes(parsedUser.id)
             await loadEnregistrements()
+            await loadEnregistrementsGroupes()
         } catch (err) {
             console.error('Erreur authentification:', err)
             router.push('/login')
@@ -112,12 +126,35 @@ export default function ReconnaitreLesMotsPage() {
             if (response.ok) {
                 const data = await response.json()
                 console.log(`🎤 ${data.count} enregistrement(s) vocal(aux) chargé(s)`)
+                console.log('📋 Enregistrements chargés:', Object.keys(data.enregistrementsMap || {}))
                 setEnregistrementsMap(data.enregistrementsMap || {})
             } else {
                 console.error('Erreur chargement enregistrements vocaux')
             }
         } catch (error) {
             console.error('Erreur chargement enregistrements vocaux:', error)
+        }
+    }
+
+    async function loadEnregistrementsGroupes() {
+        try {
+            const token = localStorage.getItem('token')
+            const response = await fetch('/api/enregistrements-groupes/list', {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            })
+
+            if (response.ok) {
+                const data = await response.json()
+                console.log(`🎤 ${data.count} enregistrement(s) de groupe(s) chargé(s)`)
+                console.log('📋 Groupes enregistrés:', Object.keys(data.enregistrementsMap || {}))
+                setEnregistrementsGroupesMap(data.enregistrementsMap || {})
+            } else {
+                console.error('Erreur chargement enregistrements groupes')
+            }
+        } catch (error) {
+            console.error('Erreur chargement enregistrements groupes:', error)
         }
     }
 
@@ -165,10 +202,11 @@ export default function ReconnaitreLesMotsPage() {
 
             if (err) throw err
 
-            let groupes = data || []
-
-            // Toujours mélanger les groupes
-            groupes = groupes.sort(() => Math.random() - 0.5)
+            // Filtrer les groupes vides ou avec seulement des espaces/sauts de ligne
+            const groupes = (data || []).filter(g => {
+                const contenuNettoyé = g.contenu.replace(/[\r\n\s]+/g, ' ').trim()
+                return contenuNettoyé.length > 0
+            })
 
             setGroupesSens(groupes)
             setEtape('exercices')
@@ -190,34 +228,179 @@ export default function ReconnaitreLesMotsPage() {
         setGroupeActuel(null)
     }
 
-    function lireTTS(texte) {
+    async function lireTTS(texte, onEnded = null) {
         // Normaliser le texte pour la recherche dans les enregistrements
-        const motNormalise = texte.toLowerCase().trim()
+        // Supprimer la ponctuation en début et fin de mot
+        const motNormalise = texte
+            .toLowerCase()
+            .trim()
+            .replace(/^[.,;:!?¡¿'"«»\-—]+/, '')  // Ponctuation au début
+            .replace(/[.,;:!?¡¿'"«»\-—]+$/, '')  // Ponctuation à la fin
 
-        // Priorité 1 : Voix personnalisée (enregistrement de l'apprenant)
-        if (enregistrementsMap[motNormalise]) {
-            const audio = new Audio(enregistrementsMap[motNormalise].audio_url)
-            audio.play().catch(err => {
-                console.error('Erreur lecture audio personnalisé:', err)
-                // Fallback sur Web Speech API en cas d'erreur
-                lireTTSFallback(texte)
-            })
-            return
+        // Debug : afficher la recherche
+        if (texte !== motNormalise) {
+            console.log(`🔍 Recherche enregistrement: "${texte}" → "${motNormalise}"`)
         }
 
-        // Priorité 2 : Web Speech API (fallback)
-        lireTTSFallback(texte)
+        // Debug : afficher l'état de enregistrementsMap
+        console.log(`🔍 Recherche "${motNormalise}" dans`, Object.keys(enregistrementsMap).length, 'enregistrements')
+        console.log(`🔍 Contient "${motNormalise}"?`, motNormalise in enregistrementsMap)
+
+        // ========================================================================
+        // PRIORITÉ 1 : VOIX PERSONNALISÉE (enregistrement de l'apprenant)
+        // ========================================================================
+        if (enregistrementsMap[motNormalise]) {
+            console.log(`✅ Enregistrement personnalisé trouvé pour "${motNormalise}"`)
+            console.log(`🎵 URL:`, enregistrementsMap[motNormalise].audio_url)
+            const audio = new Audio(enregistrementsMap[motNormalise].audio_url)
+            if (onEnded) {
+                audio.addEventListener('ended', onEnded)
+            }
+            audio.play().catch(err => {
+                console.error('❌ Erreur lecture audio personnalisé:', err)
+                // Fallback sur ElevenLabs en cas d'erreur
+                lireTTSElevenLabs(texte, onEnded)
+            })
+            return audio
+        }
+
+        // ========================================================================
+        // PRIORITÉ 2 : ELEVENLABS API
+        // ========================================================================
+        console.log(`⏭️ Pas d'enregistrement pour "${motNormalise}", tentative ElevenLabs`)
+        return await lireTTSElevenLabs(texte, onEnded)
     }
 
-    function lireTTSFallback(texte) {
+    async function lireTTSElevenLabs(texte, onEnded = null) {
+        try {
+            const token = localStorage.getItem('token')
+            const response = await fetch('/api/speech/elevenlabs', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ text: texte })
+            })
+
+            if (response.ok) {
+                const data = await response.json()
+                console.log(`🎙️ Audio ElevenLabs généré pour "${texte}"`)
+                const audio = new Audio(data.audio)
+                if (onEnded) {
+                    audio.addEventListener('ended', onEnded)
+                }
+                audio.play().catch(err => {
+                    console.error('❌ Erreur lecture ElevenLabs:', err)
+                    lireTTSFallback(texte, onEnded)
+                })
+                return audio
+            } else {
+                const errorData = await response.json()
+
+                // Si quota dépassé (429) ou autre erreur
+                if (response.status === 429 || errorData.error === 'QUOTA_EXCEEDED') {
+                    console.warn('⚠️ Quota ElevenLabs dépassé, fallback vers Web Speech API')
+                } else {
+                    console.error('❌ Erreur ElevenLabs:', response.status, errorData)
+                }
+
+                // Fallback sur Web Speech API
+                return lireTTSFallback(texte, onEnded)
+            }
+        } catch (error) {
+            console.error('❌ Erreur appel ElevenLabs:', error)
+            // Fallback sur Web Speech API
+            return lireTTSFallback(texte, onEnded)
+        }
+    }
+
+    function lireTTSFallback(texte, onEnded = null) {
+        console.log(`🔊 Fallback Web Speech API pour "${texte}"`)
+
         if ('speechSynthesis' in window) {
             window.speechSynthesis.cancel()
+
+            // Récupérer les voix disponibles
+            const voices = window.speechSynthesis.getVoices()
+
             const utterance = new SpeechSynthesisUtterance(texte)
             utterance.lang = 'fr-FR'
             utterance.rate = 0.8
             utterance.pitch = 0.6
+
+            // Sélectionner une voix française SAUF Hortense
+            const frenchVoices = voices.filter(v =>
+                v.lang.startsWith('fr') &&
+                !v.name.toLowerCase().includes('hortense')
+            )
+
+            if (frenchVoices.length > 0) {
+                // Préférer Thomas, Daniel, ou toute autre voix masculine
+                const preferredVoice = frenchVoices.find(v =>
+                    v.name.toLowerCase().includes('thomas') ||
+                    v.name.toLowerCase().includes('daniel')
+                ) || frenchVoices[0]
+
+                utterance.voice = preferredVoice
+                console.log(`🗣️ Voix sélectionnée: ${preferredVoice.name}`)
+            }
+
+            if (onEnded) {
+                utterance.addEventListener('end', onEnded)
+            }
+
             window.speechSynthesis.speak(utterance)
+            return utterance
         }
+        return null
+    }
+
+    // ==================== FONCTION LECTURE GROUPE DE SENS ====================
+    async function lireGroupeDeSens() {
+        if (!groupeActuel) return
+
+        // PRIORITÉ 1: Enregistrement du groupe complet
+        if (enregistrementsGroupesMap[groupeActuel.id]) {
+            console.log(`✅ Enregistrement de groupe trouvé pour groupe ${groupeActuel.id}`)
+            const audio = new Audio(enregistrementsGroupesMap[groupeActuel.id].audio_url)
+            audio.play().catch(err => {
+                console.error('❌ Erreur lecture groupe:', err)
+                // Fallback: lire mot par mot
+                console.log(`⏭️ Fallback: lecture mot par mot`)
+                lireGroupeMotParMot()
+            })
+        } else {
+            // FALLBACK: Lire mot par mot avec cascade audio
+            console.log(`⏭️ Pas d'enregistrement de groupe pour ${groupeActuel.id}, lecture mot par mot`)
+            lireGroupeMotParMot()
+        }
+    }
+
+    function lireGroupeMotParMot() {
+        if (!groupeActuel) return
+
+        // Filtrer les mots vides et la ponctuation seule
+        const mots = groupeActuel.contenu
+            .trim()
+            .split(/\s+/)
+            .filter(mot => mot && mot.trim().length > 0)
+            .filter(mot => !/^[.,:;!?]+$/.test(mot))
+
+        let index = 0
+
+        function lireMotSuivant() {
+            if (index >= mots.length) return
+
+            const onEnded = () => {
+                index++
+                setTimeout(lireMotSuivant, 300) // Petite pause entre les mots
+            }
+
+            lireTTS(mots[index], onEnded)
+        }
+
+        lireMotSuivant()
     }
 
     // ==================== EXERCICE 1 : KARAOKÉ ====================
@@ -250,17 +433,25 @@ export default function ReconnaitreLesMotsPage() {
 
         let index = 0
 
-        const interval = setInterval(() => {
+        function lireMotSuivant() {
             if (index >= mots.length) {
-                clearInterval(interval)
                 setMotIllumineIndex(-1)
                 return
             }
 
             setMotIllumineIndex(index)
-            lireTTS(mots[index])
-            index++
-        }, 1500) // 1.5 secondes entre chaque mot
+
+            // Callback appelé quand l'audio se termine
+            const onAudioEnded = () => {
+                index++
+                // Petit délai de 300ms entre les mots
+                setTimeout(lireMotSuivant, 300)
+            }
+
+            lireTTS(mots[index], onAudioEnded)
+        }
+
+        lireMotSuivant()
     }
 
     function groupeSuivantKaraoke() {
@@ -709,7 +900,11 @@ export default function ReconnaitreLesMotsPage() {
                 </div>
 
                 <div style={styles.exercicesGrid}>
-                    <div style={styles.exerciceCard} onClick={() => router.push('/lire/ma-voix-mes-mots')}>
+                    <div style={styles.exerciceCard} onClick={() => {
+                        // textesSelectionnes contient déjà les IDs (nombres)
+                        const texteIds = textesSelectionnes.join(',')
+                        router.push(`/lire/ma-voix-mes-mots?texte_ids=${texteIds}`)
+                    }}>
                         <div style={styles.exerciceIcon}>🎙️</div>
                         <h3 style={styles.exerciceTitle}>Ma voix, mes mots</h3>
                         <p style={styles.exerciceDescription}>
@@ -793,10 +988,84 @@ export default function ReconnaitreLesMotsPage() {
         return (
             <div style={styles.container}>
                 <div style={styles.header}>
-                    <h1 style={styles.title}>🎤 Karaoké</h1>
-                    <p style={styles.subtitle}>
-                        Groupe {indexGroupe + 1} / {groupesSens.length}
-                    </p>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                        <div style={{ flex: 1 }}>
+                            <h1 style={styles.title}>🎤 Karaoké</h1>
+                            <p style={styles.subtitle}>
+                                Groupe {indexGroupe + 1} / {groupesSens.length}
+                            </p>
+                        </div>
+                        {isMobile && (
+                            <div style={{ display: 'flex', gap: '8px', marginLeft: '12px' }}>
+                                <button
+                                    onClick={() => router.push('/lire/ma-voix-mes-mots')}
+                                    style={{
+                                        padding: '6px 10px',
+                                        backgroundColor: 'white',
+                                        border: '2px solid #3b82f6',
+                                        borderRadius: '8px',
+                                        cursor: 'pointer',
+                                        fontSize: '18px',
+                                        display: 'flex',
+                                        alignItems: 'center'
+                                    }}
+                                    title="Ma voix, mes mots"
+                                >
+                                    👁️
+                                </button>
+                                <button
+                                    onClick={() => router.push('/lire')}
+                                    style={{
+                                        padding: '6px 10px',
+                                        backgroundColor: 'white',
+                                        border: '2px solid #10b981',
+                                        borderRadius: '8px',
+                                        cursor: 'pointer',
+                                        fontSize: '18px',
+                                        display: 'flex',
+                                        alignItems: 'center'
+                                    }}
+                                    title="Menu Lire"
+                                >
+                                    📖
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                {/* Bouton écouter le groupe de sens */}
+                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px' }}>
+                    <button
+                        onClick={lireGroupeDeSens}
+                        style={{
+                            padding: '12px 24px',
+                            backgroundColor: '#10b981',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '8px',
+                            cursor: 'pointer',
+                            fontSize: '16px',
+                            fontWeight: '600',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                            transition: 'all 0.2s'
+                        }}
+                        onMouseEnter={(e) => {
+                            e.target.style.backgroundColor = '#059669'
+                            e.target.style.transform = 'translateY(-2px)'
+                            e.target.style.boxShadow = '0 4px 8px rgba(0,0,0,0.15)'
+                        }}
+                        onMouseLeave={(e) => {
+                            e.target.style.backgroundColor = '#10b981'
+                            e.target.style.transform = 'translateY(0)'
+                            e.target.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)'
+                        }}
+                    >
+                        🔊 Écouter le groupe de sens
+                    </button>
                 </div>
 
                 <div style={styles.karaokeBox}>
@@ -824,6 +1093,60 @@ export default function ReconnaitreLesMotsPage() {
                         ← Menu exercices
                     </button>
                 </div>
+
+                {/* Icônes de navigation */}
+                {!isMobile && (
+                    <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', marginTop: '16px' }}>
+                        <button
+                            onClick={() => router.push('/dashboard')}
+                            style={{
+                                padding: '8px 12px',
+                                backgroundColor: 'white',
+                                border: '2px solid #f59e0b',
+                                borderRadius: '8px',
+                                cursor: 'pointer',
+                                fontSize: '20px',
+                                display: 'flex',
+                                alignItems: 'center'
+                            }}
+                            title="Tableau de bord"
+                        >
+                            🏠
+                        </button>
+                        <button
+                            onClick={() => router.push('/lire')}
+                            style={{
+                                padding: '8px 12px',
+                                backgroundColor: 'white',
+                                border: '2px solid #10b981',
+                                borderRadius: '8px',
+                                cursor: 'pointer',
+                                fontSize: '20px',
+                                display: 'flex',
+                                alignItems: 'center'
+                            }}
+                            title="Menu Lire"
+                        >
+                            📖
+                        </button>
+                        <button
+                            onClick={() => router.push('/lire/ma-voix-mes-mots')}
+                            style={{
+                                padding: '8px 12px',
+                                backgroundColor: 'white',
+                                border: '2px solid #3b82f6',
+                                borderRadius: '8px',
+                                cursor: 'pointer',
+                                fontSize: '20px',
+                                display: 'flex',
+                                alignItems: 'center'
+                            }}
+                            title="Ma voix, mes mots"
+                        >
+                            👁️
+                        </button>
+                    </div>
+                )}
             </div>
         )
     }
@@ -834,10 +1157,50 @@ export default function ReconnaitreLesMotsPage() {
         return (
             <div style={styles.container}>
                 <div style={styles.header}>
-                    <h1 style={styles.title}>📍 Où est-ce ?</h1>
-                    <p style={styles.subtitle}>
-                        Question {indexQuestion + 1} / {tousLesMots.length} • Score : {score.bonnes}/{score.total}
-                    </p>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                        <div style={{ flex: 1 }}>
+                            <h1 style={styles.title}>📍 Où est-ce ?</h1>
+                            <p style={styles.subtitle}>
+                                Question {indexQuestion + 1} / {tousLesMots.length} • Score : {score.bonnes}/{score.total}
+                            </p>
+                        </div>
+                        {isMobile && (
+                            <div style={{ display: 'flex', gap: '8px', marginLeft: '12px' }}>
+                                <button
+                                    onClick={() => router.push('/lire/ma-voix-mes-mots')}
+                                    style={{
+                                        padding: '8px 12px',
+                                        backgroundColor: 'white',
+                                        border: '2px solid #3b82f6',
+                                        borderRadius: '8px',
+                                        cursor: 'pointer',
+                                        fontSize: '20px',
+                                        display: 'flex',
+                                        alignItems: 'center'
+                                    }}
+                                    title="Ma voix, mes mots"
+                                >
+                                    👁️
+                                </button>
+                                <button
+                                    onClick={() => router.push('/lire')}
+                                    style={{
+                                        padding: '8px 12px',
+                                        backgroundColor: 'white',
+                                        border: '2px solid #10b981',
+                                        borderRadius: '8px',
+                                        cursor: 'pointer',
+                                        fontSize: '20px',
+                                        display: 'flex',
+                                        alignItems: 'center'
+                                    }}
+                                    title="Menu Lire"
+                                >
+                                    📖
+                                </button>
+                            </div>
+                        )}
+                    </div>
                 </div>
 
                 {feedback && (
@@ -885,6 +1248,44 @@ export default function ReconnaitreLesMotsPage() {
                         ← Menu exercices
                     </button>
                 </div>
+
+                {/* Icônes de navigation (desktop uniquement) */}
+                {!isMobile && (
+                    <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', marginTop: '16px' }}>
+                        <button
+                            onClick={() => router.push('/lire/ma-voix-mes-mots')}
+                            style={{
+                                padding: '8px 12px',
+                                backgroundColor: 'white',
+                                border: '2px solid #3b82f6',
+                                borderRadius: '8px',
+                                cursor: 'pointer',
+                                fontSize: '20px',
+                                display: 'flex',
+                                alignItems: 'center'
+                            }}
+                            title="Ma voix, mes mots"
+                        >
+                            👁️
+                        </button>
+                        <button
+                            onClick={() => router.push('/lire')}
+                            style={{
+                                padding: '8px 12px',
+                                backgroundColor: 'white',
+                                border: '2px solid #10b981',
+                                borderRadius: '8px',
+                                cursor: 'pointer',
+                                fontSize: '20px',
+                                display: 'flex',
+                                alignItems: 'center'
+                            }}
+                            title="Menu Lire"
+                        >
+                            📖
+                        </button>
+                    </div>
+                )}
             </div>
         )
     }
@@ -894,10 +1295,50 @@ export default function ReconnaitreLesMotsPage() {
         return (
             <div style={styles.container}>
                 <div style={styles.header}>
-                    <h1 style={styles.title}>📊 Résultats</h1>
-                    <p style={styles.subtitle}>
-                        Exercice : Où est-ce ?
-                    </p>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                        <div style={{ flex: 1 }}>
+                            <h1 style={styles.title}>📊 Résultats</h1>
+                            <p style={styles.subtitle}>
+                                Exercice : Où est-ce ?
+                            </p>
+                        </div>
+                        {isMobile && (
+                            <div style={{ display: 'flex', gap: '8px', marginLeft: '12px' }}>
+                                <button
+                                    onClick={() => router.push('/lire/ma-voix-mes-mots')}
+                                    style={{
+                                        padding: '8px 12px',
+                                        backgroundColor: 'white',
+                                        border: '2px solid #3b82f6',
+                                        borderRadius: '8px',
+                                        cursor: 'pointer',
+                                        fontSize: '20px',
+                                        display: 'flex',
+                                        alignItems: 'center'
+                                    }}
+                                    title="Ma voix, mes mots"
+                                >
+                                    👁️
+                                </button>
+                                <button
+                                    onClick={() => router.push('/lire')}
+                                    style={{
+                                        padding: '8px 12px',
+                                        backgroundColor: 'white',
+                                        border: '2px solid #10b981',
+                                        borderRadius: '8px',
+                                        cursor: 'pointer',
+                                        fontSize: '20px',
+                                        display: 'flex',
+                                        alignItems: 'center'
+                                    }}
+                                    title="Menu Lire"
+                                >
+                                    📖
+                                </button>
+                            </div>
+                        )}
+                    </div>
                 </div>
 
                 <div style={styles.resultatsBox}>
@@ -957,6 +1398,44 @@ export default function ReconnaitreLesMotsPage() {
                         ← Menu exercices
                     </button>
                 </div>
+
+                {/* Icônes de navigation (desktop uniquement) */}
+                {!isMobile && (
+                    <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', marginTop: '16px' }}>
+                        <button
+                            onClick={() => router.push('/lire/ma-voix-mes-mots')}
+                            style={{
+                                padding: '8px 12px',
+                                backgroundColor: 'white',
+                                border: '2px solid #3b82f6',
+                                borderRadius: '8px',
+                                cursor: 'pointer',
+                                fontSize: '20px',
+                                display: 'flex',
+                                alignItems: 'center'
+                            }}
+                            title="Ma voix, mes mots"
+                        >
+                            👁️
+                        </button>
+                        <button
+                            onClick={() => router.push('/lire')}
+                            style={{
+                                padding: '8px 12px',
+                                backgroundColor: 'white',
+                                border: '2px solid #10b981',
+                                borderRadius: '8px',
+                                cursor: 'pointer',
+                                fontSize: '20px',
+                                display: 'flex',
+                                alignItems: 'center'
+                            }}
+                            title="Menu Lire"
+                        >
+                            📖
+                        </button>
+                    </div>
+                )}
             </div>
         )
     }
@@ -971,10 +1450,50 @@ export default function ReconnaitreLesMotsPage() {
         return (
             <div style={styles.container}>
                 <div style={styles.header}>
-                    <h1 style={styles.title}>🔊 Qu'est-ce ?</h1>
-                    <p style={styles.subtitle}>
-                        Question {indexGroupe + 1} / {groupesSens.length} • Score : {score.bonnes}/{score.total}
-                    </p>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                        <div style={{ flex: 1 }}>
+                            <h1 style={styles.title}>🔊 Qu'est-ce ?</h1>
+                            <p style={styles.subtitle}>
+                                Question {indexGroupe + 1} / {groupesSens.length} • Score : {score.bonnes}/{score.total}
+                            </p>
+                        </div>
+                        {isMobile && (
+                            <div style={{ display: 'flex', gap: '8px', marginLeft: '12px' }}>
+                                <button
+                                    onClick={() => router.push('/lire/ma-voix-mes-mots')}
+                                    style={{
+                                        padding: '8px 12px',
+                                        backgroundColor: 'white',
+                                        border: '2px solid #3b82f6',
+                                        borderRadius: '8px',
+                                        cursor: 'pointer',
+                                        fontSize: '20px',
+                                        display: 'flex',
+                                        alignItems: 'center'
+                                    }}
+                                    title="Ma voix, mes mots"
+                                >
+                                    👁️
+                                </button>
+                                <button
+                                    onClick={() => router.push('/lire')}
+                                    style={{
+                                        padding: '8px 12px',
+                                        backgroundColor: 'white',
+                                        border: '2px solid #10b981',
+                                        borderRadius: '8px',
+                                        cursor: 'pointer',
+                                        fontSize: '20px',
+                                        display: 'flex',
+                                        alignItems: 'center'
+                                    }}
+                                    title="Menu Lire"
+                                >
+                                    📖
+                                </button>
+                            </div>
+                        )}
+                    </div>
                 </div>
 
                 {feedback && (
@@ -1039,6 +1558,60 @@ export default function ReconnaitreLesMotsPage() {
                         ← Menu exercices
                     </button>
                 </div>
+
+                {/* Icônes de navigation */}
+                {!isMobile && (
+                    <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', marginTop: '16px' }}>
+                        <button
+                            onClick={() => router.push('/dashboard')}
+                            style={{
+                                padding: '8px 12px',
+                                backgroundColor: 'white',
+                                border: '2px solid #f59e0b',
+                                borderRadius: '8px',
+                                cursor: 'pointer',
+                                fontSize: '20px',
+                                display: 'flex',
+                                alignItems: 'center'
+                            }}
+                            title="Tableau de bord"
+                        >
+                            🏠
+                        </button>
+                        <button
+                            onClick={() => router.push('/lire')}
+                            style={{
+                                padding: '8px 12px',
+                                backgroundColor: 'white',
+                                border: '2px solid #10b981',
+                                borderRadius: '8px',
+                                cursor: 'pointer',
+                                fontSize: '20px',
+                                display: 'flex',
+                                alignItems: 'center'
+                            }}
+                            title="Menu Lire"
+                        >
+                            📖
+                        </button>
+                        <button
+                            onClick={() => router.push('/lire/ma-voix-mes-mots')}
+                            style={{
+                                padding: '8px 12px',
+                                backgroundColor: 'white',
+                                border: '2px solid #3b82f6',
+                                borderRadius: '8px',
+                                cursor: 'pointer',
+                                fontSize: '20px',
+                                display: 'flex',
+                                alignItems: 'center'
+                            }}
+                            title="Ma voix, mes mots"
+                        >
+                            👁️
+                        </button>
+                    </div>
+                )}
             </div>
         )
     }
@@ -1048,10 +1621,50 @@ export default function ReconnaitreLesMotsPage() {
         return (
             <div style={styles.container}>
                 <div style={styles.header}>
-                    <h1 style={styles.title}>🔄 Remettre dans l'ordre</h1>
-                    <p style={styles.subtitle}>
-                        Phrase {indexGroupe + 1} / {groupesSens.length} • Score : {score.bonnes}/{score.total}
-                    </p>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                        <div style={{ flex: 1 }}>
+                            <h1 style={styles.title}>🔄 Remettre dans l'ordre</h1>
+                            <p style={styles.subtitle}>
+                                Phrase {indexGroupe + 1} / {groupesSens.length} • Score : {score.bonnes}/{score.total}
+                            </p>
+                        </div>
+                        {isMobile && (
+                            <div style={{ display: 'flex', gap: '8px', marginLeft: '12px' }}>
+                                <button
+                                    onClick={() => router.push('/lire/ma-voix-mes-mots')}
+                                    style={{
+                                        padding: '8px 12px',
+                                        backgroundColor: 'white',
+                                        border: '2px solid #3b82f6',
+                                        borderRadius: '8px',
+                                        cursor: 'pointer',
+                                        fontSize: '20px',
+                                        display: 'flex',
+                                        alignItems: 'center'
+                                    }}
+                                    title="Ma voix, mes mots"
+                                >
+                                    👁️
+                                </button>
+                                <button
+                                    onClick={() => router.push('/lire')}
+                                    style={{
+                                        padding: '8px 12px',
+                                        backgroundColor: 'white',
+                                        border: '2px solid #10b981',
+                                        borderRadius: '8px',
+                                        cursor: 'pointer',
+                                        fontSize: '20px',
+                                        display: 'flex',
+                                        alignItems: 'center'
+                                    }}
+                                    title="Menu Lire"
+                                >
+                                    📖
+                                </button>
+                            </div>
+                        )}
+                    </div>
                 </div>
 
                 {feedback && (
@@ -1149,6 +1762,44 @@ export default function ReconnaitreLesMotsPage() {
                         ← Menu exercices
                     </button>
                 </div>
+
+                {/* Icônes de navigation (desktop uniquement) */}
+                {!isMobile && (
+                    <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', marginTop: '16px' }}>
+                        <button
+                            onClick={() => router.push('/lire/ma-voix-mes-mots')}
+                            style={{
+                                padding: '8px 12px',
+                                backgroundColor: 'white',
+                                border: '2px solid #3b82f6',
+                                borderRadius: '8px',
+                                cursor: 'pointer',
+                                fontSize: '20px',
+                                display: 'flex',
+                                alignItems: 'center'
+                            }}
+                            title="Ma voix, mes mots"
+                        >
+                            👁️
+                        </button>
+                        <button
+                            onClick={() => router.push('/lire')}
+                            style={{
+                                padding: '8px 12px',
+                                backgroundColor: 'white',
+                                border: '2px solid #10b981',
+                                borderRadius: '8px',
+                                cursor: 'pointer',
+                                fontSize: '20px',
+                                display: 'flex',
+                                alignItems: 'center'
+                            }}
+                            title="Menu Lire"
+                        >
+                            📖
+                        </button>
+                    </div>
+                )}
             </div>
         )
     }
@@ -1158,10 +1809,50 @@ export default function ReconnaitreLesMotsPage() {
         return (
             <div style={styles.container}>
                 <div style={styles.header}>
-                    <h1 style={styles.title}>📊 Résultats</h1>
-                    <p style={styles.subtitle}>
-                        Exercice : Remettre dans l'ordre
-                    </p>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                        <div style={{ flex: 1 }}>
+                            <h1 style={styles.title}>📊 Résultats</h1>
+                            <p style={styles.subtitle}>
+                                Exercice : Remettre dans l'ordre
+                            </p>
+                        </div>
+                        {isMobile && (
+                            <div style={{ display: 'flex', gap: '8px', marginLeft: '12px' }}>
+                                <button
+                                    onClick={() => router.push('/lire/ma-voix-mes-mots')}
+                                    style={{
+                                        padding: '8px 12px',
+                                        backgroundColor: 'white',
+                                        border: '2px solid #3b82f6',
+                                        borderRadius: '8px',
+                                        cursor: 'pointer',
+                                        fontSize: '20px',
+                                        display: 'flex',
+                                        alignItems: 'center'
+                                    }}
+                                    title="Ma voix, mes mots"
+                                >
+                                    👁️
+                                </button>
+                                <button
+                                    onClick={() => router.push('/lire')}
+                                    style={{
+                                        padding: '8px 12px',
+                                        backgroundColor: 'white',
+                                        border: '2px solid #10b981',
+                                        borderRadius: '8px',
+                                        cursor: 'pointer',
+                                        fontSize: '20px',
+                                        display: 'flex',
+                                        alignItems: 'center'
+                                    }}
+                                    title="Menu Lire"
+                                >
+                                    📖
+                                </button>
+                            </div>
+                        )}
+                    </div>
                 </div>
 
                 <div style={styles.resultatsBox}>
@@ -1221,6 +1912,44 @@ export default function ReconnaitreLesMotsPage() {
                         ← Menu exercices
                     </button>
                 </div>
+
+                {/* Icônes de navigation (desktop uniquement) */}
+                {!isMobile && (
+                    <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', marginTop: '16px' }}>
+                        <button
+                            onClick={() => router.push('/lire/ma-voix-mes-mots')}
+                            style={{
+                                padding: '8px 12px',
+                                backgroundColor: 'white',
+                                border: '2px solid #3b82f6',
+                                borderRadius: '8px',
+                                cursor: 'pointer',
+                                fontSize: '20px',
+                                display: 'flex',
+                                alignItems: 'center'
+                            }}
+                            title="Ma voix, mes mots"
+                        >
+                            👁️
+                        </button>
+                        <button
+                            onClick={() => router.push('/lire')}
+                            style={{
+                                padding: '8px 12px',
+                                backgroundColor: 'white',
+                                border: '2px solid #10b981',
+                                borderRadius: '8px',
+                                cursor: 'pointer',
+                                fontSize: '20px',
+                                display: 'flex',
+                                alignItems: 'center'
+                            }}
+                            title="Menu Lire"
+                        >
+                            📖
+                        </button>
+                    </div>
+                )}
             </div>
         )
     }
@@ -1231,10 +1960,50 @@ export default function ReconnaitreLesMotsPage() {
         return (
             <div style={styles.container}>
                 <div style={styles.header}>
-                    <h1 style={styles.title}>✂️ Découpage</h1>
-                    <p style={styles.subtitle}>
-                        Phrase {indexGroupe + 1} / {groupesSens.length} • Score : {score.bonnes}/{score.total}
-                    </p>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                        <div style={{ flex: 1 }}>
+                            <h1 style={styles.title}>✂️ Découpage</h1>
+                            <p style={styles.subtitle}>
+                                Phrase {indexGroupe + 1} / {groupesSens.length} • Score : {score.bonnes}/{score.total}
+                            </p>
+                        </div>
+                        {isMobile && (
+                            <div style={{ display: 'flex', gap: '8px', marginLeft: '12px' }}>
+                                <button
+                                    onClick={() => router.push('/lire/ma-voix-mes-mots')}
+                                    style={{
+                                        padding: '8px 12px',
+                                        backgroundColor: 'white',
+                                        border: '2px solid #3b82f6',
+                                        borderRadius: '8px',
+                                        cursor: 'pointer',
+                                        fontSize: '20px',
+                                        display: 'flex',
+                                        alignItems: 'center'
+                                    }}
+                                    title="Ma voix, mes mots"
+                                >
+                                    👁️
+                                </button>
+                                <button
+                                    onClick={() => router.push('/lire')}
+                                    style={{
+                                        padding: '8px 12px',
+                                        backgroundColor: 'white',
+                                        border: '2px solid #10b981',
+                                        borderRadius: '8px',
+                                        cursor: 'pointer',
+                                        fontSize: '20px',
+                                        display: 'flex',
+                                        alignItems: 'center'
+                                    }}
+                                    title="Menu Lire"
+                                >
+                                    📖
+                                </button>
+                            </div>
+                        )}
+                    </div>
                 </div>
 
                 {feedback && (
@@ -1298,6 +2067,44 @@ export default function ReconnaitreLesMotsPage() {
                         ← Menu exercices
                     </button>
                 </div>
+
+                {/* Icônes de navigation (desktop uniquement) */}
+                {!isMobile && (
+                    <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', marginTop: '16px' }}>
+                        <button
+                            onClick={() => router.push('/lire/ma-voix-mes-mots')}
+                            style={{
+                                padding: '8px 12px',
+                                backgroundColor: 'white',
+                                border: '2px solid #3b82f6',
+                                borderRadius: '8px',
+                                cursor: 'pointer',
+                                fontSize: '20px',
+                                display: 'flex',
+                                alignItems: 'center'
+                            }}
+                            title="Ma voix, mes mots"
+                        >
+                            👁️
+                        </button>
+                        <button
+                            onClick={() => router.push('/lire')}
+                            style={{
+                                padding: '8px 12px',
+                                backgroundColor: 'white',
+                                border: '2px solid #10b981',
+                                borderRadius: '8px',
+                                cursor: 'pointer',
+                                fontSize: '20px',
+                                display: 'flex',
+                                alignItems: 'center'
+                            }}
+                            title="Menu Lire"
+                        >
+                            📖
+                        </button>
+                    </div>
+                )}
             </div>
         )
     }
