@@ -50,6 +50,8 @@ export default function ReconnaitreLesMotsPage() {
     const [motEnCoursLecture, setMotEnCoursLecture] = useState(-1) // Index du mot en cours de lecture
     const [taillePoliceMots, setTaillePoliceMots] = useState(12) // Taille dynamique pour mobile
     const containerRef = useRef(null)
+    const audioEnCoursRef = useRef(null) // Audio en cours de lecture
+    const interrompreLectureRef = useRef(false) // Flag pour interrompre la lecture
 
     // Karaoké
     const [motIllumineIndex, setMotIllumineIndex] = useState(-1)
@@ -451,12 +453,22 @@ export default function ReconnaitreLesMotsPage() {
     function lirePhraseDansOrdre(motsALire) {
         if (!motsALire || motsALire.length === 0) return
 
+        // Réinitialiser le flag d'interruption
+        interrompreLectureRef.current = false
+
         let index = 0
 
         function lireMotSuivant() {
+            // Vérifier si on doit interrompre
+            if (interrompreLectureRef.current) {
+                setMotEnCoursLecture(-1)
+                return
+            }
+
             if (index >= motsALire.length) {
                 // Fin de la lecture, réinitialiser l'index
                 setMotEnCoursLecture(-1)
+                audioEnCoursRef.current = null
                 return
             }
 
@@ -464,14 +476,44 @@ export default function ReconnaitreLesMotsPage() {
             setMotEnCoursLecture(index)
 
             const onEnded = () => {
+                // Vérifier à nouveau avant de passer au mot suivant
+                if (interrompreLectureRef.current) {
+                    setMotEnCoursLecture(-1)
+                    return
+                }
                 index++
                 setTimeout(lireMotSuivant, 100) // Petite pause entre les mots
             }
 
-            lireTTS(motsALire[index], onEnded)
+            // Stocker l'audio en cours et lancer la lecture
+            const audio = lireTTS(motsALire[index], onEnded)
+            if (audio && audio.then) {
+                // Si c'est une Promise (ElevenLabs ou fallback)
+                audio.then(audioObj => {
+                    audioEnCoursRef.current = audioObj
+                })
+            } else {
+                // Si c'est directement un objet Audio
+                audioEnCoursRef.current = audio
+            }
         }
 
         lireMotSuivant()
+    }
+
+    // Fonction pour stopper la lecture en cours
+    function stopperLecture() {
+        interrompreLectureRef.current = true
+        if (audioEnCoursRef.current) {
+            try {
+                audioEnCoursRef.current.pause()
+                audioEnCoursRef.current.currentTime = 0
+            } catch (e) {
+                console.log('Audio déjà terminé ou non disponible')
+            }
+            audioEnCoursRef.current = null
+        }
+        setMotEnCoursLecture(-1)
     }
 
     // ==================== EXERCICE 1 : KARAOKÉ ====================
@@ -815,6 +857,7 @@ export default function ReconnaitreLesMotsPage() {
     }
 
     function phraseSuivante() {
+        stopperLecture() // Interrompre la lecture audio en cours
         const nextIndex = indexGroupe + 1
         setIndexGroupe(nextIndex)
         preparerQuestionRemettreOrdre(nextIndex)
