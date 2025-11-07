@@ -130,9 +130,10 @@ export default function ReconnaitreLesMotsPage() {
         checkAuth()
     }, [router])
 
-    // 🎉 Célébration pour score parfait
+    // 🎉 Célébration pour score parfait (tous les exercices avec résultats)
     useEffect(() => {
-        if (exerciceActif === 'remettre-ordre-resultats' && score.total > 0 && score.bonnes === score.total) {
+        const exercicesAvecResultats = ['remettre-ordre-resultats', 'ou-est-ce-resultats']
+        if (exercicesAvecResultats.includes(exerciceActif) && score.total > 0 && score.bonnes === score.total) {
             // Lancer la célébration
             setShowConfetti(true)
             jouerSonApplaudissement()
@@ -716,16 +717,16 @@ export default function ReconnaitreLesMotsPage() {
             }
         })
 
-        // TOUJOURS mélanger les questions pour éviter de deviner l'ordre
-        questions.sort(() => Math.random() - 0.5)
+        // TOUJOURS mélanger les questions pour éviter de deviner l'ordre (Fisher-Yates)
+        const questionsMelangees = melangerTableau(questions)
 
-        setTousLesMots(questions)
+        setTousLesMots(questionsMelangees)
         setIndexQuestion(0)
         setExerciceActif('ou-est-ce')
 
         // Préparer première question (l'audio sera lancé par useEffect)
-        if (questions.length > 0) {
-            const question = questions[0]
+        if (questionsMelangees.length > 0) {
+            const question = questionsMelangees[0]
             setMotActuel(question.mot)
             setGroupeActuel({
                 ...question.groupe,
@@ -854,8 +855,8 @@ export default function ReconnaitreLesMotsPage() {
         if (mots.length > 0) {
             const motAleatoire = mots[Math.floor(Math.random() * mots.length)]
 
-            // Mélanger l'ordre des sons
-            const sonsMelanges = [...mots].sort(() => Math.random() - 0.5)
+            // Mélanger l'ordre des sons (Fisher-Yates)
+            const sonsMelanges = melangerTableau(mots)
 
             setGroupeActuel(groupe)
             setMotActuel(motAleatoire)
@@ -902,6 +903,16 @@ export default function ReconnaitreLesMotsPage() {
         preparerQuestionRemettreOrdre(0)
     }
 
+    // Mélange Fisher-Yates (vrai aléatoire)
+    function melangerTableau(array) {
+        const shuffled = [...array]
+        for (let i = shuffled.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
+        }
+        return shuffled
+    }
+
     function preparerQuestionRemettreOrdre(index) {
         if (index >= groupesSens.length) {
             // Exercice terminé - afficher les résultats
@@ -917,8 +928,8 @@ export default function ReconnaitreLesMotsPage() {
             .filter(mot => mot && mot.trim().length > 0)
             .filter(mot => !/^[.,:;!?]+$/.test(mot)) // Exclure ponctuation seule
 
-        // Mélanger les mots disponibles
-        const motsMelanges = [...mots].sort(() => Math.random() - 0.5)
+        // Mélanger les mots avec Fisher-Yates (vrai aléatoire)
+        const motsMelanges = melangerTableau(mots)
 
         setGroupeActuel(groupe)
         setMotsDisponibles(motsMelanges)
@@ -1729,15 +1740,35 @@ export default function ReconnaitreLesMotsPage() {
         return (
             <div style={styles.container}>
                 <div style={styles.header}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
-                        <div style={{ flex: 1 }}>
-                            <h1 style={styles.title}>📊 Résultats</h1>
-                            <p style={styles.subtitle}>
-                                Exercice : Où est-ce ?
-                            </p>
-                        </div>
-                        {isMobile && (
-                            <div style={{ display: 'flex', gap: '8px', marginLeft: '12px' }}>
+                    {isMobile ? (
+                        // VERSION MOBILE
+                        <div style={{ width: '100%' }}>
+                            <h1 style={{
+                                ...styles.title,
+                                fontSize: '20px',
+                                marginBottom: '12px',
+                                textAlign: 'center'
+                            }}>
+                                📊 Résultats
+                            </h1>
+                            <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', marginBottom: '16px' }}>
+                                {/* 5 icônes : ← 👁️ 📖 🏠 🔄 */}
+                                <button
+                                    onClick={() => setExerciceActif(null)}
+                                    style={{
+                                        padding: '8px 12px',
+                                        backgroundColor: 'white',
+                                        border: '2px solid #64748b',
+                                        borderRadius: '8px',
+                                        cursor: 'pointer',
+                                        fontSize: '20px',
+                                        display: 'flex',
+                                        alignItems: 'center'
+                                    }}
+                                    title="Menu exercices"
+                                >
+                                    ←
+                                </button>
                                 <button
                                     onClick={() => router.push('/lire/ma-voix-mes-mots')}
                                     style={{
@@ -1770,26 +1801,110 @@ export default function ReconnaitreLesMotsPage() {
                                 >
                                     📖
                                 </button>
+                                <button
+                                    onClick={() => router.push('/dashboard')}
+                                    style={{
+                                        padding: '8px 12px',
+                                        backgroundColor: 'white',
+                                        border: '2px solid #8b5cf6',
+                                        borderRadius: '8px',
+                                        cursor: 'pointer',
+                                        fontSize: '20px',
+                                        display: 'flex',
+                                        alignItems: 'center'
+                                    }}
+                                    title="Accueil"
+                                >
+                                    🏠
+                                </button>
+                                <button
+                                    onClick={() => demarrerOuEstCe()}
+                                    style={{
+                                        padding: '8px 12px',
+                                        backgroundColor: 'white',
+                                        border: '2px solid #f59e0b',
+                                        borderRadius: '8px',
+                                        cursor: 'pointer',
+                                        fontSize: '20px',
+                                        display: 'flex',
+                                        alignItems: 'center'
+                                    }}
+                                    title="Recommencer"
+                                >
+                                    🔄
+                                </button>
                             </div>
-                        )}
-                    </div>
+                            {/* Score intégré sous les icônes */}
+                            <div style={{ display: 'flex', justifyContent: 'center', marginTop: '12px' }}>
+                                <div style={{
+                                    border: '3px solid #3b82f6',
+                                    borderRadius: '12px',
+                                    padding: '8px 20px',
+                                    backgroundColor: 'white',
+                                    fontSize: '24px',
+                                    fontWeight: 'bold',
+                                    color: '#1e293b',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '8px'
+                                }}>
+                                    <span>{score.bonnes}</span>
+                                    <span style={{ color: '#64748b' }}>/</span>
+                                    <span style={{ color: '#64748b' }}>{score.total}</span>
+                                </div>
+                            </div>
+                        </div>
+                    ) : (
+                        // VERSION DESKTOP - score inline with title
+                        <div style={{ width: '100%' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                                <div style={{ flex: 1 }}>
+                                    <h1 style={styles.title}>📊 Résultats</h1>
+                                </div>
+                                {/* Score pour desktop */}
+                                <div style={{
+                                    border: '3px solid #3b82f6',
+                                    borderRadius: '12px',
+                                    padding: '8px 20px',
+                                    backgroundColor: 'white',
+                                    fontSize: '32px',
+                                    fontWeight: 'bold',
+                                    color: '#1e293b',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '8px'
+                                }}>
+                                    <span>{score.bonnes}</span>
+                                    <span style={{ color: '#64748b' }}>/</span>
+                                    <span style={{ color: '#64748b' }}>{score.total}</span>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </div>
 
-                <div style={styles.resultatsBox}>
-                    <div style={styles.scoreGlobal}>
-                        <div style={styles.scoreCircle}>
-                            <span style={styles.scoreNumber}>{score.bonnes}</span>
-                            <span style={styles.scoreSlash}>/</span>
-                            <span style={styles.scoreTotal}>{score.total}</span>
-                        </div>
-                        <div style={styles.scorePourcentage}>
-                            {Math.round((score.bonnes / score.total) * 100)}%
-                        </div>
-                    </div>
-
+                {/* Listes des mots avec espacement optimisé pour mobile */}
+                <div style={{
+                    ...styles.resultatsBox,
+                    ...(isMobile ? {
+                        padding: '8px',
+                        marginTop: '8px'
+                    } : {})
+                }}>
                     {resultats.reussis.length > 0 && (
-                        <div style={styles.resultatsSection}>
-                            <h2 style={styles.resultatsSectionTitle}>
+                        <div style={{
+                            ...styles.resultatsSection,
+                            ...(isMobile ? {
+                                marginBottom: '12px'
+                            } : {})
+                        }}>
+                            <h2 style={{
+                                ...styles.resultatsSectionTitle,
+                                ...(isMobile ? {
+                                    fontSize: '16px',
+                                    marginBottom: '8px'
+                                } : {})
+                            }}>
                                 ✅ Mots réussis ({resultats.reussis.length})
                             </h2>
                             <div style={styles.motsListeReussis}>
@@ -1815,8 +1930,19 @@ export default function ReconnaitreLesMotsPage() {
                     )}
 
                     {resultats.rates.length > 0 && (
-                        <div style={styles.resultatsSection}>
-                            <h2 style={styles.resultatsSectionTitle}>
+                        <div style={{
+                            ...styles.resultatsSection,
+                            ...(isMobile ? {
+                                marginBottom: '12px'
+                            } : {})
+                        }}>
+                            <h2 style={{
+                                ...styles.resultatsSectionTitle,
+                                ...(isMobile ? {
+                                    fontSize: '16px',
+                                    marginBottom: '8px'
+                                } : {})
+                            }}>
                                 ❌ Mots ratés ({resultats.rates.length})
                             </h2>
                             <div style={styles.motsListeRates}>
@@ -1842,20 +1968,23 @@ export default function ReconnaitreLesMotsPage() {
                     )}
                 </div>
 
-                <div style={styles.actions}>
-                    <button
-                        onClick={() => demarrerOuEstCe()}
-                        style={styles.primaryButton}
-                    >
-                        🔄 Recommencer
-                    </button>
-                    <button
-                        onClick={() => setExerciceActif(null)}
-                        style={styles.secondaryButton}
-                    >
-                        ← Menu exercices
-                    </button>
-                </div>
+                {/* Boutons de navigation desktop uniquement */}
+                {!isMobile && (
+                    <div style={styles.actions}>
+                        <button
+                            onClick={() => demarrerOuEstCe()}
+                            style={styles.primaryButton}
+                        >
+                            🔄 Recommencer
+                        </button>
+                        <button
+                            onClick={() => setExerciceActif(null)}
+                            style={styles.secondaryButton}
+                        >
+                            ← Menu exercices
+                        </button>
+                    </div>
+                )}
 
                 {/* Icônes de navigation (desktop uniquement) */}
                 {!isMobile && (
@@ -2341,7 +2470,7 @@ export default function ReconnaitreLesMotsPage() {
                     {!isMobile && (
                         <button
                             onClick={() => {
-                                setMotsDisponibles([...motsDisponibles, ...motsSelectionnes].sort(() => Math.random() - 0.5))
+                                setMotsDisponibles(melangerTableau([...motsDisponibles, ...motsSelectionnes]))
                                 setMotsSelectionnes([])
                                 setMotsValidation([])
                             }}
