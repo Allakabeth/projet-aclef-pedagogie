@@ -48,6 +48,8 @@ export default function ReconnaitreLesMotsPage() {
     const [motsDisponibles, setMotsDisponibles] = useState([])
     const [motsValidation, setMotsValidation] = useState([]) // 'correct' | 'incorrect' pour chaque mot
     const [motEnCoursLecture, setMotEnCoursLecture] = useState(-1) // Index du mot en cours de lecture
+    const [taillePoliceMots, setTaillePoliceMots] = useState(12) // Taille dynamique pour mobile
+    const containerRef = useRef(null)
 
     // Karaoké
     const [motIllumineIndex, setMotIllumineIndex] = useState(-1)
@@ -727,6 +729,30 @@ export default function ReconnaitreLesMotsPage() {
         setMotEnCoursLecture(-1) // Réinitialiser l'index de lecture
         setFeedback(null) // Réinitialiser le feedback
     }
+
+    // Calcul dynamique de la taille de police pour mobile
+    useEffect(() => {
+        if (!isMobile || motsSelectionnes.length === 0 || !containerRef.current) return
+
+        // Calculer la largeur approximative nécessaire
+        const longueurTotale = motsSelectionnes.reduce((acc, mot) => acc + mot.length, 0)
+        const nombreMots = motsSelectionnes.length
+        const largeurContainer = containerRef.current.offsetWidth - 16 // padding
+        
+        // Estimation: chaque caractère prend environ 0.6 * fontSize en largeur
+        // + padding des boutons (16px par mot) + gap entre mots (4px)
+        const largeurEstimee = (longueurTotale, fontSize) => {
+            return (longueurTotale * 0.6 * fontSize) + (nombreMots * 16) + ((nombreMots - 1) * 4)
+        }
+
+        // Trouver la taille de police maximale qui rentre
+        let taille = 20 // Commencer grand
+        while (taille > 8 && largeurEstimee(longueurTotale, taille) > largeurContainer) {
+            taille -= 0.5
+        }
+
+        setTaillePoliceMots(Math.max(8, Math.min(20, taille)))
+    }, [motsSelectionnes, isMobile])
 
     function ajouterMotDansOrdre(mot) {
         setMotsSelectionnes([...motsSelectionnes, mot])
@@ -1855,18 +1881,21 @@ export default function ReconnaitreLesMotsPage() {
                         boxSizing: 'border-box'
                     } : {})
                 }}>
-                    <div style={{
-                        ...styles.phraseEnCours,
-                        ...(isMobile ? {
-                            width: '100%',
-                            minHeight: '80px',
-                            display: 'flex',
-                            flexWrap: 'nowrap',
-                            alignItems: 'center',
-                            gap: '4px',
-                            justifyContent: 'center'
-                        } : {})
-                    }}>
+                    <div 
+                        ref={containerRef}
+                        style={{
+                            ...styles.phraseEnCours,
+                            ...(isMobile ? {
+                                width: '100%',
+                                minHeight: '80px',
+                                display: 'flex',
+                                flexWrap: 'nowrap',
+                                alignItems: 'center',
+                                gap: '4px',
+                                justifyContent: 'center'
+                            } : {})
+                        }}
+                    >
                         {motsSelectionnes.length === 0 ? (
                             <span style={styles.placeholderPhrase}>
                                 Clique sur les mots ci-dessous pour construire ta phrase...
@@ -1886,8 +1915,8 @@ export default function ReconnaitreLesMotsPage() {
                                             display: 'inline-flex',
                                             alignItems: 'center',
                                             gap: '2px',
-                                            fontSize: '12px',
-                                            padding: '6px 8px',
+                                            fontSize: `${taillePoliceMots}px`,
+                                            padding: `${Math.max(4, taillePoliceMots * 0.4)}px ${Math.max(6, taillePoliceMots * 0.6)}px`,
                                             minWidth: '0'
                                         } : {}),
                                         // Afficher couleur si déjà lu (index < motEnCoursLecture) OU en cours de lecture (index === motEnCoursLecture)
@@ -1910,7 +1939,14 @@ export default function ReconnaitreLesMotsPage() {
                                     }}
                                 >
                                     <span>{mot}</span>
-                                    {feedback === null && <span style={{ fontSize: '14px', marginLeft: '2px' }}>✕</span>}
+                                    {feedback === null && (
+                                        <span style={{ 
+                                            fontSize: isMobile ? `${taillePoliceMots * 0.9}px` : '14px', 
+                                            marginLeft: '2px' 
+                                        }}>
+                                            ✕
+                                        </span>
+                                    )}
                                 </button>
                             ))
                         )}
