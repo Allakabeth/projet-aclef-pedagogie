@@ -166,7 +166,7 @@ export default function ReconnaitreLesMotsPage() {
 
     // 🎉 Célébration pour score parfait (tous les exercices avec résultats)
     useEffect(() => {
-        const exercicesAvecResultats = ['remettre-ordre-resultats', 'ou-est-ce-resultats']
+        const exercicesAvecResultats = ['remettre-ordre-resultats', 'ou-est-ce-resultats', 'quest-ce-resultats']
         if (exercicesAvecResultats.includes(exerciceActif) && score.total > 0 && score.bonnes === score.total) {
             // Lancer la célébration
             setShowConfetti(true)
@@ -865,6 +865,7 @@ export default function ReconnaitreLesMotsPage() {
         if (groupesSens.length === 0) return
         setFeedback(null)
         setScore({ bonnes: 0, total: 0 })
+        setResultats({ reussis: [], rates: [] })
         setSonSelectionne(null)
         setExerciceActif('quest-ce')
         setIndexGroupe(0)
@@ -873,8 +874,7 @@ export default function ReconnaitreLesMotsPage() {
 
     function preparerQuestionQuestCe(index) {
         if (index >= groupesSens.length) {
-            alert(`Exercice terminé ! Score : ${score.bonnes}/${score.total}`)
-            setExerciceActif(null)
+            setExerciceActif('quest-ce-resultats')
             return
         }
 
@@ -909,10 +909,18 @@ export default function ReconnaitreLesMotsPage() {
         }
         setScore(newScore)
 
-        // Afficher feedback
+        // Tracker résultats
         if (correct) {
+            setResultats(prev => ({
+                ...prev,
+                reussis: [...prev.reussis, motActuel]
+            }))
             setFeedback({ type: 'success', message: '✅ Correct !' })
         } else {
+            setResultats(prev => ({
+                ...prev,
+                rates: [...prev.rates, motActuel]
+            }))
             setFeedback({ type: 'error', message: `❌ Non, c'était "${motActuel}"` })
         }
 
@@ -2007,6 +2015,298 @@ export default function ReconnaitreLesMotsPage() {
                     <div style={styles.actions}>
                         <button
                             onClick={() => demarrerOuEstCe()}
+                            style={styles.primaryButton}
+                        >
+                            🔄 Recommencer
+                        </button>
+                        <button
+                            onClick={() => setExerciceActif(null)}
+                            style={styles.secondaryButton}
+                        >
+                            ← Menu exercices
+                        </button>
+                    </div>
+                )}
+
+                {/* Icônes de navigation (desktop uniquement) */}
+                {!isMobile && (
+                    <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', marginTop: '16px' }}>
+                        <button
+                            onClick={() => router.push('/lire/ma-voix-mes-mots')}
+                            style={{
+                                padding: '8px 12px',
+                                backgroundColor: 'white',
+                                border: '2px solid #3b82f6',
+                                borderRadius: '8px',
+                                cursor: 'pointer',
+                                fontSize: '20px',
+                                display: 'flex',
+                                alignItems: 'center'
+                            }}
+                            title="Ma voix, mes mots"
+                        >
+                            👁️
+                        </button>
+                        <button
+                            onClick={() => router.push('/lire')}
+                            style={{
+                                padding: '8px 12px',
+                                backgroundColor: 'white',
+                                border: '2px solid #10b981',
+                                borderRadius: '8px',
+                                cursor: 'pointer',
+                                fontSize: '20px',
+                                display: 'flex',
+                                alignItems: 'center'
+                            }}
+                            title="Menu Lire"
+                        >
+                            📖
+                        </button>
+                    </div>
+                )}
+            </div>
+        )
+    }
+
+    // EXERCICE 3 : QU'EST-CE ? - RESULTATS
+    if (exerciceActif === 'quest-ce-resultats') {
+        return (
+            <div style={styles.container}>
+                <div style={styles.header}>
+                    {isMobile ? (
+                        // VERSION MOBILE
+                        <div style={{ width: '100%' }}>
+                            <h1 style={{
+                                ...styles.title,
+                                fontSize: '20px',
+                                marginBottom: '12px',
+                                textAlign: 'center'
+                            }}>
+                                📊 Résultats
+                            </h1>
+                            <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', marginBottom: '16px' }}>
+                                {/* 5 icônes : ← 👁️ 📖 🏠 🔄 */}
+                                <button
+                                    onClick={() => setExerciceActif(null)}
+                                    style={{
+                                        padding: '8px 12px',
+                                        backgroundColor: 'white',
+                                        border: '2px solid #64748b',
+                                        borderRadius: '8px',
+                                        cursor: 'pointer',
+                                        fontSize: '20px',
+                                        display: 'flex',
+                                        alignItems: 'center'
+                                    }}
+                                    title="Menu exercices"
+                                >
+                                    ←
+                                </button>
+                                <button
+                                    onClick={() => router.push('/lire/ma-voix-mes-mots')}
+                                    style={{
+                                        padding: '8px 12px',
+                                        backgroundColor: 'white',
+                                        border: '2px solid #3b82f6',
+                                        borderRadius: '8px',
+                                        cursor: 'pointer',
+                                        fontSize: '20px',
+                                        display: 'flex',
+                                        alignItems: 'center'
+                                    }}
+                                    title="Ma voix, mes mots"
+                                >
+                                    👁️
+                                </button>
+                                <button
+                                    onClick={() => router.push('/lire')}
+                                    style={{
+                                        padding: '8px 12px',
+                                        backgroundColor: 'white',
+                                        border: '2px solid #10b981',
+                                        borderRadius: '8px',
+                                        cursor: 'pointer',
+                                        fontSize: '20px',
+                                        display: 'flex',
+                                        alignItems: 'center'
+                                    }}
+                                    title="Menu Lire"
+                                >
+                                    📖
+                                </button>
+                                <button
+                                    onClick={() => router.push('/dashboard')}
+                                    style={{
+                                        padding: '8px 12px',
+                                        backgroundColor: 'white',
+                                        border: '2px solid #8b5cf6',
+                                        borderRadius: '8px',
+                                        cursor: 'pointer',
+                                        fontSize: '20px',
+                                        display: 'flex',
+                                        alignItems: 'center'
+                                    }}
+                                    title="Accueil"
+                                >
+                                    🏠
+                                </button>
+                                <button
+                                    onClick={() => demarrerQuestCe()}
+                                    style={{
+                                        padding: '8px 12px',
+                                        backgroundColor: 'white',
+                                        border: '2px solid #f59e0b',
+                                        borderRadius: '8px',
+                                        cursor: 'pointer',
+                                        fontSize: '20px',
+                                        display: 'flex',
+                                        alignItems: 'center'
+                                    }}
+                                    title="Recommencer"
+                                >
+                                    🔄
+                                </button>
+                            </div>
+                            {/* Score intégré sous les icônes */}
+                            <div style={{ display: 'flex', justifyContent: 'center', marginTop: '12px' }}>
+                                <div style={{
+                                    border: '3px solid #3b82f6',
+                                    borderRadius: '12px',
+                                    padding: '8px 20px',
+                                    backgroundColor: 'white',
+                                    fontSize: '24px',
+                                    fontWeight: 'bold',
+                                    color: '#1e293b',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '8px'
+                                }}>
+                                    <span>{score.bonnes}</span>
+                                    <span style={{ color: '#64748b' }}>/</span>
+                                    <span style={{ color: '#64748b' }}>{score.total}</span>
+                                </div>
+                            </div>
+                        </div>
+                    ) : (
+                        // VERSION DESKTOP - score inline with title
+                        <div style={{ width: '100%' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                                <div style={{ flex: 1 }}>
+                                    <h1 style={styles.title}>📊 Résultats</h1>
+                                </div>
+                                {/* Score pour desktop */}
+                                <div style={{
+                                    border: '3px solid #3b82f6',
+                                    borderRadius: '12px',
+                                    padding: '8px 20px',
+                                    backgroundColor: 'white',
+                                    fontSize: '32px',
+                                    fontWeight: 'bold',
+                                    color: '#1e293b',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '8px'
+                                }}>
+                                    <span>{score.bonnes}</span>
+                                    <span style={{ color: '#64748b' }}>/</span>
+                                    <span style={{ color: '#64748b' }}>{score.total}</span>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                {/* Listes des mots avec espacement optimisé pour mobile */}
+                <div style={{
+                    ...styles.resultatsBox,
+                    ...(isMobile ? {
+                        padding: '8px',
+                        marginTop: '8px'
+                    } : {})
+                }}>
+                    {resultats.reussis.length > 0 && (
+                        <div style={{
+                            ...styles.resultatsSection,
+                            ...(isMobile ? {
+                                marginBottom: '12px'
+                            } : {})
+                        }}>
+                            <h2 style={{
+                                ...styles.resultatsSectionTitle,
+                                ...(isMobile ? {
+                                    fontSize: '16px',
+                                    marginBottom: '8px'
+                                } : {})
+                            }}>
+                                ✅ Mots réussis ({resultats.reussis.length})
+                            </h2>
+                            <div style={styles.motsListeReussis}>
+                                {resultats.reussis.map((mot, index) => (
+                                    <button
+                                        key={index}
+                                        onClick={() => lireTTS(mot)}
+                                        style={{
+                                            ...styles.motReussi,
+                                            cursor: 'pointer',
+                                            transition: 'transform 0.1s',
+                                            border: 'none'
+                                        }}
+                                        onMouseEnter={(e) => e.target.style.transform = 'scale(1.05)'}
+                                        onMouseLeave={(e) => e.target.style.transform = 'scale(1)'}
+                                        title="🔊 Écouter"
+                                    >
+                                        {mot}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {resultats.rates.length > 0 && (
+                        <div style={{
+                            ...styles.resultatsSection,
+                            ...(isMobile ? {
+                                marginBottom: '12px'
+                            } : {})
+                        }}>
+                            <h2 style={{
+                                ...styles.resultatsSectionTitle,
+                                ...(isMobile ? {
+                                    fontSize: '16px',
+                                    marginBottom: '8px'
+                                } : {})
+                            }}>
+                                ❌ Mots ratés ({resultats.rates.length})
+                            </h2>
+                            <div style={styles.motsListeRates}>
+                                {resultats.rates.map((mot, index) => (
+                                    <button
+                                        key={index}
+                                        onClick={() => lireTTS(mot)}
+                                        style={{
+                                            ...styles.motRate,
+                                            cursor: 'pointer',
+                                            transition: 'transform 0.1s',
+                                            border: 'none'
+                                        }}
+                                        onMouseEnter={(e) => e.target.style.transform = 'scale(1.05)'}
+                                        onMouseLeave={(e) => e.target.style.transform = 'scale(1)'}
+                                        title="🔊 Écouter"
+                                    >
+                                        {mot}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                {/* Boutons de navigation desktop uniquement */}
+                {!isMobile && (
+                    <div style={styles.actions}>
+                        <button
+                            onClick={() => demarrerQuestCe()}
                             style={styles.primaryButton}
                         >
                             🔄 Recommencer
