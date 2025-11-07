@@ -49,6 +49,8 @@ export default function ReconnaitreLesMotsPage() {
     const [motsValidation, setMotsValidation] = useState([]) // 'correct' | 'incorrect' pour chaque mot
     const [motEnCoursLecture, setMotEnCoursLecture] = useState(-1) // Index du mot en cours de lecture
     const [taillePoliceMots, setTaillePoliceMots] = useState(12) // Taille dynamique pour mobile
+    const [taillePoliceQuestCe, setTaillePoliceQuestCe] = useState(20) // Taille dynamique pour "Qu'est-ce ?"
+    const phraseRefQuestCe = useRef(null) // Référence pour mesurer la phrase
     const containerRef = useRef(null)
     const audioEnCoursRef = useRef(null) // Audio en cours de lecture
     const interrompreLectureRef = useRef(false) // Flag pour interrompre la lecture
@@ -125,6 +127,38 @@ export default function ReconnaitreLesMotsPage() {
             setTaillePhraseContexte(tailleTrouvee)
         }
     }, [isMobile, groupeActuel, exerciceActif])
+
+    // Calcul automatique de la taille de police pour "Qu'est-ce ?" (mobile)
+    useEffect(() => {
+        if (isMobile && phraseRefQuestCe.current && groupeActuel && exerciceActif === 'quest-ce') {
+            const container = phraseRefQuestCe.current
+            const containerWidth = container.offsetWidth - 40 // padding 20px de chaque côté
+
+            const mots = groupeActuel.contenu
+                .trim()
+                .split(/\s+/)
+                .filter(mot => mot && mot.trim().length > 0)
+                .filter(mot => !/^[.,:;!?]+$/.test(mot))
+
+            if (mots.length === 0) return
+
+            let tailleTrouvee = 16
+            const tailles = [36, 34, 32, 30, 28, 26, 24, 22, 20, 18, 16, 14, 12]
+
+            for (let taille of tailles) {
+                container.style.fontSize = `${taille}px`
+                container.style.whiteSpace = 'nowrap' // Une seule ligne obligatoire
+
+                // Vérifier que le contenu tient en largeur sur une seule ligne
+                if (container.scrollWidth <= containerWidth) {
+                    tailleTrouvee = taille
+                    break
+                }
+            }
+
+            setTaillePoliceQuestCe(tailleTrouvee)
+        }
+    }, [isMobile, groupeActuel, exerciceActif, motActuel])
 
     useEffect(() => {
         checkAuth()
@@ -2111,6 +2145,22 @@ export default function ReconnaitreLesMotsPage() {
                                 >
                                     🏠
                                 </button>
+                                <button
+                                    onClick={() => lireGroupe(groupeActuel)}
+                                    style={{
+                                        padding: '8px 12px',
+                                        backgroundColor: 'white',
+                                        border: '2px solid #f59e0b',
+                                        borderRadius: '8px',
+                                        cursor: 'pointer',
+                                        fontSize: '20px',
+                                        display: 'flex',
+                                        alignItems: 'center'
+                                    }}
+                                    title="Écouter le groupe"
+                                >
+                                    🔊
+                                </button>
                             </div>
                         </div>
                     ) : (
@@ -2134,31 +2184,37 @@ export default function ReconnaitreLesMotsPage() {
                     </div>
                 )}
 
-                <div style={isMobile ? { marginTop: '16px', marginBottom: '16px', padding: '8px', textAlign: 'center', width: '100%' } : styles.questionBox}>
+                <div style={isMobile ? { marginTop: '16px', marginBottom: '24px', width: '100%', boxSizing: 'border-box' } : styles.questionBox}>
                     {!isMobile && <p style={styles.consigne}>Le mot illuminé est :</p>}
-                    <div style={isMobile ? {
-                        display: 'flex',
-                        justifyContent: 'center',
-                        alignItems: 'center',
-                        gap: '4px',
-                        fontSize: '18px',
-                        fontWeight: 'bold',
-                        whiteSpace: 'nowrap',
-                        overflow: 'hidden',
-                        width: '100%',
-                        padding: '0 4px'
+                    <div 
+                        ref={phraseRefQuestCe}
+                        style={isMobile ? {
+                            padding: '20px',
+                            borderRadius: '12px',
+                            textAlign: 'center',
+                            backgroundColor: 'white',
+                            border: '2px solid #cbd5e1',
+                            display: 'flex',
+                            justifyContent: 'center',
+                            alignItems: 'center',
+                            flexWrap: 'wrap',
+                            gap: '6px',
+                            fontSize: `${taillePoliceQuestCe}px`,
+                            fontWeight: '600',
+                            lineHeight: '1.3',
+                            minHeight: '80px'
                     } : styles.phraseBox}>
                         {mots.map((mot, index) => (
                             <span
                                 key={index}
                                 style={{
-                                    ...styles.motPhrase,
+                                    display: 'inline-block',
                                     ...(isMobile && mot === motActuel ? {
                                         backgroundColor: '#fef08a',
-                                        padding: '1px 2px',
-                                        borderRadius: '3px'
+                                        padding: '4px 6px',
+                                        borderRadius: '6px'
                                     } : {}),
-                                    ...(mot === motActuel ? styles.motIllumine : {})
+                                    ...(!isMobile && mot === motActuel ? styles.motIllumine : {})
                                 }}
                             >
                                 {mot}
@@ -2210,9 +2266,6 @@ export default function ReconnaitreLesMotsPage() {
                         }}
                     >
                         Valider
-                    </button>
-                    <button onClick={() => setExerciceActif(null)} style={styles.secondaryButton}>
-                        ← Menu exercices
                     </button>
                 </div>
 
