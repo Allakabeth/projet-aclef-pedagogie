@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/router'
 import { supabase } from '@/lib/supabaseClient'
 
@@ -64,6 +64,11 @@ export default function ReconnaitreLesMotsPage() {
     // Détection mobile
     const [isMobile, setIsMobile] = useState(false)
 
+    // Référence pour le conteneur karaoké (scroll automatique mobile)
+    const karaokeContainerRef = useRef(null)
+    const phraseContexteRef = useRef(null)
+    const [taillePhraseContexte, setTaillePhraseContexte] = useState(14)
+
     useEffect(() => {
         const checkMobile = () => {
             setIsMobile(window.innerWidth <= 768)
@@ -72,6 +77,41 @@ export default function ReconnaitreLesMotsPage() {
         window.addEventListener('resize', checkMobile)
         return () => window.removeEventListener('resize', checkMobile)
     }, [])
+
+    // Calcul automatique de la taille de police pour la phrase contextuelle (mobile)
+    useEffect(() => {
+        if (isMobile && phraseContexteRef.current && groupeActuel && exerciceActif === 'karaoke') {
+            const container = phraseContexteRef.current
+            const containerWidth = container.offsetWidth
+
+            // Calculer les mots depuis groupeActuel.contenu
+            const mots = groupeActuel.contenu
+                .trim()
+                .split(/\s+/)
+                .filter(mot => mot && mot.trim().length > 0)
+                .filter(mot => !/^[.,:;!?]+$/.test(mot))
+
+            if (mots.length === 0) return
+
+            // Tester différentes tailles de police pour trouver la plus grande qui tient sur une ligne
+            let tailleTrouvee = 14
+            const tailles = [32, 28, 24, 20, 18, 16, 14, 12]
+
+            for (let taille of tailles) {
+                container.style.fontSize = `${taille}px`
+                container.style.whiteSpace = 'nowrap'
+
+                // Vérifier si ça tient
+                if (container.scrollWidth <= containerWidth) {
+                    tailleTrouvee = taille
+                    break
+                }
+            }
+
+            container.style.whiteSpace = 'normal'
+            setTaillePhraseContexte(tailleTrouvee)
+        }
+    }, [isMobile, groupeActuel, exerciceActif])
 
     useEffect(() => {
         checkAuth()
@@ -1068,18 +1108,61 @@ export default function ReconnaitreLesMotsPage() {
                     </button>
                 </div>
 
-                <div style={styles.karaokeBox}>
-                    {mots.map((mot, index) => (
-                        <span
-                            key={index}
-                            style={{
-                                ...styles.motKaraoke,
-                                ...(motIllumineIndex === index ? styles.motIllumine : {})
-                            }}
-                        >
-                            {mot}
-                        </span>
-                    ))}
+                <div
+                    ref={karaokeContainerRef}
+                    style={isMobile ? styles.karaokeBoxMobile : styles.karaokeBox}
+                >
+                    {isMobile ? (
+                        /* OPTION 3 MOBILE : Afficher uniquement le mot illuminé en grand */
+                        <>
+                            {/* Mot principal illuminé en très grand */}
+                            {motIllumineIndex >= 0 && (
+                                <div style={styles.motPrincipalMobile}>
+                                    {mots[motIllumineIndex]}
+                                </div>
+                            )}
+
+                            {/* Phrase complète en petit en bas pour contexte */}
+                            <div
+                                ref={phraseContexteRef}
+                                style={{
+                                    ...styles.phraseContexteMobile,
+                                    fontSize: `${taillePhraseContexte}px`
+                                }}
+                            >
+                                {mots.map((mot, index) => (
+                                    <span
+                                        key={index}
+                                        style={{
+                                            ...styles.motContexteMobile,
+                                            ...(motIllumineIndex === index ? {
+                                                fontWeight: 'bold',
+                                                color: '#000',
+                                                backgroundColor: '#fef08a',
+                                                padding: '2px 6px',
+                                                borderRadius: '4px'
+                                            } : {})
+                                        }}
+                                    >
+                                        {mot}
+                                    </span>
+                                ))}
+                            </div>
+                        </>
+                    ) : (
+                        /* DESKTOP : Affichage normal */
+                        mots.map((mot, index) => (
+                            <span
+                                key={index}
+                                style={{
+                                    ...styles.motKaraoke,
+                                    ...(motIllumineIndex === index ? styles.motIllumine : {})
+                                }}
+                            >
+                                {mot}
+                            </span>
+                        ))
+                    )}
                 </div>
 
                 <div style={styles.actions}>
@@ -2279,12 +2362,60 @@ const styles = {
         lineHeight: '1.8',
         marginBottom: '32px'
     },
+    karaokeBoxMobile: {
+        textAlign: 'center',
+        marginBottom: '24px',
+        padding: '16px',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: '24px'
+    },
     motKaraoke: {
         display: 'inline-block',
         margin: '0 8px',
         padding: '8px 16px',
         borderRadius: '8px',
         transition: 'all 0.3s'
+    },
+    motKaraokeMobile: {
+        display: 'inline-block',
+        margin: '8px 10px',
+        padding: '10px 14px',
+        borderRadius: '8px',
+        transition: 'all 0.3s',
+        fontSize: '26px'
+    },
+    // OPTION 3 : Mot principal en très grand
+    motPrincipalMobile: {
+        fontSize: '48px',
+        fontWeight: 'bold',
+        color: '#000',
+        backgroundColor: '#fef08a',
+        padding: '20px 30px',
+        borderRadius: '12px',
+        minHeight: '100px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: '100%',
+        maxWidth: '90vw',
+        textAlign: 'center'
+    },
+    // OPTION 3 : Phrase complète en petit pour contexte
+    phraseContexteMobile: {
+        fontSize: '14px',
+        color: '#666',
+        lineHeight: '1.8',
+        textAlign: 'center',
+        padding: '8px',
+        whiteSpace: 'nowrap',
+        overflow: 'visible',
+        width: '100%'
+    },
+    motContexteMobile: {
+        display: 'inline',
+        margin: '0 4px'
     },
     motIllumine: {
         backgroundColor: '#fef08a',
