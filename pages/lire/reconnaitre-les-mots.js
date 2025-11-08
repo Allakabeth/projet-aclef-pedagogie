@@ -3972,15 +3972,16 @@ export default function ReconnaitreLesMotsPage() {
                                         key={i}
                                         style={{
                                             position: 'absolute',
-                                            top: '-10px',
+                                            top: '-20px',
                                             left: `${Math.random() * 100}%`,
-                                            width: '10px',
-                                            height: '10px',
+                                            width: '15px',
+                                            height: '15px',
                                             backgroundColor: colors[Math.floor(Math.random() * 6)],
-                                            opacity: 0.8,
+                                            opacity: 1,
                                             borderRadius: '50%',
                                             animation: `confetti-fall ${duration}s linear forwards`,
-                                            animationDelay: `${delay}s`
+                                            animationDelay: `${delay}s`,
+                                            zIndex: 10000
                                         }}
                                     />
                                 )
