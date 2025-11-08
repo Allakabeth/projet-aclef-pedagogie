@@ -1173,10 +1173,26 @@ export default function ReconnaitreLesMotsPage() {
         return (
             <div style={styles.container}>
                 <div style={styles.header}>
-                    <h1 style={styles.title}>👁️ Reconnaitre les mots</h1>
-                    <p style={styles.subtitle}>
-                        Apprends à associer les mots que tu entends avec les mots écrits
-                    </p>
+                    <h1 style={{
+                        ...styles.title,
+                        fontSize: isMobile ? '20px' : '32px'
+                    }}>👁️ Reconnaitre les mots</h1>
+                    <div style={styles.navIcons}>
+                        <button
+                            onClick={() => router.push('/lire')}
+                            style={styles.iconButton}
+                            title="Menu Lecture"
+                        >
+                            📖
+                        </button>
+                        <button
+                            onClick={() => router.push('/dashboard')}
+                            style={styles.iconButton}
+                            title="Tableau de bord"
+                        >
+                            🏠
+                        </button>
+                    </div>
                 </div>
 
                 {error && (
@@ -1195,8 +1211,7 @@ export default function ReconnaitreLesMotsPage() {
                     </div>
                 ) : (
                     <>
-                        <div style={styles.section}>
-                            <h2 style={styles.sectionTitle}>📚 Choisis tes textes</h2>
+                        <div style={{ marginBottom: '24px' }}>
                             <div style={styles.textesGrid}>
                                 {textes.map(texte => (
                                     <div
@@ -1216,9 +1231,6 @@ export default function ReconnaitreLesMotsPage() {
                                             />
                                             <span style={styles.texteCardTitle}>{texte.titre}</span>
                                         </div>
-                                        <div style={styles.texteCardInfo}>
-                                            {texte.nombre_groupes} groupes de sens
-                                        </div>
                                     </div>
                                 ))}
                             </div>
@@ -1232,12 +1244,6 @@ export default function ReconnaitreLesMotsPage() {
                             >
                                 Commencer les exercices
                             </button>
-                            <button
-                                onClick={() => router.push('/lire')}
-                                style={styles.secondaryButton}
-                            >
-                                ← Retour
-                            </button>
                         </div>
                     </>
                 )}
@@ -1250,7 +1256,26 @@ export default function ReconnaitreLesMotsPage() {
         return (
             <div style={styles.container}>
                 <div style={styles.header}>
-                    <h1 style={styles.title}>👁️ Reconnaitre les mots</h1>
+                    <h1 style={{
+                        ...styles.title,
+                        fontSize: isMobile ? '20px' : '32px'
+                    }}>👁️ Reconnaitre les mots</h1>
+                    <div style={styles.navIcons}>
+                        <button
+                            onClick={() => router.push('/lire')}
+                            style={styles.iconButton}
+                            title="Menu Lecture"
+                        >
+                            📖
+                        </button>
+                        <button
+                            onClick={() => router.push('/dashboard')}
+                            style={styles.iconButton}
+                            title="Tableau de bord"
+                        >
+                            🏠
+                        </button>
+                    </div>
                     <p style={styles.subtitle}>
                         {groupesSens.length} groupes de sens • Choisis un exercice
                     </p>
@@ -3383,7 +3408,25 @@ const styles = {
         fontSize: '32px',
         fontWeight: 'bold',
         color: '#06b6d4',
-        margin: '0 0 8px 0'
+        margin: '0 0 12px 0',
+        whiteSpace: 'nowrap'
+    },
+    navIcons: {
+        display: 'flex',
+        justifyContent: 'center',
+        gap: '24px',
+        marginBottom: '12px'
+    },
+    iconButton: {
+        padding: '12px 24px',
+        backgroundColor: '#f3f4f6',
+        color: '#333',
+        border: '1px solid #d1d5db',
+        borderRadius: '8px',
+        fontSize: '16px',
+        fontWeight: '600',
+        cursor: 'pointer',
+        transition: 'background-color 0.2s'
     },
     subtitle: {
         fontSize: '16px',
@@ -3428,7 +3471,7 @@ const styles = {
         gap: '16px'
     },
     texteCard: {
-        padding: '16px',
+        padding: '10px 12px',
         border: '2px solid #e5e7eb',
         borderRadius: '8px',
         cursor: 'pointer',
@@ -3441,8 +3484,7 @@ const styles = {
     texteCardHeader: {
         display: 'flex',
         alignItems: 'center',
-        gap: '12px',
-        marginBottom: '8px'
+        gap: '12px'
     },
     texteCardTitle: {
         fontSize: '16px',
