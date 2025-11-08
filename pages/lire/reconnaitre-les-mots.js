@@ -113,7 +113,7 @@ export default function ReconnaitreLesMotsPage() {
 
             // Tester différentes tailles de police pour trouver la plus grande qui tient sur une ligne
             let tailleTrouvee = 14
-            const tailles = [32, 28, 24, 20, 18, 16, 14, 12]
+            const tailles = [80, 72, 64, 56, 52, 48, 44, 40, 36, 32, 28, 24, 20, 18, 16, 14, 12]
 
             for (let taille of tailles) {
                 container.style.fontSize = `${taille}px`
@@ -2741,7 +2741,7 @@ export default function ReconnaitreLesMotsPage() {
                                     🏠
                                 </button>
                                 <button
-                                    onClick={() => lireGroupe(groupeActuel)}
+                                    onClick={lireGroupeDeSens}
                                     style={{
                                         padding: '8px 12px',
                                         backgroundColor: 'white',
