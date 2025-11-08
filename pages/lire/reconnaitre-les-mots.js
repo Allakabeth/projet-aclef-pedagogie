@@ -65,6 +65,7 @@ export default function ReconnaitreLesMotsPage() {
 
     // Découpage
     const [separations, setSeparations] = useState([])
+    const [taillePoliceDecoupage, setTaillePoliceDecoupage] = useState(32)
 
     // Enregistrements vocaux personnalisés
     const [enregistrementsMap, setEnregistrementsMap] = useState({}) // Mots individuels
@@ -170,13 +171,51 @@ export default function ReconnaitreLesMotsPage() {
         }
     }, [isMobile, groupeActuel, exerciceActif, motActuel])
 
+    // Calcul automatique de la taille de police pour "Découpage" (mobile)
+    useEffect(() => {
+        if (isMobile && groupeActuel && exerciceActif === 'decoupage') {
+            const texteColle = groupeActuel.contenu.replace(/\s+/g, '')
+
+            if (!texteColle || texteColle.trim().length === 0) return
+
+            // Créer un élément temporaire pour mesurer
+            const tempDiv = document.createElement('div')
+            tempDiv.style.position = 'absolute'
+            tempDiv.style.visibility = 'hidden'
+            tempDiv.style.whiteSpace = 'nowrap'
+            tempDiv.style.fontWeight = '600'
+            tempDiv.innerHTML = texteColle
+            document.body.appendChild(tempDiv)
+
+            // Calculer espace disponible (largeur totale - marges - espace boutons séparation)
+            // En paysage on a plus d'espace, mais il faut compter les boutons de séparation
+            const nombreBoutons = texteColle.length - 1
+            const espaceBoutons = nombreBoutons * 16 // Estimation: ~16px par bouton (cliquable + séparation)
+            const maxWidth = window.innerWidth - 100 - espaceBoutons // 100px marge sécurité
+
+            let tailleTrouvee = 16
+            const tailles = [80, 72, 64, 56, 48, 44, 40, 36, 32, 28, 26, 24, 22, 20, 18, 16, 14, 12]
+
+            for (let taille of tailles) {
+                tempDiv.style.fontSize = `${taille}px`
+                if (tempDiv.offsetWidth <= maxWidth) {
+                    tailleTrouvee = taille
+                    break
+                }
+            }
+
+            document.body.removeChild(tempDiv)
+            setTaillePoliceDecoupage(tailleTrouvee)
+        }
+    }, [isMobile, groupeActuel, exerciceActif, separations])
+
     useEffect(() => {
         checkAuth()
     }, [router])
 
     // 🎉 Célébration pour score parfait (tous les exercices avec résultats)
     useEffect(() => {
-        const exercicesAvecResultats = ['remettre-ordre-resultats', 'ou-est-ce-resultats', 'quest-ce-resultats']
+        const exercicesAvecResultats = ['remettre-ordre-resultats', 'ou-est-ce-resultats', 'quest-ce-resultats', 'decoupage-resultats']
         if (exercicesAvecResultats.includes(exerciceActif) && score.total > 0 && score.bonnes === score.total) {
             // Lancer la célébration
             setShowConfetti(true)
@@ -1033,7 +1072,7 @@ export default function ReconnaitreLesMotsPage() {
         }
     }
 
-    // Écouter la sortie du plein écran (bouton retour, Échap, etc.)
+    // Écouter la sortie du plein écran pour déverrouiller l'orientation
     useEffect(() => {
         if (!isMobile) return
 
@@ -1048,8 +1087,6 @@ export default function ReconnaitreLesMotsPage() {
                         // Ignorer
                     }
                 }
-                // Quitter l'exercice
-                setExerciceActif(null)
             }
         }
 
@@ -1190,9 +1227,7 @@ export default function ReconnaitreLesMotsPage() {
 
     function preparerDecoupage(index) {
         if (index >= groupesSens.length) {
-            alert(`Exercice terminé ! Score : ${score.bonnes}/${score.total}`)
-            quitterPleinEcran()
-            setExerciceActif(null)
+            setExerciceActif('decoupage-resultats')
             return
         }
 
@@ -3681,6 +3716,269 @@ export default function ReconnaitreLesMotsPage() {
         )
     }
 
+    // PAGE RÉSULTATS DÉCOUPAGE
+    if (exerciceActif === 'decoupage-resultats') {
+        return (
+            <div style={styles.container}>
+                <div style={styles.header}>
+                    {isMobile ? (
+                        // VERSION MOBILE
+                        <div style={{ width: '100%' }}>
+                            <h1 style={{
+                                ...styles.title,
+                                fontSize: '20px',
+                                marginBottom: '12px',
+                                textAlign: 'center'
+                            }}>
+                                📊 Résultats
+                            </h1>
+                            <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', marginBottom: '16px' }}>
+                                {/* 5 icônes : ← 👁️ 📖 🏠 🔄 */}
+                                <button
+                                    onClick={() => {
+                                        quitterPleinEcran()
+                                        setExerciceActif(null)
+                                    }}
+                                    style={{
+                                        padding: '8px 12px',
+                                        backgroundColor: 'white',
+                                        border: '2px solid #64748b',
+                                        borderRadius: '8px',
+                                        cursor: 'pointer',
+                                        fontSize: '20px',
+                                        display: 'flex',
+                                        alignItems: 'center'
+                                    }}
+                                    title="Menu exercices"
+                                >
+                                    ←
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        quitterPleinEcran()
+                                        setExerciceActif(null)
+                                    }}
+                                    style={{
+                                        padding: '8px 12px',
+                                        backgroundColor: 'white',
+                                        border: '2px solid #3b82f6',
+                                        borderRadius: '8px',
+                                        cursor: 'pointer',
+                                        fontSize: '20px',
+                                        display: 'flex',
+                                        alignItems: 'center'
+                                    }}
+                                    title="Retour aux exercices"
+                                >
+                                    👁️
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        quitterPleinEcran()
+                                        router.push('/lire')
+                                    }}
+                                    style={{
+                                        padding: '8px 12px',
+                                        backgroundColor: 'white',
+                                        border: '2px solid #10b981',
+                                        borderRadius: '8px',
+                                        cursor: 'pointer',
+                                        fontSize: '20px',
+                                        display: 'flex',
+                                        alignItems: 'center'
+                                    }}
+                                    title="Menu Lire"
+                                >
+                                    📖
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        quitterPleinEcran()
+                                        router.push('/dashboard')
+                                    }}
+                                    style={{
+                                        padding: '8px 12px',
+                                        backgroundColor: 'white',
+                                        border: '2px solid #8b5cf6',
+                                        borderRadius: '8px',
+                                        cursor: 'pointer',
+                                        fontSize: '20px',
+                                        display: 'flex',
+                                        alignItems: 'center'
+                                    }}
+                                    title="Accueil"
+                                >
+                                    🏠
+                                </button>
+                                <button
+                                    onClick={() => demarrerDecoupage()}
+                                    style={{
+                                        padding: '8px 12px',
+                                        backgroundColor: 'white',
+                                        border: '2px solid #f59e0b',
+                                        borderRadius: '8px',
+                                        cursor: 'pointer',
+                                        fontSize: '20px',
+                                        display: 'flex',
+                                        alignItems: 'center'
+                                    }}
+                                    title="Recommencer"
+                                >
+                                    🔄
+                                </button>
+                            </div>
+                            {/* Score intégré sous les icônes */}
+                            <div style={{ display: 'flex', justifyContent: 'center', marginTop: '12px' }}>
+                                <div style={{
+                                    border: '3px solid #3b82f6',
+                                    borderRadius: '12px',
+                                    padding: '8px 20px',
+                                    backgroundColor: 'white',
+                                    fontSize: '24px',
+                                    fontWeight: 'bold',
+                                    color: '#1e293b',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '8px'
+                                }}>
+                                    <span>{score.bonnes}</span>
+                                    <span style={{ color: '#64748b' }}>/</span>
+                                    <span style={{ color: '#64748b' }}>{score.total}</span>
+                                </div>
+                            </div>
+                        </div>
+                    ) : (
+                        // VERSION DESKTOP - score inline with title
+                        <div style={{ width: '100%' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                                <div style={{ flex: 1 }}>
+                                    <h1 style={styles.title}>📊 Résultats</h1>
+                                </div>
+                                {/* Score pour desktop */}
+                                <div style={{
+                                    border: '3px solid #3b82f6',
+                                    borderRadius: '12px',
+                                    padding: '8px 20px',
+                                    backgroundColor: 'white',
+                                    fontSize: '32px',
+                                    fontWeight: 'bold',
+                                    color: '#1e293b',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '8px'
+                                }}>
+                                    <span>{score.bonnes}</span>
+                                    <span style={{ color: '#64748b' }}>/</span>
+                                    <span style={{ color: '#64748b' }}>{score.total}</span>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                {/* Message de félicitations */}
+                <div style={{
+                    ...styles.resultatsBox,
+                    ...(isMobile ? {
+                        padding: '16px',
+                        marginTop: '16px'
+                    } : {})
+                }}>
+                    <div style={{
+                        textAlign: 'center',
+                        fontSize: isMobile ? '18px' : '24px',
+                        color: '#1e293b',
+                        marginBottom: '16px'
+                    }}>
+                        {score.bonnes === score.total ? (
+                            <>
+                                <div style={{ fontSize: isMobile ? '48px' : '64px', marginBottom: '16px' }}>🎉</div>
+                                <div style={{ fontWeight: 'bold', color: '#10b981' }}>Parfait !</div>
+                                <div style={{ marginTop: '8px', fontSize: isMobile ? '16px' : '20px', color: '#64748b' }}>
+                                    Toutes les phrases sont correctement découpées !
+                                </div>
+                            </>
+                        ) : score.bonnes >= score.total * 0.7 ? (
+                            <>
+                                <div style={{ fontSize: isMobile ? '48px' : '64px', marginBottom: '16px' }}>👏</div>
+                                <div style={{ fontWeight: 'bold', color: '#3b82f6' }}>Très bien !</div>
+                                <div style={{ marginTop: '8px', fontSize: isMobile ? '16px' : '20px', color: '#64748b' }}>
+                                    Tu as réussi {score.bonnes} phrases sur {score.total}
+                                </div>
+                            </>
+                        ) : (
+                            <>
+                                <div style={{ fontSize: isMobile ? '48px' : '64px', marginBottom: '16px' }}>💪</div>
+                                <div style={{ fontWeight: 'bold', color: '#f59e0b' }}>Continue !</div>
+                                <div style={{ marginTop: '8px', fontSize: isMobile ? '16px' : '20px', color: '#64748b' }}>
+                                    Tu progresses ! {score.bonnes} phrases réussies sur {score.total}
+                                </div>
+                            </>
+                        )}
+                    </div>
+                </div>
+
+                {/* Boutons de navigation desktop uniquement */}
+                {!isMobile && (
+                    <div style={styles.actions}>
+                        <button
+                            onClick={() => demarrerDecoupage()}
+                            style={styles.primaryButton}
+                        >
+                            🔄 Recommencer
+                        </button>
+                        <button
+                            onClick={() => setExerciceActif(null)}
+                            style={styles.secondaryButton}
+                        >
+                            ← Menu exercices
+                        </button>
+                    </div>
+                )}
+
+                {/* Confettis pour score parfait */}
+                {score.bonnes === score.total && (
+                    <>
+                        <audio ref={applaudissementsRef} src="/sounds/clapping.mp3" />
+                        <div style={{
+                            position: 'fixed',
+                            top: 0,
+                            left: 0,
+                            width: '100%',
+                            height: '100%',
+                            pointerEvents: 'none',
+                            zIndex: 9999,
+                            overflow: 'hidden'
+                        }}>
+                            {[...Array(50)].map((_, i) => {
+                                const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8', '#F7DC6F']
+                                const duration = 3 + Math.random() * 2
+                                const delay = Math.random() * 0.5
+                                return (
+                                    <div
+                                        key={i}
+                                        style={{
+                                            position: 'absolute',
+                                            top: '-10px',
+                                            left: `${Math.random() * 100}%`,
+                                            width: '10px',
+                                            height: '10px',
+                                            backgroundColor: colors[Math.floor(Math.random() * 6)],
+                                            opacity: 0.8,
+                                            borderRadius: '50%',
+                                            animation: `confetti-fall ${duration}s linear forwards`,
+                                            animationDelay: `${delay}s`
+                                        }}
+                                    />
+                                )
+                            })}
+                        </div>
+                    </>
+                )}
+            </div>
+        )
+    }
+
     // EXERCICE 4 : DÉCOUPAGE
     if (exerciceActif === 'decoupage' && groupeActuel) {
         const texteColle = groupeActuel.contenu.replace(/\s+/g, '')
@@ -3854,7 +4152,10 @@ export default function ReconnaitreLesMotsPage() {
                 }}>
                     {texteColle.split('').map((lettre, index) => (
                         <span key={index} style={{ display: 'inline-flex', alignItems: 'center' }}>
-                            <span style={styles.lettre}>{lettre}</span>
+                            <span style={{
+                                ...styles.lettre,
+                                ...(isMobile ? { fontSize: `${taillePoliceDecoupage}px` } : {})
+                            }}>{lettre}</span>
                             {index < texteColle.length - 1 && (
                                 <button
                                     onClick={() => toggleSeparation(index + 1)}
