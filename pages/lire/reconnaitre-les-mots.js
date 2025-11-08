@@ -90,7 +90,8 @@ export default function ReconnaitreLesMotsPage() {
 
     useEffect(() => {
         const checkMobile = () => {
-            setIsMobile(window.innerWidth <= 768)
+            // Détecte mobile en portrait (width <= 768) OU en paysage (height <= 768)
+            setIsMobile(window.innerWidth <= 768 || window.innerHeight <= 768)
         }
         checkMobile()
         window.addEventListener('resize', checkMobile)
