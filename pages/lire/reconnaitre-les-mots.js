@@ -79,6 +79,9 @@ export default function ReconnaitreLesMotsPage() {
     // Effet de célébration (confettis + son)
     const [showConfetti, setShowConfetti] = useState(false)
 
+    // Message de fin Karaoké
+    const [showFinMessage, setShowFinMessage] = useState(false)
+
     // Référence pour le conteneur karaoké (scroll automatique mobile)
     const karaokeContainerRef = useRef(null)
     const phraseContexteRef = useRef(null)
@@ -676,8 +679,11 @@ export default function ReconnaitreLesMotsPage() {
 
     function chargerGroupe(index) {
         if (index >= groupesSens.length) {
-            alert('Tous les groupes ont été lus !')
-            setExerciceActif(null)
+            setShowFinMessage(true)
+            setTimeout(() => {
+                setShowFinMessage(false)
+                setExerciceActif(null)
+            }, 3000)
             return
         }
         setGroupeActuel(groupesSens[index])
@@ -1478,6 +1484,52 @@ export default function ReconnaitreLesMotsPage() {
             .filter(mot => !/^[.,:;!?]+$/.test(mot)) // Exclure ponctuation seule
         return (
             <div style={styles.container}>
+                {/* Message de fin - Overlay */}
+                {showFinMessage && (
+                    <div style={{
+                        position: 'fixed',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        zIndex: 1000
+                    }}>
+                        <div style={{
+                            backgroundColor: 'white',
+                            padding: isMobile ? '24px' : '48px',
+                            borderRadius: '16px',
+                            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)',
+                            textAlign: 'center',
+                            maxWidth: isMobile ? '90%' : '500px',
+                            animation: 'fadeIn 0.3s ease-in'
+                        }}>
+                            <div style={{
+                                fontSize: isMobile ? '32px' : '48px',
+                                marginBottom: '16px'
+                            }}>🎉</div>
+                            <h2 style={{
+                                fontSize: isMobile ? '18px' : '24px',
+                                fontWeight: 'bold',
+                                color: '#333',
+                                margin: '0 0 8px 0'
+                            }}>
+                                Tous les groupes ont été lus !
+                            </h2>
+                            <p style={{
+                                fontSize: isMobile ? '14px' : '16px',
+                                color: '#666',
+                                margin: 0
+                            }}>
+                                Retour au menu dans 3 secondes...
+                            </p>
+                        </div>
+                    </div>
+                )}
+
                 <div style={styles.header}>
                     {isMobile ? (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', width: '100%' }}>
@@ -1503,7 +1555,7 @@ export default function ReconnaitreLesMotsPage() {
                                     ←
                                 </button>
                                 <button
-                                    onClick={() => router.push('/lire/ma-voix-mes-mots')}
+                                    onClick={() => setExerciceActif(null)}
                                     style={{
                                         padding: '8px 12px',
                                         backgroundColor: 'white',
@@ -1514,7 +1566,7 @@ export default function ReconnaitreLesMotsPage() {
                                         display: 'flex',
                                         alignItems: 'center'
                                     }}
-                                    title="Ma voix, mes mots"
+                                    title="Retour aux exercices"
                                 >
                                     👁️
                                 </button>
@@ -1733,7 +1785,7 @@ export default function ReconnaitreLesMotsPage() {
                                     ←
                                 </button>
                                 <button
-                                    onClick={() => router.push('/lire/ma-voix-mes-mots')}
+                                    onClick={() => setExerciceActif(null)}
                                     style={{
                                         padding: '8px 12px',
                                         backgroundColor: 'white',
@@ -1744,7 +1796,7 @@ export default function ReconnaitreLesMotsPage() {
                                         display: 'flex',
                                         alignItems: 'center'
                                     }}
-                                    title="Ma voix, mes mots"
+                                    title="Retour aux exercices"
                                 >
                                     👁️
                                 </button>
@@ -1946,7 +1998,7 @@ export default function ReconnaitreLesMotsPage() {
                                     ←
                                 </button>
                                 <button
-                                    onClick={() => router.push('/lire/ma-voix-mes-mots')}
+                                    onClick={() => setExerciceActif(null)}
                                     style={{
                                         padding: '8px 12px',
                                         backgroundColor: 'white',
@@ -1957,7 +2009,7 @@ export default function ReconnaitreLesMotsPage() {
                                         display: 'flex',
                                         alignItems: 'center'
                                     }}
-                                    title="Ma voix, mes mots"
+                                    title="Retour aux exercices"
                                 >
                                     👁️
                                 </button>
@@ -2238,7 +2290,7 @@ export default function ReconnaitreLesMotsPage() {
                                     ←
                                 </button>
                                 <button
-                                    onClick={() => router.push('/lire/ma-voix-mes-mots')}
+                                    onClick={() => setExerciceActif(null)}
                                     style={{
                                         padding: '8px 12px',
                                         backgroundColor: 'white',
@@ -2249,7 +2301,7 @@ export default function ReconnaitreLesMotsPage() {
                                         display: 'flex',
                                         alignItems: 'center'
                                     }}
-                                    title="Ma voix, mes mots"
+                                    title="Retour aux exercices"
                                 >
                                     👁️
                                 </button>
@@ -2532,7 +2584,7 @@ export default function ReconnaitreLesMotsPage() {
                                     ←
                                 </button>
                                 <button
-                                    onClick={() => router.push('/lire/ma-voix-mes-mots')}
+                                    onClick={() => setExerciceActif(null)}
                                     style={{
                                         padding: '8px 12px',
                                         backgroundColor: 'white',
@@ -2543,7 +2595,7 @@ export default function ReconnaitreLesMotsPage() {
                                         display: 'flex',
                                         alignItems: 'center'
                                     }}
-                                    title="Ma voix, mes mots"
+                                    title="Retour aux exercices"
                                 >
                                     👁️
                                 </button>
@@ -2805,7 +2857,7 @@ export default function ReconnaitreLesMotsPage() {
                                     ←
                                 </button>
                                 <button
-                                    onClick={() => router.push('/lire/ma-voix-mes-mots')}
+                                    onClick={() => setExerciceActif(null)}
                                     style={{
                                         padding: '8px 12px',
                                         backgroundColor: 'white',
@@ -2816,7 +2868,7 @@ export default function ReconnaitreLesMotsPage() {
                                         display: 'flex',
                                         alignItems: 'center'
                                     }}
-                                    title="Ma voix, mes mots"
+                                    title="Retour aux exercices"
                                 >
                                     👁️
                                 </button>
@@ -3118,7 +3170,7 @@ export default function ReconnaitreLesMotsPage() {
                                     ←
                                 </button>
                                 <button
-                                    onClick={() => router.push('/lire/ma-voix-mes-mots')}
+                                    onClick={() => setExerciceActif(null)}
                                     style={{
                                         padding: '8px 12px',
                                         backgroundColor: 'white',
@@ -3129,7 +3181,7 @@ export default function ReconnaitreLesMotsPage() {
                                         display: 'flex',
                                         alignItems: 'center'
                                     }}
-                                    title="Ma voix, mes mots"
+                                    title="Retour aux exercices"
                                 >
                                     👁️
                                 </button>
@@ -3237,9 +3289,10 @@ export default function ReconnaitreLesMotsPage() {
 
                 <div style={{
                     ...styles.resultatsBox,
-                    ...(isMobile ? { 
+                    ...(isMobile ? {
                         padding: '8px',
-                        marginTop: '8px'
+                        marginTop: '8px',
+                        backgroundColor: 'transparent'
                     } : {})
                 }}>
                     {resultats.reussis.length > 0 && (
@@ -3251,9 +3304,10 @@ export default function ReconnaitreLesMotsPage() {
                         }}>
                             <h2 style={{
                                 ...styles.resultatsSectionTitle,
-                                ...(isMobile ? { 
+                                ...(isMobile ? {
                                     fontSize: '16px',
-                                    marginBottom: '8px'
+                                    marginBottom: '8px',
+                                    textAlign: 'center'
                                 } : {})
                             }}>
                                 ✅ Phrases réussies ({resultats.reussis.length})
@@ -3277,9 +3331,10 @@ export default function ReconnaitreLesMotsPage() {
                         }}>
                             <h2 style={{
                                 ...styles.resultatsSectionTitle,
-                                ...(isMobile ? { 
+                                ...(isMobile ? {
                                     fontSize: '16px',
-                                    marginBottom: '8px'
+                                    marginBottom: '8px',
+                                    textAlign: 'center'
                                 } : {})
                             }}>
                                 ❌ Phrases ratées ({resultats.rates.length})
@@ -3359,7 +3414,7 @@ export default function ReconnaitreLesMotsPage() {
                         {isMobile && (
                             <div style={{ display: 'flex', gap: '8px', marginLeft: '12px' }}>
                                 <button
-                                    onClick={() => router.push('/lire/ma-voix-mes-mots')}
+                                    onClick={() => setExerciceActif(null)}
                                     style={{
                                         padding: '8px 12px',
                                         backgroundColor: 'white',
@@ -3370,7 +3425,7 @@ export default function ReconnaitreLesMotsPage() {
                                         display: 'flex',
                                         alignItems: 'center'
                                     }}
-                                    title="Ma voix, mes mots"
+                                    title="Retour aux exercices"
                                 >
                                     👁️
                                 </button>
