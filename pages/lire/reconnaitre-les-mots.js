@@ -61,6 +61,7 @@ export default function ReconnaitreLesMotsPage() {
     // Qu'est-ce ?
     const [sonSelectionne, setSonSelectionne] = useState(null)
     const [sonsDesordre, setSonsDesordre] = useState([])
+    const [listeMotsQuestCe, setListeMotsQuestCe] = useState([]) // Liste de tous les mots pour "Qu'est-ce ?"
 
     // Découpage
     const [separations, setSeparations] = useState([])
@@ -869,40 +870,56 @@ export default function ReconnaitreLesMotsPage() {
     // ==================== EXERCICE 3 : QU'EST-CE ? ====================
     function demarrerQuestCe() {
         if (groupesSens.length === 0) return
+
+        // Créer une liste de tous les mots de tous les groupes
+        const tousLesMots = []
+        groupesSens.forEach(groupe => {
+            const mots = groupe.contenu
+                .trim()
+                .split(/\s+/)
+                .filter(mot => mot && mot.trim().length > 0)
+                .filter(mot => !/^[.,:;!?]+$/.test(mot))
+
+            mots.forEach(mot => {
+                tousLesMots.push({
+                    mot: mot,
+                    groupe: groupe,
+                    tousMotsGroupe: mots
+                })
+            })
+        })
+
+        // Mélanger tous les mots (Fisher-Yates)
+        const motsAleaoires = melangerTableau(tousLesMots)
+
+        setListeMotsQuestCe(motsAleaoires)
         setFeedback(null)
         setScore({ bonnes: 0, total: 0 })
         setResultats({ reussis: [], rates: [] })
         setSonSelectionne(null)
         setExerciceActif('quest-ce')
-        setIndexGroupe(0)
-        preparerQuestionQuestCe(0)
+        setIndexQuestion(0)
+        preparerQuestionQuestCe(0, motsAleaoires)
     }
 
-    function preparerQuestionQuestCe(index) {
-        if (index >= groupesSens.length) {
+    function preparerQuestionQuestCe(index, listeMots = listeMotsQuestCe) {
+        if (index >= listeMots.length) {
             setExerciceActif('quest-ce-resultats')
             return
         }
 
-        const groupe = groupesSens[index]
-        // Filtrer les mots vides
-        const mots = groupe.contenu
-            .trim()
-            .split(/\s+/)
-            .filter(mot => mot && mot.trim().length > 0)
-            .filter(mot => !/^[.,:;!?]+$/.test(mot)) // Exclure ponctuation seule
+        const item = listeMots[index]
+        const motAleatoire = item.mot
+        const groupe = item.groupe
+        const mots = item.tousMotsGroupe
 
-        if (mots.length > 0) {
-            const motAleatoire = mots[Math.floor(Math.random() * mots.length)]
+        // Mélanger l'ordre des sons (Fisher-Yates)
+        const sonsMelanges = melangerTableau(mots)
 
-            // Mélanger l'ordre des sons (Fisher-Yates)
-            const sonsMelanges = melangerTableau(mots)
-
-            setGroupeActuel(groupe)
-            setMotActuel(motAleatoire)
-            setSonsDesordre(sonsMelanges)
-            setSonSelectionne(null) // Réinitialiser la sélection
-        }
+        setGroupeActuel(groupe)
+        setMotActuel(motAleatoire)
+        setSonsDesordre(sonsMelanges)
+        setSonSelectionne(null) // Réinitialiser la sélection
     }
 
     function verifierReponseQuestCe(motChoisi) {
@@ -934,8 +951,8 @@ export default function ReconnaitreLesMotsPage() {
         setTimeout(() => {
             setFeedback(null)
             setSonSelectionne(null) // Réinitialiser la sélection
-            const nextIndex = indexGroupe + 1
-            setIndexGroupe(nextIndex)
+            const nextIndex = indexQuestion + 1
+            setIndexQuestion(nextIndex)
             preparerQuestionQuestCe(nextIndex)
         }, 1500)
     }
@@ -2672,7 +2689,7 @@ export default function ReconnaitreLesMotsPage() {
                                 🔊 Qu'est-ce ?
                             </h1>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '14px', marginBottom: '12px', color: '#64748b' }}>
-                                <span>Question {indexGroupe + 1} / {groupesSens.length}</span>
+                                <span>Question {indexQuestion + 1} / {listeMotsQuestCe.length}</span>
                                 <span>Score : {score.bonnes}/{score.total}</span>
                             </div>
                             <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
@@ -2763,7 +2780,7 @@ export default function ReconnaitreLesMotsPage() {
                             <div style={{ flex: 1 }}>
                                 <h1 style={styles.title}>🔊 Qu'est-ce ?</h1>
                                 <p style={styles.subtitle}>
-                                    Question {indexGroupe + 1} / {groupesSens.length} • Score : {score.bonnes}/{score.total}
+                                    Question {indexQuestion + 1} / {listeMotsQuestCe.length} • Score : {score.bonnes}/{score.total}
                                 </p>
                             </div>
                         </div>
