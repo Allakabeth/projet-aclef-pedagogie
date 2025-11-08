@@ -190,8 +190,8 @@ export default function ReconnaitreLesMotsPage() {
             // Calculer espace disponible (largeur totale - marges - espace boutons séparation)
             // En paysage on a plus d'espace, mais il faut compter les boutons de séparation
             const nombreBoutons = texteColle.length - 1
-            const espaceBoutons = nombreBoutons * 16 // Estimation: ~16px par bouton (cliquable + séparation)
-            const maxWidth = window.innerWidth - 100 - espaceBoutons // 100px marge sécurité
+            const espaceBoutons = nombreBoutons * 35 // Estimation: ~35px par bouton (cliquable + séparation + marges)
+            const maxWidth = window.innerWidth - 150 - espaceBoutons // 150px marge sécurité
 
             let tailleTrouvee = 16
             const tailles = [80, 72, 64, 56, 48, 44, 40, 36, 32, 28, 26, 24, 22, 20, 18, 16, 14, 12]
@@ -3938,9 +3938,7 @@ export default function ReconnaitreLesMotsPage() {
 
                 {/* Confettis pour score parfait */}
                 {score.bonnes === score.total && (
-                    <>
-                        <audio ref={applaudissementsRef} src="/sounds/clapping.mp3" />
-                        <div style={{
+                    <div style={{
                             position: 'fixed',
                             top: 0,
                             left: 0,
@@ -3973,7 +3971,6 @@ export default function ReconnaitreLesMotsPage() {
                                 )
                             })}
                         </div>
-                    </>
                 )}
             </div>
         )
