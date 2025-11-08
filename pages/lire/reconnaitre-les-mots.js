@@ -2462,7 +2462,8 @@ export default function ReconnaitreLesMotsPage() {
                     ...styles.resultatsBox,
                     ...(isMobile ? {
                         padding: '8px',
-                        marginTop: '8px'
+                        marginTop: '8px',
+                        backgroundColor: 'transparent'
                     } : {})
                 }}>
                     {resultats.reussis.length > 0 && (
@@ -2476,7 +2477,8 @@ export default function ReconnaitreLesMotsPage() {
                                 ...styles.resultatsSectionTitle,
                                 ...(isMobile ? {
                                     fontSize: '16px',
-                                    marginBottom: '8px'
+                                    marginBottom: '8px',
+                                    textAlign: 'center'
                                 } : {})
                             }}>
                                 ✅ Mots réussis ({resultats.reussis.length})
@@ -2596,6 +2598,59 @@ export default function ReconnaitreLesMotsPage() {
                             📖
                         </button>
                     </div>
+                )}
+
+                {/* Confettis de célébration */}
+                {showConfetti && (
+                    <>
+                        <style dangerouslySetInnerHTML={{
+                            __html: `
+                                @keyframes confetti-fall {
+                                    0% {
+                                        transform: translateY(0) rotate(0deg);
+                                        opacity: 1;
+                                    }
+                                    100% {
+                                        transform: translateY(100vh) rotate(720deg);
+                                        opacity: 0;
+                                    }
+                                }
+                            `
+                        }} />
+                        <div style={{
+                            position: 'fixed',
+                            top: 0,
+                            left: 0,
+                            width: '100vw',
+                            height: '100vh',
+                            pointerEvents: 'none',
+                            zIndex: 9999,
+                            overflow: 'hidden'
+                        }}>
+                            {[...Array(50)].map((_, i) => {
+                                const colors = ['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff']
+                                const duration = 2 + Math.random() * 2
+                                const delay = Math.random() * 0.5
+                                return (
+                                    <div
+                                        key={i}
+                                        style={{
+                                            position: 'absolute',
+                                            top: '-10px',
+                                            left: `${Math.random() * 100}%`,
+                                            width: '10px',
+                                            height: '10px',
+                                            backgroundColor: colors[Math.floor(Math.random() * 6)],
+                                            opacity: 0.8,
+                                            borderRadius: '50%',
+                                            animation: `confetti-fall ${duration}s linear forwards`,
+                                            animationDelay: `${delay}s`
+                                        }}
+                                    />
+                                )
+                            })}
+                        </div>
+                    </>
                 )}
             </div>
         )
