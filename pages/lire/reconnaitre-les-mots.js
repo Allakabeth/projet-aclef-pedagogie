@@ -1009,31 +1009,57 @@ export default function ReconnaitreLesMotsPage() {
         setFeedback(null) // Réinitialiser le feedback
     }
 
-    // Nettoyage plein écran et orientation quand on quitte Découpage
-    useEffect(() => {
-        // Fonction de nettoyage quand on quitte l'exercice
-        return () => {
-            if (isMobile && exerciceActif !== 'decoupage') {
-                // Sortir du plein écran
-                if (document.fullscreenElement || document.webkitFullscreenElement) {
-                    if (document.exitFullscreen) {
-                        document.exitFullscreen().catch(() => {})
-                    } else if (document.webkitExitFullscreen) {
-                        document.webkitExitFullscreen()
-                    }
-                }
+    // Fonction pour sortir du plein écran (mobile)
+    function quitterPleinEcran() {
+        if (!isMobile) return
 
+        // Sortir du plein écran
+        if (document.fullscreenElement || document.webkitFullscreenElement) {
+            if (document.exitFullscreen) {
+                document.exitFullscreen().catch(() => {})
+            } else if (document.webkitExitFullscreen) {
+                document.webkitExitFullscreen()
+            }
+        }
+
+        // Déverrouiller l'orientation
+        if (screen.orientation && screen.orientation.unlock) {
+            try {
+                screen.orientation.unlock()
+            } catch (e) {
+                // Ignorer les erreurs
+            }
+        }
+    }
+
+    // Écouter la sortie du plein écran (bouton retour, Échap, etc.)
+    useEffect(() => {
+        if (!isMobile) return
+
+        function handleFullscreenChange() {
+            // Si on sort du plein écran alors qu'on est dans Découpage
+            if (exerciceActif === 'decoupage' && !document.fullscreenElement && !document.webkitFullscreenElement) {
                 // Déverrouiller l'orientation
                 if (screen.orientation && screen.orientation.unlock) {
                     try {
                         screen.orientation.unlock()
                     } catch (e) {
-                        // Ignorer les erreurs
+                        // Ignorer
                     }
                 }
+                // Quitter l'exercice
+                setExerciceActif(null)
             }
         }
-    }, [exerciceActif, isMobile])
+
+        document.addEventListener('fullscreenchange', handleFullscreenChange)
+        document.addEventListener('webkitfullscreenchange', handleFullscreenChange)
+
+        return () => {
+            document.removeEventListener('fullscreenchange', handleFullscreenChange)
+            document.removeEventListener('webkitfullscreenchange', handleFullscreenChange)
+        }
+    }, [isMobile, exerciceActif])
 
     // Calcul dynamique de la taille de police pour mobile
     useEffect(() => {
@@ -1164,6 +1190,7 @@ export default function ReconnaitreLesMotsPage() {
     function preparerDecoupage(index) {
         if (index >= groupesSens.length) {
             alert(`Exercice terminé ! Score : ${score.bonnes}/${score.total}`)
+            quitterPleinEcran()
             setExerciceActif(null)
             return
         }
@@ -3669,7 +3696,10 @@ export default function ReconnaitreLesMotsPage() {
                         {isMobile && (
                             <div style={{ display: 'flex', gap: '8px', marginLeft: '12px' }}>
                                 <button
-                                    onClick={() => setExerciceActif(null)}
+                                    onClick={() => {
+                                        quitterPleinEcran()
+                                        setExerciceActif(null)
+                                    }}
                                     style={{
                                         padding: '8px 12px',
                                         backgroundColor: 'white',
@@ -3685,7 +3715,10 @@ export default function ReconnaitreLesMotsPage() {
                                     👁️
                                 </button>
                                 <button
-                                    onClick={() => router.push('/lire')}
+                                    onClick={() => {
+                                        quitterPleinEcran()
+                                        router.push('/lire')
+                                    }}
                                     style={{
                                         padding: '8px 12px',
                                         backgroundColor: 'white',
@@ -3762,7 +3795,10 @@ export default function ReconnaitreLesMotsPage() {
                     >
                         Effacer
                     </button>
-                    <button onClick={() => setExerciceActif(null)} style={styles.secondaryButton}>
+                    <button onClick={() => {
+                        quitterPleinEcran()
+                        setExerciceActif(null)
+                    }} style={styles.secondaryButton}>
                         ← Menu exercices
                     </button>
                 </div>
