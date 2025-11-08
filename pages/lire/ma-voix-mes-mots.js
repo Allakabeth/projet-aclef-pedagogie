@@ -50,6 +50,9 @@ export default function MaVoixMesMotsPage() {
     // Détection mobile/desktop
     const [isMobile, setIsMobile] = useState(false)
 
+    // Taille de police dynamique pour le texte (mobile)
+    const [taillePoliceTexte, setTaillePoliceTexte] = useState(16)
+
     // ========================================================================
     // 1. AUTHENTIFICATION
     // ========================================================================
@@ -67,6 +70,39 @@ export default function MaVoixMesMotsPage() {
         window.addEventListener('resize', checkMobile)
         return () => window.removeEventListener('resize', checkMobile)
     }, [])
+
+    // Calcul automatique de la taille de police pour le texte (mobile)
+    useEffect(() => {
+        if (isMobile && groupeActuel && etape === 'exercice') {
+            const texte = groupeActuel.contenu
+
+            if (!texte || texte.trim().length === 0) return
+
+            // Créer un élément temporaire pour mesurer
+            const tempDiv = document.createElement('div')
+            tempDiv.style.position = 'absolute'
+            tempDiv.style.visibility = 'hidden'
+            tempDiv.style.whiteSpace = 'nowrap'
+            tempDiv.style.fontWeight = 'normal'
+            tempDiv.innerHTML = texte
+            document.body.appendChild(tempDiv)
+
+            const maxWidth = window.innerWidth - 100 // Marge de sécurité pour éviter débordement
+            let tailleTrouvee = 16
+            const tailles = [100, 90, 80, 72, 64, 56, 52, 48, 44, 40, 36, 32, 30, 28, 26, 24, 22, 20, 18, 16, 14, 12]
+
+            for (let taille of tailles) {
+                tempDiv.style.fontSize = `${taille}px`
+                if (tempDiv.offsetWidth <= maxWidth) {
+                    tailleTrouvee = taille
+                    break
+                }
+            }
+
+            document.body.removeChild(tempDiv)
+            setTaillePoliceTexte(tailleTrouvee)
+        }
+    }, [isMobile, groupeActuel, etape, indexMotActuel])
 
     // Détection automatique des textes présélectionnés
     useEffect(() => {
@@ -713,13 +749,14 @@ export default function MaVoixMesMotsPage() {
                         {/* Groupe de sens avec mot actuel illuminé */}
                         <div style={{
                             marginTop: '12px',
-                            fontSize: '16px',
+                            fontSize: `${taillePoliceTexte}px`,
                             color: '#666',
-                            lineHeight: '1.5',
+                            lineHeight: '1.2',
                             whiteSpace: 'nowrap',
                             overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            width: '100%'
+                            textAlign: 'left',
+                            width: '100%',
+                            padding: '0 16px'
                         }}>
                             {groupeActuel?.contenu.split(' ').map((mot, idx) => {
                                 const motActuel = motsUniques[indexMotActuel]
