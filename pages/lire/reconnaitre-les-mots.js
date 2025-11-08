@@ -3694,7 +3694,26 @@ export default function ReconnaitreLesMotsPage() {
                             </p>
                         </div>
                         {isMobile && (
-                            <div style={{ display: 'flex', gap: '8px', marginLeft: '12px' }}>
+                            <div style={{ display: 'flex', gap: '6px', marginLeft: '12px', flexWrap: 'wrap' }}>
+                                <button
+                                    onClick={() => {
+                                        quitterPleinEcran()
+                                        setExerciceActif(null)
+                                    }}
+                                    style={{
+                                        padding: '8px 12px',
+                                        backgroundColor: 'white',
+                                        border: '2px solid #64748b',
+                                        borderRadius: '8px',
+                                        cursor: 'pointer',
+                                        fontSize: '20px',
+                                        display: 'flex',
+                                        alignItems: 'center'
+                                    }}
+                                    title="Menu exercices"
+                                >
+                                    ←
+                                </button>
                                 <button
                                     onClick={() => {
                                         quitterPleinEcran()
@@ -3733,6 +3752,77 @@ export default function ReconnaitreLesMotsPage() {
                                 >
                                     📖
                                 </button>
+                                <button
+                                    onClick={() => {
+                                        quitterPleinEcran()
+                                        router.push('/dashboard')
+                                    }}
+                                    style={{
+                                        padding: '8px 12px',
+                                        backgroundColor: 'white',
+                                        border: '2px solid #8b5cf6',
+                                        borderRadius: '8px',
+                                        cursor: 'pointer',
+                                        fontSize: '20px',
+                                        display: 'flex',
+                                        alignItems: 'center'
+                                    }}
+                                    title="Accueil"
+                                >
+                                    🏠
+                                </button>
+                                <button
+                                    onClick={lireGroupeDeSens}
+                                    style={{
+                                        padding: '8px 12px',
+                                        backgroundColor: 'white',
+                                        border: '2px solid #f59e0b',
+                                        borderRadius: '8px',
+                                        cursor: 'pointer',
+                                        fontSize: '20px',
+                                        display: 'flex',
+                                        alignItems: 'center'
+                                    }}
+                                    title="Écouter"
+                                >
+                                    🔊
+                                </button>
+                                <button
+                                    onClick={quitterPleinEcran}
+                                    style={{
+                                        padding: '8px 12px',
+                                        backgroundColor: 'white',
+                                        border: '2px solid #ef4444',
+                                        borderRadius: '8px',
+                                        cursor: 'pointer',
+                                        fontSize: '20px',
+                                        display: 'flex',
+                                        alignItems: 'center'
+                                    }}
+                                    title="Sortir du plein écran"
+                                >
+                                    ⛶
+                                </button>
+                                <button
+                                    onClick={verifierDecoupage}
+                                    disabled={feedback !== null}
+                                    style={{
+                                        padding: '8px 16px',
+                                        backgroundColor: feedback ? '#94a3b8' : '#3b82f6',
+                                        color: 'white',
+                                        border: 'none',
+                                        borderRadius: '8px',
+                                        cursor: feedback ? 'not-allowed' : 'pointer',
+                                        fontSize: '16px',
+                                        fontWeight: '600',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        opacity: feedback ? 0.5 : 1
+                                    }}
+                                    title="Vérifier"
+                                >
+                                    Vérifier
+                                </button>
                             </div>
                         )}
                     </div>
@@ -3747,11 +3837,20 @@ export default function ReconnaitreLesMotsPage() {
                     </div>
                 )}
 
-                <div style={styles.questionBox}>
-                    <p style={styles.consigne}>Clique entre les lettres pour séparer les mots :</p>
-                </div>
+                {!isMobile && (
+                    <div style={styles.questionBox}>
+                        <p style={styles.consigne}>Clique entre les lettres pour séparer les mots :</p>
+                    </div>
+                )}
 
-                <div style={styles.decoupageBox}>
+                <div style={{
+                    ...styles.decoupageBox,
+                    ...(isMobile ? {
+                        backgroundColor: 'transparent',
+                        padding: '16px 0',
+                        borderRadius: '0'
+                    } : {})
+                }}>
                     {texteColle.split('').map((lettre, index) => (
                         <span key={index} style={{ display: 'inline-flex', alignItems: 'center' }}>
                             <span style={styles.lettre}>{lettre}</span>
@@ -3774,34 +3873,36 @@ export default function ReconnaitreLesMotsPage() {
                     ))}
                 </div>
 
-                <div style={styles.actions}>
-                    <button
-                        onClick={verifierDecoupage}
-                        disabled={feedback !== null}
-                        style={{
-                            ...styles.primaryButton,
-                            ...(feedback ? { opacity: 0.5, cursor: 'not-allowed' } : {})
-                        }}
-                    >
-                        Vérifier
-                    </button>
-                    <button
-                        onClick={() => setSeparations([])}
-                        disabled={feedback !== null}
-                        style={{
-                            ...styles.secondaryButton,
-                            ...(feedback ? { opacity: 0.5, cursor: 'not-allowed' } : {})
-                        }}
-                    >
-                        Effacer
-                    </button>
-                    <button onClick={() => {
-                        quitterPleinEcran()
-                        setExerciceActif(null)
-                    }} style={styles.secondaryButton}>
-                        ← Menu exercices
-                    </button>
-                </div>
+                {!isMobile && (
+                    <div style={styles.actions}>
+                        <button
+                            onClick={verifierDecoupage}
+                            disabled={feedback !== null}
+                            style={{
+                                ...styles.primaryButton,
+                                ...(feedback ? { opacity: 0.5, cursor: 'not-allowed' } : {})
+                            }}
+                        >
+                            Vérifier
+                        </button>
+                        <button
+                            onClick={() => setSeparations([])}
+                            disabled={feedback !== null}
+                            style={{
+                                ...styles.secondaryButton,
+                                ...(feedback ? { opacity: 0.5, cursor: 'not-allowed' } : {})
+                            }}
+                        >
+                            Effacer
+                        </button>
+                        <button onClick={() => {
+                            quitterPleinEcran()
+                            setExerciceActif(null)
+                        }} style={styles.secondaryButton}>
+                            ← Menu exercices
+                        </button>
+                    </div>
+                )}
 
                 {/* Icônes de navigation (desktop uniquement) */}
                 {!isMobile && (
