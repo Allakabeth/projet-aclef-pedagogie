@@ -1241,18 +1241,12 @@ export default function ReconnaitreLesMotsPage() {
 
         // Ne préparer que si on a des mots valides
         if (motsValides.length > 0) {
-            const texteColle = groupe.contenu.replace(/\s+/g, '')
             setGroupeActuel(groupe)
-            // Initialiser avec séparations invisibles au début (0) et à la fin (length)
-            setSeparations([0, texteColle.length])
+            setSeparations([])
         }
     }
 
     function toggleSeparation(position) {
-        const texteColle = groupeActuel.contenu.replace(/\s+/g, '')
-        // Empêcher de retirer les séparations invisibles (début et fin)
-        if (position === 0 || position === texteColle.length) return
-
         if (separations.includes(position)) {
             setSeparations(separations.filter(p => p !== position))
         } else {
@@ -1279,13 +1273,10 @@ export default function ReconnaitreLesMotsPage() {
             positionsAttendues.push(pos)
         }
 
-        // Filtrer les séparations invisibles (0 et length) pour la vérification
-        const separationsUtilisateur = separations.filter(p => p !== 0 && p !== texteColle.length)
-
         // Vérifier si les séparations correspondent
         const correct =
-            separationsUtilisateur.length === positionsAttendues.length &&
-            separationsUtilisateur.every((p, i) => p === positionsAttendues[i])
+            separations.length === positionsAttendues.length &&
+            separations.every((p, i) => p === positionsAttendues[i])
 
         const newScore = {
             bonnes: score.bonnes + (correct ? 1 : 0),
@@ -3946,7 +3937,7 @@ export default function ReconnaitreLesMotsPage() {
                 )}
 
                 {/* Confettis pour score parfait */}
-                {score.bonnes === score.total && (
+                {score.total > 0 && score.bonnes === score.total && (
                     <>
                         <style dangerouslySetInnerHTML={{
                             __html: `
@@ -4173,15 +4164,40 @@ export default function ReconnaitreLesMotsPage() {
                     } : {})
                 }}>
                     {(() => {
-                        // Créer les groupes de lettres basés sur les séparations
                         const lettres = texteColle.split('')
-                        const separationsSorted = [...separations].sort((a, b) => a - b)
+
+                        // Si aucune séparation : affichage simple
+                        if (separations.length === 0) {
+                            return lettres.map((lettre, index) => (
+                                <span key={index} style={{ display: 'inline-flex', alignItems: 'center' }}>
+                                    <span style={{
+                                        ...styles.lettre,
+                                        ...(isMobile ? { fontSize: `${taillePoliceDecoupage}px` } : {})
+                                    }}>{lettre}</span>
+                                    {index < lettres.length - 1 && (
+                                        <button
+                                            onClick={() => toggleSeparation(index + 1)}
+                                            style={{
+                                                ...styles.separationButton,
+                                                cursor: 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'24\' height=\'24\' viewBox=\'0 0 24 24\'%3E%3Ctext y=\'20\' font-size=\'20\'%3E✂️%3C/text%3E%3C/svg%3E") 12 12, crosshair'
+                                            }}
+                                            title="Cliquer pour couper"
+                                        />
+                                    )}
+                                </span>
+                            ))
+                        }
+
+                        // Si des séparations : créer des groupes
+                        const separationsSorted = [0, ...separations, lettres.length].sort((a, b) => a - b)
                         const groupes = []
 
                         for (let i = 0; i < separationsSorted.length - 1; i++) {
                             const debut = separationsSorted[i]
                             const fin = separationsSorted[i + 1]
-                            groupes.push({ debut, fin, lettres: lettres.slice(debut, fin) })
+                            if (debut !== fin) {
+                                groupes.push({ debut, fin, lettres: lettres.slice(debut, fin) })
+                            }
                         }
 
                         return groupes.map((groupe, groupeIndex) => (
@@ -4254,10 +4270,7 @@ export default function ReconnaitreLesMotsPage() {
                             Vérifier
                         </button>
                         <button
-                            onClick={() => {
-                                const texteColle = groupeActuel.contenu.replace(/\s+/g, '')
-                                setSeparations([0, texteColle.length])
-                            }}
+                            onClick={() => setSeparations([])}
                             disabled={feedback !== null}
                             style={{
                                 ...styles.secondaryButton,
