@@ -3947,7 +3947,22 @@ export default function ReconnaitreLesMotsPage() {
 
                 {/* Confettis pour score parfait */}
                 {score.bonnes === score.total && (
-                    <div style={{
+                    <>
+                        <style dangerouslySetInnerHTML={{
+                            __html: `
+                                @keyframes confetti-fall {
+                                    0% {
+                                        transform: translateY(0) rotate(0deg);
+                                        opacity: 1;
+                                    }
+                                    100% {
+                                        transform: translateY(100vh) rotate(720deg);
+                                        opacity: 0;
+                                    }
+                                }
+                            `
+                        }} />
+                        <div style={{
                             position: 'fixed',
                             top: 0,
                             left: 0,
@@ -3980,6 +3995,7 @@ export default function ReconnaitreLesMotsPage() {
                                 )
                             })}
                         </div>
+                    </>
                 )}
             </div>
         )
