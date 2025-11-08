@@ -134,10 +134,7 @@ export default function ReconnaitreLesMotsPage() {
 
     // Calcul automatique de la taille de police pour "Qu'est-ce ?" (mobile)
     useEffect(() => {
-        if (isMobile && phraseRefQuestCe.current && groupeActuel && exerciceActif === 'quest-ce') {
-            const container = phraseRefQuestCe.current
-            const containerWidth = container.offsetWidth - 40 // padding 20px de chaque côté
-
+        if (isMobile && groupeActuel && exerciceActif === 'quest-ce') {
             const mots = groupeActuel.contenu
                 .trim()
                 .split(/\s+/)
@@ -146,20 +143,28 @@ export default function ReconnaitreLesMotsPage() {
 
             if (mots.length === 0) return
 
+            // Créer un élément temporaire pour mesurer
+            const tempDiv = document.createElement('div')
+            tempDiv.style.position = 'absolute'
+            tempDiv.style.visibility = 'hidden'
+            tempDiv.style.whiteSpace = 'nowrap'
+            tempDiv.style.fontWeight = '600'
+            tempDiv.innerHTML = mots.join(' ')
+            document.body.appendChild(tempDiv)
+
+            const maxWidth = window.innerWidth - 100 // Marge de sécurité pour éviter débordement
             let tailleTrouvee = 16
-            const tailles = [36, 34, 32, 30, 28, 26, 24, 22, 20, 18, 16, 14, 12]
+            const tailles = [100, 90, 80, 72, 64, 56, 52, 48, 44, 40, 36, 32, 30, 28, 26, 24, 22, 20, 18, 16, 14, 12]
 
             for (let taille of tailles) {
-                container.style.fontSize = `${taille}px`
-                container.style.whiteSpace = 'nowrap' // Une seule ligne obligatoire
-
-                // Vérifier que le contenu tient en largeur sur une seule ligne
-                if (container.scrollWidth <= containerWidth) {
+                tempDiv.style.fontSize = `${taille}px`
+                if (tempDiv.offsetWidth <= maxWidth) {
                     tailleTrouvee = taille
                     break
                 }
             }
 
+            document.body.removeChild(tempDiv)
             setTaillePoliceQuestCe(tailleTrouvee)
         }
     }, [isMobile, groupeActuel, exerciceActif, motActuel])
@@ -2796,46 +2801,58 @@ export default function ReconnaitreLesMotsPage() {
                     </div>
                 )}
 
-                <div style={isMobile ? { marginTop: '16px', marginBottom: '24px', width: '100%', boxSizing: 'border-box' } : styles.questionBox}>
-                    {!isMobile && <p style={styles.consigne}>Le mot illuminé est :</p>}
-                    <div 
+                {isMobile ? (
+                    <div
                         ref={phraseRefQuestCe}
-                        style={isMobile ? {
-                            padding: '20px',
-                            borderRadius: '12px',
-                            textAlign: 'center',
-                            backgroundColor: 'white',
-                            border: '2px solid #cbd5e1',
-                            display: 'flex',
-                            justifyContent: 'center',
-                            alignItems: 'center',
-                            flexWrap: 'wrap',
-                            gap: '6px',
+                        style={{
+                            marginTop: '16px',
+                            marginBottom: '24px',
+                            width: '100%',
+                            textAlign: 'left',
                             fontSize: `${taillePoliceQuestCe}px`,
                             fontWeight: '600',
-                            lineHeight: '1.3',
-                            minHeight: '80px'
-                    } : styles.phraseBox}>
+                            lineHeight: '1.2',
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            padding: '0 16px'
+                        }}
+                    >
                         {mots.map((mot, index) => (
                             <span
                                 key={index}
                                 style={{
-                                    display: 'inline-block',
-                                    ...(!isMobile ? { marginRight: '24px' } : {}),
-                                    ...(isMobile && mot === motActuel ? {
+                                    marginRight: index < mots.length - 1 ? '0.3em' : '0',
+                                    ...(mot === motActuel ? {
                                         backgroundColor: '#fef08a',
-                                        padding: '4px 6px',
+                                        padding: '4px 8px',
                                         borderRadius: '6px'
-                                    } : {}),
-                                    ...(!isMobile && mot === motActuel ? styles.motIllumine : {})
+                                    } : {})
                                 }}
                             >
                                 {mot}
                             </span>
                         ))}
                     </div>
-                    {!isMobile && <p style={styles.consigne}>🔊 Écoute les sons et choisis le bon :</p>}
-                </div>
+                ) : (
+                    <div style={styles.questionBox}>
+                        <p style={styles.consigne}>Le mot illuminé est :</p>
+                        <div style={styles.phraseBox}>
+                            {mots.map((mot, index) => (
+                                <span
+                                    key={index}
+                                    style={{
+                                        display: 'inline-block',
+                                        marginRight: '24px',
+                                        ...(mot === motActuel ? styles.motIllumine : {})
+                                    }}
+                                >
+                                    {mot}
+                                </span>
+                            ))}
+                        </div>
+                        <p style={styles.consigne}>🔊 Écoute les sons et choisis le bon :</p>
+                    </div>
+                )}
 
                 <div style={{
                     ...styles.motsGrid,
