@@ -1262,6 +1262,13 @@ export default function ReconnaitreLesMotsPage() {
                     }}>👁️ Reconnaitre les mots</h1>
                     <div style={styles.navIcons}>
                         <button
+                            onClick={retourSelection}
+                            style={styles.iconButton}
+                            title="Changer de textes"
+                        >
+                            ←
+                        </button>
+                        <button
                             onClick={() => router.push('/lire')}
                             style={styles.iconButton}
                             title="Menu Lecture"
@@ -1281,80 +1288,182 @@ export default function ReconnaitreLesMotsPage() {
                     </p>
                 </div>
 
-                <div style={styles.exercicesGrid}>
-                    <div style={styles.exerciceCard} onClick={() => {
+                <div style={{
+                    ...styles.exercicesGrid,
+                    gridTemplateColumns: isMobile ? 'repeat(3, 1fr)' : 'repeat(auto-fit, minmax(250px, 1fr))',
+                    gap: isMobile ? '8px' : '20px'
+                }}>
+                    <div style={{
+                        ...styles.exerciceCard,
+                        padding: isMobile ? '8px' : '32px'
+                    }} onClick={() => {
                         // textesSelectionnes contient déjà les IDs (nombres)
                         const texteIds = textesSelectionnes.join(',')
                         router.push(`/lire/ma-voix-mes-mots?texte_ids=${texteIds}`)
                     }}>
-                        <div style={styles.exerciceIcon}>🎙️</div>
-                        <h3 style={styles.exerciceTitle}>Ma voix, mes mots</h3>
-                        <p style={styles.exerciceDescription}>
-                            Enregistre ta voix pour chaque mot de ton texte
-                        </p>
+                        <div style={{
+                            ...styles.exerciceIcon,
+                            fontSize: isMobile ? '16px' : '64px',
+                            marginBottom: isMobile ? '4px' : '16px'
+                        }}>🎙️</div>
+                        <h3 style={{
+                            ...styles.exerciceTitle,
+                            fontSize: isMobile ? '12px' : '20px',
+                            marginBottom: isMobile ? '2px' : '8px'
+                        }}>Ma voix, mes mots</h3>
+                        {!isMobile && (
+                            <p style={styles.exerciceDescription}>
+                                Enregistre ta voix pour chaque mot de ton texte
+                            </p>
+                        )}
                     </div>
 
-                    <div style={styles.exerciceCard} onClick={demarrerKaraoke}>
-                        <div style={styles.exerciceIcon}>🎤</div>
-                        <h3 style={styles.exerciceTitle}>Karaoké</h3>
-                        <p style={styles.exerciceDescription}>
-                            Chaque mot s'illumine quand il est prononcé
-                        </p>
+                    <div style={{
+                        ...styles.exerciceCard,
+                        padding: isMobile ? '8px' : '32px'
+                    }} onClick={demarrerKaraoke}>
+                        <div style={{
+                            ...styles.exerciceIcon,
+                            fontSize: isMobile ? '16px' : '64px',
+                            marginBottom: isMobile ? '4px' : '16px'
+                        }}>🎤</div>
+                        <h3 style={{
+                            ...styles.exerciceTitle,
+                            fontSize: isMobile ? '12px' : '20px',
+                            marginBottom: isMobile ? '2px' : '8px'
+                        }}>Karaoké</h3>
+                        {!isMobile && (
+                            <p style={styles.exerciceDescription}>
+                                Chaque mot s'illumine quand il est prononcé
+                            </p>
+                        )}
                     </div>
 
-                    <div style={styles.exerciceCard} onClick={demarrerRemettreOrdre}>
-                        <div style={styles.exerciceIcon}>🔄</div>
-                        <h3 style={styles.exerciceTitle}>Remettre dans l'ordre</h3>
-                        <p style={styles.exerciceDescription}>
-                            Les mots sont mélangés, remets-les dans l'ordre
-                        </p>
+                    <div style={{
+                        ...styles.exerciceCard,
+                        padding: isMobile ? '8px' : '32px'
+                    }} onClick={demarrerRemettreOrdre}>
+                        <div style={{
+                            ...styles.exerciceIcon,
+                            fontSize: isMobile ? '16px' : '64px',
+                            marginBottom: isMobile ? '4px' : '16px'
+                        }}>🔄</div>
+                        <h3 style={{
+                            ...styles.exerciceTitle,
+                            fontSize: isMobile ? '12px' : '20px',
+                            marginBottom: isMobile ? '2px' : '8px'
+                        }}>Remettre dans l'ordre</h3>
+                        {!isMobile && (
+                            <p style={styles.exerciceDescription}>
+                                Les mots sont mélangés, remets-les dans l'ordre
+                            </p>
+                        )}
                     </div>
 
-                    <div style={styles.exerciceCard} onClick={demarrerOuEstCe}>
-                        <div style={styles.exerciceIcon}>📍</div>
-                        <h3 style={styles.exerciceTitle}>Où est-ce ?</h3>
-                        <p style={styles.exerciceDescription}>
-                            Écoute le mot et clique sur le bon mot écrit
-                        </p>
+                    <div style={{
+                        ...styles.exerciceCard,
+                        padding: isMobile ? '8px' : '32px'
+                    }} onClick={demarrerOuEstCe}>
+                        <div style={{
+                            ...styles.exerciceIcon,
+                            fontSize: isMobile ? '16px' : '64px',
+                            marginBottom: isMobile ? '4px' : '16px'
+                        }}>📍</div>
+                        <h3 style={{
+                            ...styles.exerciceTitle,
+                            fontSize: isMobile ? '12px' : '20px',
+                            marginBottom: isMobile ? '2px' : '8px'
+                        }}>Où est-ce ?</h3>
+                        {!isMobile && (
+                            <p style={styles.exerciceDescription}>
+                                Écoute le mot et clique sur le bon mot écrit
+                            </p>
+                        )}
                     </div>
 
-                    <div style={styles.exerciceCard} onClick={demarrerQuestCe}>
-                        <div style={styles.exerciceIcon}>🔊</div>
-                        <h3 style={styles.exerciceTitle}>Qu'est-ce ?</h3>
-                        <p style={styles.exerciceDescription}>
-                            Un mot est illuminé, trouve le bon son
-                        </p>
+                    <div style={{
+                        ...styles.exerciceCard,
+                        padding: isMobile ? '8px' : '32px'
+                    }} onClick={demarrerQuestCe}>
+                        <div style={{
+                            ...styles.exerciceIcon,
+                            fontSize: isMobile ? '16px' : '64px',
+                            marginBottom: isMobile ? '4px' : '16px'
+                        }}>🔊</div>
+                        <h3 style={{
+                            ...styles.exerciceTitle,
+                            fontSize: isMobile ? '12px' : '20px',
+                            marginBottom: isMobile ? '2px' : '8px'
+                        }}>Qu'est-ce ?</h3>
+                        {!isMobile && (
+                            <p style={styles.exerciceDescription}>
+                                Un mot est illuminé, trouve le bon son
+                            </p>
+                        )}
                     </div>
 
-                    <div style={styles.exerciceCard} onClick={demarrerDecoupage}>
-                        <div style={styles.exerciceIcon}>✂️</div>
-                        <h3 style={styles.exerciceTitle}>Découpage</h3>
-                        <p style={styles.exerciceDescription}>
-                            Sépare les mots qui sont collés
-                        </p>
+                    <div style={{
+                        ...styles.exerciceCard,
+                        padding: isMobile ? '8px' : '32px'
+                    }} onClick={demarrerDecoupage}>
+                        <div style={{
+                            ...styles.exerciceIcon,
+                            fontSize: isMobile ? '16px' : '64px',
+                            marginBottom: isMobile ? '4px' : '16px'
+                        }}>✂️</div>
+                        <h3 style={{
+                            ...styles.exerciceTitle,
+                            fontSize: isMobile ? '12px' : '20px',
+                            marginBottom: isMobile ? '2px' : '8px'
+                        }}>Découpage</h3>
+                        {!isMobile && (
+                            <p style={styles.exerciceDescription}>
+                                Sépare les mots qui sont collés
+                            </p>
+                        )}
                     </div>
 
-                    <div style={styles.exerciceCard} onClick={() => router.push('/lire/ecoute-et-trouve')}>
-                        <div style={styles.exerciceIcon}>🎯</div>
-                        <h3 style={styles.exerciceTitle}>Écoute et trouve</h3>
-                        <p style={styles.exerciceDescription}>
-                            Écoute un mot et trouve-le parmi plusieurs choix
-                        </p>
+                    <div style={{
+                        ...styles.exerciceCard,
+                        padding: isMobile ? '8px' : '32px'
+                    }} onClick={() => router.push('/lire/ecoute-et-trouve')}>
+                        <div style={{
+                            ...styles.exerciceIcon,
+                            fontSize: isMobile ? '16px' : '64px',
+                            marginBottom: isMobile ? '4px' : '16px'
+                        }}>🎯</div>
+                        <h3 style={{
+                            ...styles.exerciceTitle,
+                            fontSize: isMobile ? '12px' : '20px',
+                            marginBottom: isMobile ? '2px' : '8px'
+                        }}>Écoute et trouve</h3>
+                        {!isMobile && (
+                            <p style={styles.exerciceDescription}>
+                                Écoute un mot et trouve-le parmi plusieurs choix
+                            </p>
+                        )}
                     </div>
 
-                    <div style={styles.exerciceCard} onClick={() => router.push('/lire/lis-et-trouve')}>
-                        <div style={styles.exerciceIcon}>📖</div>
-                        <h3 style={styles.exerciceTitle}>Lis et trouve</h3>
-                        <p style={styles.exerciceDescription}>
-                            Lis un mot et trouve le bon son parmi plusieurs audios
-                        </p>
+                    <div style={{
+                        ...styles.exerciceCard,
+                        padding: isMobile ? '8px' : '32px'
+                    }} onClick={() => router.push('/lire/lis-et-trouve')}>
+                        <div style={{
+                            ...styles.exerciceIcon,
+                            fontSize: isMobile ? '16px' : '64px',
+                            marginBottom: isMobile ? '4px' : '16px'
+                        }}>👀</div>
+                        <h3 style={{
+                            ...styles.exerciceTitle,
+                            fontSize: isMobile ? '12px' : '20px',
+                            marginBottom: isMobile ? '2px' : '8px'
+                        }}>Lis et trouve</h3>
+                        {!isMobile && (
+                            <p style={styles.exerciceDescription}>
+                                Lis un mot et trouve le bon son parmi plusieurs audios
+                            </p>
+                        )}
                     </div>
-                </div>
-
-                <div style={styles.actions}>
-                    <button onClick={retourSelection} style={styles.secondaryButton}>
-                        ← Changer de textes
-                    </button>
                 </div>
             </div>
         )
