@@ -219,14 +219,36 @@ export default function ReconnaitreLesMotsPage() {
         if (exercicesAvecResultats.includes(exerciceActif) && score.total > 0 && score.bonnes === score.total) {
             // Lancer la célébration
             setShowConfetti(true)
+
+            // Jouer le son d'applaudissements immédiatement
+            const audio = new Audio('/sounds/clapping.mp3')
+            audio.play().catch(e => console.log('Audio play failed:', e))
+
+            // Jouer aussi la synthèse vocale
             jouerSonApplaudissement()
 
-            // Arrêter après 3 secondes
-            const timer = setTimeout(() => {
+            // Arrêter confettis après 3 secondes
+            const timerConfetti = setTimeout(() => {
                 setShowConfetti(false)
             }, 3000)
 
-            return () => clearTimeout(timer)
+            // Redirection au menu après 5 secondes
+            const timerRedirect = setTimeout(() => {
+                // Quitter le plein écran si on est dans Découpage (mode mobile paysage)
+                if (exerciceActif === 'decoupage-resultats' && document.fullscreenElement) {
+                    if (document.exitFullscreen) {
+                        document.exitFullscreen()
+                    } else if (document.webkitExitFullscreen) {
+                        document.webkitExitFullscreen()
+                    }
+                }
+                setExerciceActif(null)
+            }, 5000)
+
+            return () => {
+                clearTimeout(timerConfetti)
+                clearTimeout(timerRedirect)
+            }
         }
     }, [exerciceActif, score.bonnes, score.total])
 
@@ -4209,8 +4231,8 @@ export default function ReconnaitreLesMotsPage() {
                                     alignItems: 'center',
                                     backgroundColor: '#f1f5f9',
                                     borderRadius: '6px',
-                                    padding: isMobile ? '4px 2px' : '4px 6px',
-                                    gap: isMobile ? '1px' : '2px'
+                                    padding: isMobile ? '4px 1px' : '4px 4px',
+                                    gap: '0px'
                                 }}>
                                     {groupe.lettres.map((lettre, indexDansGroupe) => {
                                         const indexGlobal = groupe.debut + indexDansGroupe
