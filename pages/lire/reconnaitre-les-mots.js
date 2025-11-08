@@ -1009,6 +1009,32 @@ export default function ReconnaitreLesMotsPage() {
         setFeedback(null) // Réinitialiser le feedback
     }
 
+    // Nettoyage plein écran et orientation quand on quitte Découpage
+    useEffect(() => {
+        // Fonction de nettoyage quand on quitte l'exercice
+        return () => {
+            if (isMobile && exerciceActif !== 'decoupage') {
+                // Sortir du plein écran
+                if (document.fullscreenElement || document.webkitFullscreenElement) {
+                    if (document.exitFullscreen) {
+                        document.exitFullscreen().catch(() => {})
+                    } else if (document.webkitExitFullscreen) {
+                        document.webkitExitFullscreen()
+                    }
+                }
+
+                // Déverrouiller l'orientation
+                if (screen.orientation && screen.orientation.unlock) {
+                    try {
+                        screen.orientation.unlock()
+                    } catch (e) {
+                        // Ignorer les erreurs
+                    }
+                }
+            }
+        }
+    }, [exerciceActif, isMobile])
+
     // Calcul dynamique de la taille de police pour mobile
     useEffect(() => {
         if (!isMobile || motsSelectionnes.length === 0 || !containerRef.current) return
@@ -1101,8 +1127,33 @@ export default function ReconnaitreLesMotsPage() {
     }
 
     // ==================== EXERCICE 4 : DÉCOUPAGE ====================
-    function demarrerDecoupage() {
+    async function demarrerDecoupage() {
         if (groupesSens.length === 0) return
+
+        // Sur mobile, forcer plein écran + orientation paysage
+        if (isMobile) {
+            try {
+                // Demander le plein écran
+                const elem = document.documentElement
+                if (elem.requestFullscreen) {
+                    await elem.requestFullscreen()
+                } else if (elem.webkitRequestFullscreen) {
+                    await elem.webkitRequestFullscreen()
+                }
+
+                // Forcer orientation paysage
+                if (screen.orientation && screen.orientation.lock) {
+                    try {
+                        await screen.orientation.lock('landscape')
+                    } catch (e) {
+                        console.log('Orientation lock non supporté:', e)
+                    }
+                }
+            } catch (e) {
+                console.log('Plein écran refusé:', e)
+            }
+        }
+
         setFeedback(null)
         setScore({ bonnes: 0, total: 0 })
         setExerciceActif('decoupage')
