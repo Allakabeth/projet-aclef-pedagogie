@@ -253,61 +253,128 @@ export default function ConstruisPhrasesTranquille() {
     return (
         <div style={{
             minHeight: '100vh',
-            background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-            padding: '20px'
+            background: 'white',
+            padding: '15px'
         }}>
             <div style={{
-                maxWidth: '800px',
+                maxWidth: '1000px',
                 margin: '0 auto'
             }}>
-                {/* En-tête */}
+                {/* Titre */}
+                <h1 style={{
+                    fontSize: window.innerWidth <= 768 ? '20px' : '28px',
+                    fontWeight: 'bold',
+                    color: '#10b981',
+                    textAlign: 'center',
+                    marginBottom: '15px'
+                }}>
+                    😌 Mode Tranquille
+                </h1>
+
+                {/* Phrase et Score */}
                 <div style={{
                     display: 'flex',
                     justifyContent: 'space-between',
                     alignItems: 'center',
-                    marginBottom: '30px',
-                    color: 'white',
+                    marginBottom: window.innerWidth <= 768 ? '12px' : '15px',
                     fontSize: window.innerWidth <= 768 ? '14px' : '16px',
                     fontWeight: 'bold',
-                    flexWrap: 'wrap',
-                    gap: '10px'
+                    color: '#64748b'
                 }}>
                     <div>Phrase {phraseIndex + 1}/{phrases.length}</div>
                     <div>Score: {score}</div>
+                </div>
+
+                {/* Barre d'icônes de navigation */}
+                <div style={{
+                    display: 'flex',
+                    gap: window.innerWidth <= 768 ? '8px' : '10px',
+                    justifyContent: 'center',
+                    marginBottom: window.innerWidth <= 768 ? '12px' : '20px'
+                }}>
                     <button
-                        onClick={() => router.push('/lire/construis-phrases')}
-                        style={{
-                            backgroundColor: '#dc2626',
-                            color: 'white',
-                            padding: window.innerWidth <= 768 ? '8px 16px' : '10px 20px',
-                            border: 'none',
-                            borderRadius: '8px',
-                            fontSize: window.innerWidth <= 768 ? '14px' : '16px',
-                            fontWeight: 'bold',
-                            cursor: 'pointer',
-                            transition: 'all 0.2s ease'
+                        onClick={() => {
+                            const mots = JSON.parse(localStorage.getItem('construis-phrases-mots') || '[]')
+                            if (mots.length > 0 && mots[0]?.texte_ids) {
+                                const texteIds = mots[0].texte_ids.join(',')
+                                router.push(`/lire/reconnaitre-les-mots?etape=exercices&texte_ids=${texteIds}`)
+                            } else {
+                                router.push('/lire/reconnaitre-les-mots')
+                            }
                         }}
+                        style={{
+                            padding: '8px 16px',
+                            backgroundColor: 'white',
+                            border: '2px solid #64748b',
+                            borderRadius: '8px',
+                            cursor: 'pointer',
+                            fontSize: '20px',
+                            display: 'flex',
+                            alignItems: 'center'
+                        }}
+                        title="Menu exercices"
                     >
-                        🚪 Quitter
+                        ←
+                    </button>
+                    <button
+                        onClick={() => router.push('/lire/reconnaitre-les-mots')}
+                        style={{
+                            padding: '8px 16px',
+                            backgroundColor: 'white',
+                            border: '2px solid #3b82f6',
+                            borderRadius: '8px',
+                            cursor: 'pointer',
+                            fontSize: '20px',
+                            display: 'flex',
+                            alignItems: 'center'
+                        }}
+                        title="Sélection des textes"
+                    >
+                        👁️
+                    </button>
+                    <button
+                        onClick={() => router.push('/lire')}
+                        style={{
+                            padding: '8px 16px',
+                            backgroundColor: 'white',
+                            border: '2px solid #10b981',
+                            borderRadius: '8px',
+                            cursor: 'pointer',
+                            fontSize: '20px',
+                            display: 'flex',
+                            alignItems: 'center'
+                        }}
+                        title="Menu Lire"
+                    >
+                        📖
+                    </button>
+                    <button
+                        onClick={() => router.push('/dashboard')}
+                        style={{
+                            padding: '8px 16px',
+                            backgroundColor: 'white',
+                            border: '2px solid #8b5cf6',
+                            borderRadius: '8px',
+                            cursor: 'pointer',
+                            fontSize: '20px',
+                            display: 'flex',
+                            alignItems: 'center'
+                        }}
+                        title="Accueil"
+                    >
+                        🏠
                     </button>
                 </div>
 
                 {/* Zone phrase */}
                 <div style={{
                     background: 'white',
-                    borderRadius: '20px',
-                    padding: '40px',
-                    textAlign: 'center'
+                    borderRadius: '12px',
+                    padding: window.innerWidth <= 768 ? '20px' : '40px',
+                    textAlign: 'center',
+                    border: '2px solid #e5e7eb',
+                    boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
                 }}>
-                    <div style={{
-                        fontSize: '20px',
-                        fontWeight: 'bold',
-                        color: '#10b981',
-                        marginBottom: '30px'
-                    }}>
-                        😌 Mode Tranquille
-                    </div>
-
                     {/* La phrase */}
                     <div style={{
                         fontSize: window.innerWidth <= 768 ? '24px' : '32px',
@@ -329,24 +396,34 @@ export default function ConstruisPhrasesTranquille() {
                         gap: '15px',
                         justifyContent: 'center',
                         flexWrap: 'wrap',
-                        marginBottom: '30px'
+                        marginBottom: '20px'
                     }}>
                         <button
                             onClick={lirePhrase}
                             disabled={isPlaying}
                             style={{
-                                background: isPlaying ? '#ccc' : 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+                                backgroundColor: isPlaying ? '#94a3b8' : '#3b82f6',
                                 color: 'white',
-                                padding: '15px 30px',
+                                padding: window.innerWidth <= 768 ? '12px 24px' : '15px 30px',
                                 border: 'none',
-                                borderRadius: '12px',
-                                fontSize: '18px',
+                                borderRadius: '8px',
+                                fontSize: window.innerWidth <= 768 ? '16px' : '18px',
                                 fontWeight: 'bold',
                                 cursor: isPlaying ? 'not-allowed' : 'pointer',
-                                transition: 'transform 0.2s'
+                                transition: 'all 0.2s'
                             }}
-                            onMouseOver={(e) => !isPlaying && (e.target.style.transform = 'scale(1.05)')}
-                            onMouseOut={(e) => !isPlaying && (e.target.style.transform = 'scale(1)')}
+                            onMouseOver={(e) => {
+                                if (!isPlaying) {
+                                    e.target.style.backgroundColor = '#2563eb'
+                                    e.target.style.transform = 'scale(1.05)'
+                                }
+                            }}
+                            onMouseOut={(e) => {
+                                if (!isPlaying) {
+                                    e.target.style.backgroundColor = '#3b82f6'
+                                    e.target.style.transform = 'scale(1)'
+                                }
+                            }}
                         >
                             🔊 Écouter la phrase
                         </button>
@@ -354,18 +431,24 @@ export default function ConstruisPhrasesTranquille() {
                         <button
                             onClick={phraseReussie}
                             style={{
-                                background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                                backgroundColor: '#10b981',
                                 color: 'white',
-                                padding: '15px 30px',
+                                padding: window.innerWidth <= 768 ? '12px 24px' : '15px 30px',
                                 border: 'none',
-                                borderRadius: '12px',
-                                fontSize: '18px',
+                                borderRadius: '8px',
+                                fontSize: window.innerWidth <= 768 ? '16px' : '18px',
                                 fontWeight: 'bold',
                                 cursor: 'pointer',
-                                transition: 'transform 0.2s'
+                                transition: 'all 0.2s'
                             }}
-                            onMouseOver={(e) => e.target.style.transform = 'scale(1.05)'}
-                            onMouseOut={(e) => e.target.style.transform = 'scale(1)'}
+                            onMouseOver={(e) => {
+                                e.target.style.backgroundColor = '#059669'
+                                e.target.style.transform = 'scale(1.05)'
+                            }}
+                            onMouseOut={(e) => {
+                                e.target.style.backgroundColor = '#10b981'
+                                e.target.style.transform = 'scale(1)'
+                            }}
                         >
                             ✅ J'ai réussi à lire !
                         </button>

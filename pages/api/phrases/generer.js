@@ -88,9 +88,16 @@ Réponds UNIQUEMENT avec le JSON suivant (pas de texte avant ou après) :
         let phrases = []
 
         try {
-            // Essayer Gemini
+            // Essayer Gemini avec température élevée pour plus de variété
             console.log('🤖 Tentative avec Gemini...')
-            const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' })
+            const model = genAI.getGenerativeModel({
+                model: 'gemini-1.5-flash',
+                generationConfig: {
+                    temperature: 1.2,  // Plus de créativité et variété
+                    topP: 0.95,
+                    topK: 64
+                }
+            })
             const result = await model.generateContent(prompt)
             const response = result.response
             const text = response.text()
@@ -130,7 +137,7 @@ Réponds UNIQUEMENT avec le JSON suivant (pas de texte avant ou après) :
                             role: 'user',
                             content: prompt
                         }],
-                        temperature: 0.7
+                        temperature: 1.2  // Plus de variété
                     })
                 })
 
@@ -171,11 +178,18 @@ Réponds UNIQUEMENT avec le JSON suivant (pas de texte avant ou après) :
             })
         }
 
-        // Retourner les phrases générées
+        // Mélanger aléatoirement les phrases pour plus de variété (Fisher-Yates shuffle)
+        const shuffledPhrases = [...phrases].slice(0, 10)
+        for (let i = shuffledPhrases.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [shuffledPhrases[i], shuffledPhrases[j]] = [shuffledPhrases[j], shuffledPhrases[i]]
+        }
+
+        // Retourner les phrases générées et mélangées
         const source = phrases.length > 0 && phrases[0].source ? phrases[0].source : 'ai'
         return res.status(200).json({
             success: true,
-            phrases: phrases.slice(0, 10), // Maximum 10 phrases
+            phrases: shuffledPhrases, // Phrases mélangées
             total_mots: motsUniques.length,
             source: source
         })

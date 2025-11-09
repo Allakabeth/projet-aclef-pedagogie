@@ -73,66 +73,123 @@ export default function ConstruisPhrasesIndex() {
     return (
         <div style={{
             minHeight: '100vh',
-            background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-            padding: '20px'
+            background: 'white',
+            padding: '15px'
         }}>
             <div style={{
-                maxWidth: '800px',
+                maxWidth: '1000px',
                 margin: '0 auto'
             }}>
-                {/* En-tête */}
-                <div style={{
+                {/* Titre */}
+                <h1 style={{
+                    fontSize: isMobile ? '20px' : '28px',
+                    fontWeight: 'bold',
+                    color: '#10b981',
                     textAlign: 'center',
-                    marginBottom: '40px'
+                    marginBottom: isMobile ? '10px' : '15px'
                 }}>
+                    📝 Construis des phrases
+                </h1>
+
+                {/* Barre d'icônes de navigation */}
+                <div style={{
+                    display: 'flex',
+                    gap: isMobile ? '8px' : '10px',
+                    justifyContent: 'center',
+                    marginBottom: isMobile ? '12px' : '20px'
+                }}>
+                    <button
+                        onClick={() => {
+                            const mots = JSON.parse(localStorage.getItem('construis-phrases-mots') || '[]')
+                            if (mots.length > 0 && mots[0]?.texte_ids) {
+                                const texteIds = mots[0].texte_ids.join(',')
+                                router.push(`/lire/reconnaitre-les-mots?etape=exercices&texte_ids=${texteIds}`)
+                            } else {
+                                router.push('/lire/reconnaitre-les-mots')
+                            }
+                        }}
+                        style={{
+                            padding: '8px 16px',
+                            backgroundColor: 'white',
+                            border: '2px solid #64748b',
+                            borderRadius: '8px',
+                            cursor: 'pointer',
+                            fontSize: '20px',
+                            display: 'flex',
+                            alignItems: 'center'
+                        }}
+                        title="Menu exercices"
+                    >
+                        ←
+                    </button>
                     <button
                         onClick={() => router.push('/lire/reconnaitre-les-mots')}
                         style={{
-                            background: 'transparent',
-                            border: '2px solid white',
-                            color: 'white',
-                            padding: '10px 20px',
+                            padding: '8px 16px',
+                            backgroundColor: 'white',
+                            border: '2px solid #3b82f6',
                             borderRadius: '8px',
-                            fontSize: '16px',
                             cursor: 'pointer',
-                            marginBottom: '20px'
+                            fontSize: '20px',
+                            display: 'flex',
+                            alignItems: 'center'
                         }}
+                        title="Sélection des textes"
                     >
-                        ← Retour
+                        👁️
                     </button>
-                    <h1 style={{
-                        fontSize: isMobile ? '24px' : '36px',
-                        fontWeight: 'bold',
-                        color: 'white',
-                        marginBottom: '10px'
-                    }}>
-                        📝 Construis des phrases
-                    </h1>
-                    <p style={{
-                        fontSize: isMobile ? '14px' : '18px',
-                        color: 'rgba(255,255,255,0.9)'
-                    }}>
-                        Crée des phrases avec tes mots
-                    </p>
+                    <button
+                        onClick={() => router.push('/lire')}
+                        style={{
+                            padding: '8px 16px',
+                            backgroundColor: 'white',
+                            border: '2px solid #10b981',
+                            borderRadius: '8px',
+                            cursor: 'pointer',
+                            fontSize: '20px',
+                            display: 'flex',
+                            alignItems: 'center'
+                        }}
+                        title="Menu Lire"
+                    >
+                        📖
+                    </button>
+                    <button
+                        onClick={() => router.push('/dashboard')}
+                        style={{
+                            padding: '8px 16px',
+                            backgroundColor: 'white',
+                            border: '2px solid #8b5cf6',
+                            borderRadius: '8px',
+                            cursor: 'pointer',
+                            fontSize: '20px',
+                            display: 'flex',
+                            alignItems: 'center'
+                        }}
+                        title="Accueil"
+                    >
+                        🏠
+                    </button>
                 </div>
 
                 {/* Choix du mode */}
                 <div style={{
                     display: 'grid',
                     gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)',
-                    gap: '20px'
+                    gap: isMobile ? '10px' : '15px'
                 }}>
                     {/* Mode Tranquille */}
                     <div
                         onClick={() => startMode('tranquille')}
                         style={{
                             background: 'white',
-                            borderRadius: '20px',
-                            padding: isMobile ? '30px' : '40px',
+                            borderRadius: isMobile ? '10px' : '12px',
+                            padding: isMobile ? '15px' : '25px',
                             textAlign: 'center',
                             cursor: 'pointer',
                             transition: 'transform 0.2s',
-                            border: '3px solid transparent'
+                            border: '3px solid #e5e7eb',
+                            boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
                         }}
                         onMouseOver={(e) => {
                             e.currentTarget.style.transform = 'scale(1.02)'
@@ -140,37 +197,40 @@ export default function ConstruisPhrasesIndex() {
                         }}
                         onMouseOut={(e) => {
                             e.currentTarget.style.transform = 'scale(1)'
-                            e.currentTarget.style.borderColor = 'transparent'
+                            e.currentTarget.style.borderColor = '#e5e7eb'
                         }}
                     >
-                        <div style={{ fontSize: isMobile ? '48px' : '64px', marginBottom: '20px' }}>😌</div>
+                        <div style={{ fontSize: isMobile ? '32px' : '48px', marginBottom: isMobile ? '8px' : '12px' }}>😌</div>
                         <h2 style={{
-                            fontSize: isMobile ? '20px' : '24px',
+                            fontSize: isMobile ? '16px' : '20px',
                             fontWeight: 'bold',
                             color: '#10b981',
-                            marginBottom: '15px'
+                            marginBottom: isMobile ? '0' : '8px'
                         }}>
                             Mode Tranquille
                         </h2>
-                        <p style={{
-                            fontSize: isMobile ? '14px' : '16px',
-                            color: '#666',
-                            lineHeight: '1.5'
-                        }}>
-                            Lis la phrase à ton rythme
-                        </p>
+                        {!isMobile && (
+                            <p style={{
+                                fontSize: '14px',
+                                color: '#666',
+                                lineHeight: '1.3'
+                            }}>
+                                Lis la phrase à ton rythme
+                            </p>
+                        )}
                     </div>
 
                     {/* Mode Défi */}
                     <div
                         style={{
                             background: 'white',
-                            borderRadius: '20px',
-                            padding: isMobile ? '30px' : '40px',
+                            borderRadius: isMobile ? '10px' : '12px',
+                            padding: isMobile ? '15px' : '25px',
                             textAlign: 'center',
                             cursor: 'pointer',
                             transition: 'transform 0.2s',
-                            border: '3px solid transparent'
+                            border: '3px solid #e5e7eb',
+                            boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
                         }}
                         onMouseOver={(e) => {
                             e.currentTarget.style.transform = 'scale(1.02)'
@@ -178,43 +238,45 @@ export default function ConstruisPhrasesIndex() {
                         }}
                         onMouseOut={(e) => {
                             e.currentTarget.style.transform = 'scale(1)'
-                            e.currentTarget.style.borderColor = 'transparent'
+                            e.currentTarget.style.borderColor = '#e5e7eb'
                         }}
                     >
-                        <div style={{ fontSize: isMobile ? '48px' : '64px', marginBottom: '20px' }}>🎯</div>
+                        <div style={{ fontSize: isMobile ? '32px' : '48px', marginBottom: isMobile ? '8px' : '12px' }}>🎯</div>
                         <h2 style={{
-                            fontSize: isMobile ? '20px' : '24px',
+                            fontSize: isMobile ? '16px' : '20px',
                             fontWeight: 'bold',
                             color: '#8b5cf6',
-                            marginBottom: '15px'
+                            marginBottom: isMobile ? '8px' : '8px'
                         }}>
                             Mode Défi
                         </h2>
-                        <p style={{
-                            fontSize: isMobile ? '14px' : '16px',
-                            color: '#666',
-                            lineHeight: '1.5',
-                            marginBottom: '20px'
-                        }}>
-                            Écoute et reconstruis la phrase
-                        </p>
+                        {!isMobile && (
+                            <p style={{
+                                fontSize: '14px',
+                                color: '#666',
+                                lineHeight: '1.3',
+                                marginBottom: '12px'
+                            }}>
+                                Écoute et reconstruis la phrase
+                            </p>
+                        )}
 
                         {/* Curseur nombre de mots intrus */}
                         <div
                             onClick={(e) => e.stopPropagation()}
                             style={{
-                                marginTop: '20px',
-                                padding: '15px',
+                                marginTop: isMobile ? '8px' : '12px',
+                                padding: isMobile ? '8px' : '12px',
                                 background: '#f3f4f6',
-                                borderRadius: '12px'
+                                borderRadius: '6px'
                             }}
                         >
                             <label style={{
-                                fontSize: isMobile ? '13px' : '15px',
+                                fontSize: isMobile ? '11px' : '13px',
                                 fontWeight: 'bold',
                                 color: '#8b5cf6',
                                 display: 'block',
-                                marginBottom: '10px'
+                                marginBottom: isMobile ? '5px' : '8px'
                             }}>
                                 Mots intrus: {nbMotsIntrus}
                             </label>
@@ -234,9 +296,9 @@ export default function ConstruisPhrasesIndex() {
                             <div style={{
                                 display: 'flex',
                                 justifyContent: 'space-between',
-                                fontSize: '11px',
+                                fontSize: '9px',
                                 color: '#9ca3af',
-                                marginTop: '5px'
+                                marginTop: '3px'
                             }}>
                                 <span>8</span>
                                 <span>16</span>
@@ -247,13 +309,13 @@ export default function ConstruisPhrasesIndex() {
                         <button
                             onClick={() => startMode('defi')}
                             style={{
-                                marginTop: '20px',
+                                marginTop: isMobile ? '8px' : '12px',
                                 backgroundColor: '#8b5cf6',
                                 color: 'white',
-                                padding: '12px 24px',
+                                padding: isMobile ? '8px 16px' : '10px 20px',
                                 border: 'none',
-                                borderRadius: '8px',
-                                fontSize: isMobile ? '14px' : '16px',
+                                borderRadius: '6px',
+                                fontSize: isMobile ? '12px' : '14px',
                                 fontWeight: 'bold',
                                 cursor: 'pointer',
                                 width: '100%',
@@ -271,12 +333,13 @@ export default function ConstruisPhrasesIndex() {
                         onClick={() => startMode('difficile')}
                         style={{
                             background: 'white',
-                            borderRadius: '20px',
-                            padding: isMobile ? '30px' : '40px',
+                            borderRadius: isMobile ? '10px' : '12px',
+                            padding: isMobile ? '15px' : '25px',
                             textAlign: 'center',
                             cursor: 'pointer',
                             transition: 'transform 0.2s',
-                            border: '3px solid transparent'
+                            border: '3px solid #e5e7eb',
+                            boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
                         }}
                         onMouseOver={(e) => {
                             e.currentTarget.style.transform = 'scale(1.02)'
@@ -284,25 +347,27 @@ export default function ConstruisPhrasesIndex() {
                         }}
                         onMouseOut={(e) => {
                             e.currentTarget.style.transform = 'scale(1)'
-                            e.currentTarget.style.borderColor = 'transparent'
+                            e.currentTarget.style.borderColor = '#e5e7eb'
                         }}
                     >
-                        <div style={{ fontSize: isMobile ? '48px' : '64px', marginBottom: '20px' }}>🔥</div>
+                        <div style={{ fontSize: isMobile ? '32px' : '48px', marginBottom: isMobile ? '8px' : '12px' }}>🔥</div>
                         <h2 style={{
-                            fontSize: isMobile ? '20px' : '24px',
+                            fontSize: isMobile ? '16px' : '20px',
                             fontWeight: 'bold',
                             color: '#dc2626',
-                            marginBottom: '15px'
+                            marginBottom: isMobile ? '0' : '8px'
                         }}>
                             Mode Difficile
                         </h2>
-                        <p style={{
-                            fontSize: isMobile ? '14px' : '16px',
-                            color: '#666',
-                            lineHeight: '1.5'
-                        }}>
-                            Lis la phrase à voix haute
-                        </p>
+                        {!isMobile && (
+                            <p style={{
+                                fontSize: '14px',
+                                color: '#666',
+                                lineHeight: '1.3'
+                            }}>
+                                Lis la phrase à voix haute
+                            </p>
+                        )}
                     </div>
                 </div>
             </div>
