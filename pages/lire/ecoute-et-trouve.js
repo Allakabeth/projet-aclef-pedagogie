@@ -640,7 +640,10 @@ export default function EcouteEtTrouve() {
                         }}>
                             {/* Flèche retour */}
                             <button
-                                onClick={() => router.push('/lire/reconnaitre-les-mots')}
+                                onClick={() => {
+                                    const texteIds = selectedTexteIds.join(',')
+                                    router.push(`/lire/reconnaitre-les-mots?etape=exercices&texte_ids=${texteIds}`)
+                                }}
                                 style={{
                                     padding: '8px 12px',
                                     backgroundColor: 'white',
@@ -654,6 +657,24 @@ export default function EcouteEtTrouve() {
                                 title="Menu exercices"
                             >
                                 ←
+                            </button>
+
+                            {/* Icône œil - Sélection des textes */}
+                            <button
+                                onClick={() => router.push('/lire/reconnaitre-les-mots')}
+                                style={{
+                                    padding: '8px 12px',
+                                    backgroundColor: 'white',
+                                    border: '2px solid #3b82f6',
+                                    borderRadius: '8px',
+                                    cursor: 'pointer',
+                                    fontSize: '20px',
+                                    display: 'flex',
+                                    alignItems: 'center'
+                                }}
+                                title="Sélection des textes"
+                            >
+                                👁️
                             </button>
 
                             {/* Icône livre */}
@@ -966,7 +987,10 @@ export default function EcouteEtTrouve() {
                                 {/* 5 icônes : ← 👁️ 📖 🏠 🔄 */}
                                 <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', marginBottom: '16px' }}>
                                     <button
-                                        onClick={() => router.push('/lire/reconnaitre-les-mots')}
+                                        onClick={() => {
+                                            const texteIds = selectedTexteIds.join(',')
+                                            router.push(`/lire/reconnaitre-les-mots?etape=exercices&texte_ids=${texteIds}`)
+                                        }}
                                         style={{
                                             padding: '8px 12px',
                                             backgroundColor: 'white',
@@ -993,7 +1017,7 @@ export default function EcouteEtTrouve() {
                                             display: 'flex',
                                             alignItems: 'center'
                                         }}
-                                        title="Retour aux exercices"
+                                        title="Sélection des textes"
                                     >
                                         👁️
                                     </button>

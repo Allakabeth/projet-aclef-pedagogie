@@ -216,6 +216,22 @@ export default function ReconnaitreLesMotsPage() {
         checkAuth()
     }, [router])
 
+    // Détecter le paramètre URL ?etape=exercices pour afficher directement le menu exercices
+    useEffect(() => {
+        if (router.query.etape === 'exercices') {
+            setEtape('exercices')
+
+            // Récupérer les textes sélectionnés depuis l'URL
+            if (router.query.texte_ids) {
+                const texteIds = router.query.texte_ids.split(',').map(id => parseInt(id))
+                setTextesSelectionnes(texteIds)
+
+                // Charger les groupes de sens pour ces textes
+                chargerGroupesSens(texteIds)
+            }
+        }
+    }, [router.query.etape, router.query.texte_ids])
+
     // 🎉 Célébration pour score parfait (tous les exercices avec résultats)
     useEffect(() => {
         const exercicesAvecResultats = ['remettre-ordre-resultats', 'ou-est-ce-resultats', 'quest-ce-resultats', 'decoupage-resultats']
@@ -425,12 +441,7 @@ export default function ReconnaitreLesMotsPage() {
         }
     }
 
-    async function demarrerExercices() {
-        if (textesSelectionnes.length === 0) {
-            alert('Veuillez sélectionner au moins un texte')
-            return
-        }
-
+    async function chargerGroupesSens(texteIds) {
         try {
             setLoading(true)
             setError(null)
@@ -439,7 +450,7 @@ export default function ReconnaitreLesMotsPage() {
             const { data, error: err } = await supabase
                 .from('groupes_sens')
                 .select('id, texte_reference_id, ordre_groupe, contenu')
-                .in('texte_reference_id', textesSelectionnes)
+                .in('texte_reference_id', texteIds)
                 .order('texte_reference_id', { ascending: true })
                 .order('ordre_groupe', { ascending: true })
 
@@ -452,7 +463,6 @@ export default function ReconnaitreLesMotsPage() {
             })
 
             setGroupesSens(groupes)
-            setEtape('exercices')
             setIndexGroupe(0)
             setScore({ bonnes: 0, total: 0 })
         } catch (err) {
@@ -461,6 +471,16 @@ export default function ReconnaitreLesMotsPage() {
         } finally {
             setLoading(false)
         }
+    }
+
+    async function demarrerExercices() {
+        if (textesSelectionnes.length === 0) {
+            alert('Veuillez sélectionner au moins un texte')
+            return
+        }
+
+        await chargerGroupesSens(textesSelectionnes)
+        setEtape('exercices')
     }
 
     function retourSelection() {
