@@ -938,11 +938,12 @@ export default function EcouteEtTrouve() {
                                         background: '#fff',
                                         border: '2px solid #06b6d4',
                                         borderRadius: isMobile ? '8px' : '12px',
-                                        cursor: 'pointer',
+                                        cursor: isPlaying ? 'not-allowed' : 'pointer',
                                         transition: 'all 0.3s',
                                         fontSize: isMobile ? '16px' : '24px',
                                         fontWeight: '600',
-                                        color: '#06b6d4'
+                                        color: '#06b6d4',
+                                        opacity: isPlaying ? 0.5 : 1
                                     }
 
                                     // Bonne réponse cliquée → fond vert
@@ -966,7 +967,7 @@ export default function EcouteEtTrouve() {
                                         <button
                                             key={mot.id}
                                             onClick={() => handleMotClick(mot)}
-                                            disabled={completedMots.includes(mot.id)}
+                                            disabled={completedMots.includes(mot.id) || isPlaying}
                                             style={buttonStyle}
                                             onMouseEnter={(e) => {
                                                 if (!isMobile) {

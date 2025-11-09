@@ -615,17 +615,40 @@ export default function LisEtTrouve() {
                 maxWidth: '1000px',
                 margin: '0 auto'
             }}>
-                {/* Titre principal (toujours visible) */}
+                {/* Titre principal avec icône maison */}
                 {!gameStarted && !gameFinished && (
-                    <h1 style={{
-                        fontSize: 'clamp(22px, 5vw, 28px)',
-                        fontWeight: 'bold',
-                        marginBottom: '20px',
-                        color: '#10b981',
-                        textAlign: 'center'
-                    }}>
-                        🔊 Lis et trouve<span className="desktop-only"> - Reconnaissance audio</span>
-                    </h1>
+                    <div style={{ position: 'relative' }}>
+                        <h1 style={{
+                            fontSize: 'clamp(22px, 5vw, 28px)',
+                            fontWeight: 'bold',
+                            marginBottom: '20px',
+                            color: '#10b981',
+                            textAlign: 'center'
+                        }}>
+                            🔊 Lis et trouve<span className="desktop-only"> - Reconnaissance audio</span>
+                        </h1>
+                        <button
+                            onClick={() => router.push('/dashboard')}
+                            style={{
+                                position: 'absolute',
+                                top: '0',
+                                right: '0',
+                                padding: '6px 10px',
+                                backgroundColor: 'transparent',
+                                border: '1px solid #e0e0e0',
+                                borderRadius: '6px',
+                                cursor: 'pointer',
+                                fontSize: '20px',
+                                opacity: '0.6',
+                                transition: 'opacity 0.2s'
+                            }}
+                            onMouseEnter={(e) => e.target.style.opacity = '1'}
+                            onMouseLeave={(e) => e.target.style.opacity = '0.6'}
+                            title="Retour au dashboard"
+                        >
+                            🏠
+                        </button>
+                    </div>
                 )}
 
                 {/* Page d'introduction */}
@@ -750,6 +773,26 @@ export default function LisEtTrouve() {
                             marginBottom: '20px'
                         }}>
                             <button
+                                onClick={() => {
+                                    const texteIds = selectedTexteIds.join(',')
+                                    router.push(`/lire/reconnaitre-les-mots?etape=exercices&texte_ids=${texteIds}`)
+                                }}
+                                style={{
+                                    padding: '8px 16px',
+                                    backgroundColor: 'white',
+                                    border: '2px solid #64748b',
+                                    borderRadius: '8px',
+                                    cursor: 'pointer',
+                                    fontSize: '20px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '6px'
+                                }}
+                                title="Menu exercices"
+                            >
+                                ←
+                            </button>
+                            <button
                                 onClick={() => router.push('/lire/reconnaitre-les-mots')}
                                 style={{
                                     padding: '8px 16px',
@@ -762,7 +805,7 @@ export default function LisEtTrouve() {
                                     alignItems: 'center',
                                     gap: '6px'
                                 }}
-                                title="Retour aux exercices"
+                                title="Sélection des textes"
                             >
                                 👁️
                             </button>
