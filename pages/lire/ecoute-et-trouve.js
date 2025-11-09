@@ -604,16 +604,39 @@ export default function EcouteEtTrouve() {
                 maxWidth: '1000px',
                 margin: '0 auto'
             }}>
-                {/* Titre */}
-                <h1 style={{
-                    fontSize: 'clamp(22px, 5vw, 28px)',
-                    fontWeight: 'bold',
-                    marginBottom: isMobile && gameStarted ? '12px' : '20px',
-                    color: '#06b6d4',
-                    textAlign: 'center'
-                }}>
-                    🎯 Écoute et trouve<span className="desktop-only"> - Reconnaissance des mots</span>
-                </h1>
+                {/* Titre avec icône maison */}
+                <div style={{ position: 'relative' }}>
+                    <h1 style={{
+                        fontSize: 'clamp(22px, 5vw, 28px)',
+                        fontWeight: 'bold',
+                        marginBottom: isMobile && gameStarted ? '12px' : '20px',
+                        color: '#06b6d4',
+                        textAlign: 'center'
+                    }}>
+                        🎯 Écoute et trouve<span className="desktop-only"> - Reconnaissance des mots</span>
+                    </h1>
+                    <button
+                        onClick={() => router.push('/dashboard')}
+                        style={{
+                            position: 'absolute',
+                            top: '0',
+                            right: '0',
+                            padding: '6px 10px',
+                            backgroundColor: 'transparent',
+                            border: '1px solid #e0e0e0',
+                            borderRadius: '6px',
+                            cursor: 'pointer',
+                            fontSize: '20px',
+                            opacity: '0.6',
+                            transition: 'opacity 0.2s'
+                        }}
+                        onMouseEnter={(e) => e.target.style.opacity = '1'}
+                        onMouseLeave={(e) => e.target.style.opacity = '0.6'}
+                        title="Retour au dashboard"
+                    >
+                        🏠
+                    </button>
+                </div>
 
                 {/* Score/Progression et Icônes de navigation - Mobile uniquement */}
                 {isMobile && gameStarted && (
