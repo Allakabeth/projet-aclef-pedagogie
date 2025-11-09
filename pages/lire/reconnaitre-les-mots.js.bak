@@ -67,7 +67,6 @@ export default function ReconnaitreLesMotsPage() {
 
     // Découpage
     const [separations, setSeparations] = useState([])
-    const [decoupageValidation, setDecoupageValidation] = useState(null) // { correct: boolean, positionsAttendues: [], motsAttendus: [] }
     const [taillePoliceDecoupage, setTaillePoliceDecoupage] = useState(32)
 
     // Enregistrements vocaux personnalisés
@@ -1099,36 +1098,6 @@ export default function ReconnaitreLesMotsPage() {
         }
     }
 
-    async function togglePleinEcran() {
-        if (!isMobile) return
-
-        // Si déjà en plein écran, sortir
-        if (document.fullscreenElement || document.webkitFullscreenElement) {
-            quitterPleinEcran()
-        } else {
-            // Sinon, entrer en plein écran
-            try {
-                const elem = document.documentElement
-                if (elem.requestFullscreen) {
-                    await elem.requestFullscreen()
-                } else if (elem.webkitRequestFullscreen) {
-                    await elem.webkitRequestFullscreen()
-                }
-
-                // Forcer orientation paysage
-                if (screen.orientation && screen.orientation.lock) {
-                    try {
-                        await screen.orientation.lock('landscape')
-                    } catch (e) {
-                        console.log('Orientation lock non supporté:', e)
-                    }
-                }
-            } catch (e) {
-                console.log('Plein écran refusé:', e)
-            }
-        }
-    }
-
     // Écouter la sortie du plein écran pour déverrouiller l'orientation
     useEffect(() => {
         if (!isMobile) return
@@ -1352,35 +1321,20 @@ export default function ReconnaitreLesMotsPage() {
         }
         setScore(newScore)
 
-        // Sauvegarder la validation
-        setDecoupageValidation({
-            correct,
-            positionsAttendues,
-            motsAttendus
-        })
-
-        // Si correct, passage automatique après 2 sec
+        // Afficher feedback
         if (correct) {
             setFeedback({ type: 'success', message: '✅ Parfait !' })
-            setTimeout(() => {
-                setFeedback(null)
-                setDecoupageValidation(null)
-                setSeparations([])
-                const nextIndex = indexGroupe + 1
-                setIndexGroupe(nextIndex)
-                preparerDecoupage(nextIndex)
-            }, 2000)
+        } else {
+            setFeedback({ type: 'error', message: `❌ Les mots sont : ${motsAttendus.join(' - ')}` })
         }
-        // Si incorrect, on attend que l'utilisateur clique sur "Suivant"
-    }
 
-    function phraseSuivanteDecoupage() {
-        setFeedback(null)
-        setDecoupageValidation(null)
-        setSeparations([])
-        const nextIndex = indexGroupe + 1
-        setIndexGroupe(nextIndex)
-        preparerDecoupage(nextIndex)
+        // Phrase suivante après 2 sec
+        setTimeout(() => {
+            setFeedback(null)
+            const nextIndex = indexGroupe + 1
+            setIndexGroupe(nextIndex)
+            preparerDecoupage(nextIndex)
+        }, 2000)
     }
 
     // ==================== RENDER ====================
@@ -4202,7 +4156,7 @@ export default function ReconnaitreLesMotsPage() {
                                 <button
                                     onClick={() => {
                                         quitterPleinEcran()
-                                        setEtape('selection')
+                                        setExerciceActif(null)
                                     }}
                                     style={{
                                         padding: '8px 12px',
@@ -4214,7 +4168,7 @@ export default function ReconnaitreLesMotsPage() {
                                         display: 'flex',
                                         alignItems: 'center'
                                     }}
-                                    title="Sélection des textes"
+                                    title="Retour aux exercices"
                                 >
                                     👁️
                                 </button>
@@ -4273,7 +4227,7 @@ export default function ReconnaitreLesMotsPage() {
                                     🔊
                                 </button>
                                 <button
-                                    onClick={togglePleinEcran}
+                                    onClick={quitterPleinEcran}
                                     style={{
                                         padding: '8px 12px',
                                         backgroundColor: 'white',
@@ -4284,51 +4238,30 @@ export default function ReconnaitreLesMotsPage() {
                                         display: 'flex',
                                         alignItems: 'center'
                                     }}
-                                    title="Plein écran On/Off"
+                                    title="Sortir du plein écran"
                                 >
                                     ⛶
                                 </button>
-                                {!decoupageValidation ? (
-                                    <button
-                                        onClick={verifierDecoupage}
-                                        style={{
-                                            padding: '8px 16px',
-                                            backgroundColor: '#3b82f6',
-                                            color: 'white',
-                                            border: 'none',
-                                            borderRadius: '8px',
-                                            cursor: 'pointer',
-                                            fontSize: '16px',
-                                            fontWeight: '600',
-                                            display: 'flex',
-                                            alignItems: 'center'
-                                        }}
-                                        title="Vérifier"
-                                    >
-                                        Vérifier
-                                    </button>
-                                ) : (
-                                    !decoupageValidation.correct && (
-                                        <button
-                                            onClick={phraseSuivanteDecoupage}
-                                            style={{
-                                                padding: '8px 16px',
-                                                backgroundColor: '#10b981',
-                                                color: 'white',
-                                                border: 'none',
-                                                borderRadius: '8px',
-                                                cursor: 'pointer',
-                                                fontSize: '16px',
-                                                fontWeight: '600',
-                                                display: 'flex',
-                                                alignItems: 'center'
-                                            }}
-                                            title="Suivant"
-                                        >
-                                            Suivant ➡️
-                                        </button>
-                                    )
-                                )}
+                                <button
+                                    onClick={verifierDecoupage}
+                                    disabled={feedback !== null}
+                                    style={{
+                                        padding: '8px 16px',
+                                        backgroundColor: feedback ? '#94a3b8' : '#3b82f6',
+                                        color: 'white',
+                                        border: 'none',
+                                        borderRadius: '8px',
+                                        cursor: feedback ? 'not-allowed' : 'pointer',
+                                        fontSize: '16px',
+                                        fontWeight: '600',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        opacity: feedback ? 0.5 : 1
+                                    }}
+                                    title="Vérifier"
+                                >
+                                    Vérifier
+                                </button>
                             </div>
                         )}
                     </div>
@@ -4394,43 +4327,17 @@ export default function ReconnaitreLesMotsPage() {
                             }
                         }
 
-                        return groupes.map((groupe, groupeIndex) => {
-                            // Déterminer la couleur du groupe selon la validation
-                            let groupeStyle = {
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                backgroundColor: '#f1f5f9',
-                                borderRadius: '6px',
-                                padding: isMobile ? '4px 1px' : '4px 4px',
-                                gap: '0px'
-                            }
-
-                            // Si validation en cours et incorrecte, colorer selon si le groupe est bien/mal découpé
-                            if (decoupageValidation && !decoupageValidation.correct) {
-                                const { positionsAttendues } = decoupageValidation
-                                const positionsAttenduesTotales = [0, ...positionsAttendues, lettres.length]
-
-                                // Vérifier si ce groupe correspond à un mot attendu
-                                let estCorrect = false
-                                for (let i = 0; i < positionsAttenduesTotales.length - 1; i++) {
-                                    if (groupe.debut === positionsAttenduesTotales[i] && groupe.fin === positionsAttenduesTotales[i + 1]) {
-                                        estCorrect = true
-                                        break
-                                    }
-                                }
-
-                                // Appliquer bordure verte ou rouge (pas de fond coloré)
-                                if (estCorrect) {
-                                    groupeStyle.border = '3px solid #10b981' // Vert
-                                } else {
-                                    groupeStyle.border = '3px solid #ef4444' // Rouge
-                                }
-                            }
-
-                            return (
-                                <span key={groupeIndex} style={{ display: 'inline-flex', alignItems: 'center' }}>
-                                    {/* Groupe de lettres rapprochées */}
-                                    <span style={groupeStyle}>
+                        return groupes.map((groupe, groupeIndex) => (
+                            <span key={groupeIndex} style={{ display: 'inline-flex', alignItems: 'center' }}>
+                                {/* Groupe de lettres rapprochées */}
+                                <span style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    backgroundColor: '#f1f5f9',
+                                    borderRadius: '6px',
+                                    padding: isMobile ? '4px 1px' : '4px 4px',
+                                    gap: '0px'
+                                }}>
                                     {groupe.lettres.map((lettre, indexDansGroupe) => {
                                         const indexGlobal = groupe.debut + indexDansGroupe
                                         return (
@@ -4473,68 +4380,32 @@ export default function ReconnaitreLesMotsPage() {
                                     </button>
                                 )}
                             </span>
-                        )
-                        })
+                        ))
                     })()}
                 </div>
 
-                {/* Afficher la bonne segmentation si réponse incorrecte */}
-                {decoupageValidation && !decoupageValidation.correct && (
-                    <div style={{
-                        marginTop: '20px',
-                        padding: '20px',
-                        backgroundColor: '#dcfce7',
-                        borderRadius: '12px',
-                        border: '2px solid #10b981'
-                    }}>
-                        <p style={{
-                            fontSize: isMobile ? '16px' : '18px',
-                            fontWeight: 'bold',
-                            color: '#047857',
-                            marginBottom: '12px',
-                            textAlign: 'center'
-                        }}>
-                            ✅ Bonne segmentation :
-                        </p>
-                        <p style={{
-                            fontSize: isMobile ? '20px' : '24px',
-                            fontWeight: 'bold',
-                            color: '#065f46',
-                            textAlign: 'center',
-                            lineHeight: '1.6'
-                        }}>
-                            {decoupageValidation.motsAttendus.join(' - ')}
-                        </p>
-                    </div>
-                )}
-
                 {!isMobile && (
                     <div style={styles.actions}>
-                        {!decoupageValidation ? (
-                            <>
-                                <button
-                                    onClick={verifierDecoupage}
-                                    style={styles.primaryButton}
-                                >
-                                    Vérifier
-                                </button>
-                                <button
-                                    onClick={() => setSeparations([])}
-                                    style={styles.secondaryButton}
-                                >
-                                    Effacer
-                                </button>
-                            </>
-                        ) : (
-                            !decoupageValidation.correct && (
-                                <button
-                                    onClick={phraseSuivanteDecoupage}
-                                    style={styles.primaryButton}
-                                >
-                                    Suivant ➡️
-                                </button>
-                            )
-                        )}
+                        <button
+                            onClick={verifierDecoupage}
+                            disabled={feedback !== null}
+                            style={{
+                                ...styles.primaryButton,
+                                ...(feedback ? { opacity: 0.5, cursor: 'not-allowed' } : {})
+                            }}
+                        >
+                            Vérifier
+                        </button>
+                        <button
+                            onClick={() => setSeparations([])}
+                            disabled={feedback !== null}
+                            style={{
+                                ...styles.secondaryButton,
+                                ...(feedback ? { opacity: 0.5, cursor: 'not-allowed' } : {})
+                            }}
+                        >
+                            Effacer
+                        </button>
                         <button onClick={() => {
                             quitterPleinEcran()
                             setExerciceActif(null)

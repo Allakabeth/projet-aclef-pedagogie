@@ -41,6 +41,7 @@ export default function EcouteEtTrouve() {
     const [enregistrementsMap, setEnregistrementsMap] = useState({}) // Enregistrements personnels indexés par mot
     const [resultats, setResultats] = useState({ reussis: [], rates: [] }) // Mots réussis et ratés
     const [showConfetti, setShowConfetti] = useState(false) // Effet de célébration
+    const [showIntro, setShowIntro] = useState(true) // Page d'intro avant le jeu
     const router = useRouter()
 
     useEffect(() => {
@@ -56,13 +57,6 @@ export default function EcouteEtTrouve() {
     useEffect(() => {
         checkAuth()
     }, [router.query])
-
-    // Démarrer automatiquement le jeu quand les textes sont chargés
-    useEffect(() => {
-        if (!isLoading && user && selectedTexteIds.length > 0 && !gameStarted && !gameFinished) {
-            startGame()
-        }
-    }, [isLoading, user, selectedTexteIds, gameStarted, gameFinished])
 
     // Célébration pour score parfait
     useEffect(() => {
@@ -236,6 +230,7 @@ export default function EcouteEtTrouve() {
             return
         }
 
+        setShowIntro(false) // Masquer la page d'intro
         setIsLoadingTextes(true)
         // Charger les mots des textes sélectionnés depuis la page précédente
         const mots = await loadMotsForTextes(selectedTexteIds)
@@ -293,6 +288,7 @@ export default function EcouteEtTrouve() {
     const restartGame = () => {
         setGameFinished(false)
         setGameStarted(false)
+        setShowIntro(true) // Retourner à la page d'intro
         setScore(0)
         setAttempts(0)
         setCompletedMots([])
@@ -719,14 +715,90 @@ export default function EcouteEtTrouve() {
                     </>
                 )}
 
-                {!gameStarted && !gameFinished && (
+                {/* Page d'introduction */}
+                {showIntro && !gameStarted && !gameFinished && !isLoadingTextes && (
+                    <div style={{
+                        maxWidth: '600px',
+                        margin: '0 auto',
+                        padding: isMobile ? '20px' : '40px'
+                    }}>
+                        {/* Slider pour nombre de mots */}
+                        <div style={{ marginBottom: '40px' }}>
+                            <label style={{
+                                display: 'block',
+                                marginBottom: '15px',
+                                fontSize: isMobile ? '16px' : '18px',
+                                fontWeight: '600',
+                                color: '#1e293b'
+                            }}>
+                                Nombre de mots proposés :
+                            </label>
+                            <input
+                                type="range"
+                                min="4"
+                                max="12"
+                                value={nbChoix}
+                                onChange={(e) => setNbChoix(parseInt(e.target.value))}
+                                style={{
+                                    width: '100%',
+                                    height: '8px',
+                                    borderRadius: '5px',
+                                    outline: 'none',
+                                    background: '#ddd'
+                                }}
+                            />
+                            <div style={{
+                                textAlign: 'center',
+                                marginTop: '10px',
+                                fontSize: isMobile ? '24px' : '32px',
+                                fontWeight: 'bold',
+                                color: '#06b6d4'
+                            }}>
+                                {nbChoix} mots
+                            </div>
+                        </div>
+
+                        {/* Bouton démarrer */}
+                        <button
+                            onClick={startGame}
+                            disabled={selectedTexteIds.length === 0}
+                            style={{
+                                width: '100%',
+                                backgroundColor: selectedTexteIds.length === 0 ? '#94a3b8' : '#10b981',
+                                color: 'white',
+                                padding: isMobile ? '16px' : '20px',
+                                border: 'none',
+                                borderRadius: '8px',
+                                fontSize: isMobile ? '18px' : '20px',
+                                fontWeight: 'bold',
+                                cursor: selectedTexteIds.length === 0 ? 'not-allowed' : 'pointer',
+                                transition: 'transform 0.1s'
+                            }}
+                            onMouseEnter={(e) => {
+                                if (selectedTexteIds.length > 0 && !isMobile) {
+                                    e.target.style.transform = 'scale(1.02)'
+                                }
+                            }}
+                            onMouseLeave={(e) => {
+                                if (!isMobile) {
+                                    e.target.style.transform = 'scale(1)'
+                                }
+                            }}
+                        >
+                            🚀 Démarrer l'exercice
+                        </button>
+                    </div>
+                )}
+
+                {/* Chargement */}
+                {!showIntro && !gameStarted && !gameFinished && isLoadingTextes && (
                     <div style={{
                         textAlign: 'center',
                         padding: '60px 20px',
                         color: '#10b981',
                         fontSize: '20px'
                     }}>
-                        {isLoadingTextes ? '⏳ Chargement...' : '🎯 Démarrage de l\'exercice...'}
+                        ⏳ Chargement...
                     </div>
                 )}
 
