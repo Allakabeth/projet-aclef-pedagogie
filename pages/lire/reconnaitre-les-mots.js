@@ -48,6 +48,7 @@ export default function ReconnaitreLesMotsPage() {
     const [motsDisponibles, setMotsDisponibles] = useState([])
     const [motsValidation, setMotsValidation] = useState([]) // 'correct' | 'incorrect' pour chaque mot
     const [motEnCoursLecture, setMotEnCoursLecture] = useState(-1) // Index du mot en cours de lecture
+    const [isVerifying, setIsVerifying] = useState(false) // Empêche de cliquer plusieurs fois sur Vérifier
     const [taillePoliceMots, setTaillePoliceMots] = useState(12) // Taille dynamique pour mobile
     const [taillePoliceQuestCe, setTaillePoliceQuestCe] = useState(20) // Taille dynamique pour "Qu'est-ce ?"
     const phraseRefQuestCe = useRef(null) // Référence pour mesurer la phrase
@@ -670,7 +671,7 @@ export default function ReconnaitreLesMotsPage() {
     }
 
     // ==================== LECTURE PHRASE DANS L'ORDRE (Remettre dans l'ordre) ====================
-    function lirePhraseDansOrdre(motsALire) {
+    function lirePhraseDansOrdre(motsALire, onFinish) {
         if (!motsALire || motsALire.length === 0) return
 
         // Réinitialiser le flag d'interruption
@@ -689,6 +690,8 @@ export default function ReconnaitreLesMotsPage() {
                 // Fin de la lecture, réinitialiser l'index
                 setMotEnCoursLecture(-1)
                 audioEnCoursRef.current = null
+                // Appeler le callback si fourni
+                if (onFinish) onFinish()
                 return
             }
 
@@ -702,7 +705,7 @@ export default function ReconnaitreLesMotsPage() {
                     return
                 }
                 index++
-                setTimeout(lireMotSuivant, 100) // Petite pause entre les mots
+                lireMotSuivant() // Passer au mot suivant sans pause
             }
 
             // Stocker l'audio en cours et lancer la lecture
@@ -1159,6 +1162,9 @@ export default function ReconnaitreLesMotsPage() {
     function verifierOrdre() {
         if (!groupeActuel) return
 
+        // Empêcher les clics multiples
+        setIsVerifying(true)
+
         // Filtrer les mots vides
         const motsAttendus = groupeActuel.contenu
             .trim()
@@ -1189,24 +1195,32 @@ export default function ReconnaitreLesMotsPage() {
                 ...prev,
                 reussis: [...prev.reussis, phraseReconstitue]
             }))
-            setFeedback({ type: 'success', message: '✅ Parfait ! C\'est bien ça !' })
         } else {
             setResultats(prev => ({
                 ...prev,
                 rates: [...prev.rates, groupeActuel.contenu]
             }))
-            setFeedback({
-                type: 'error',
-                message: `❌ Certains mots ne sont pas au bon endroit`
-            })
         }
 
         // Lire la phrase dans l'ordre choisi par l'apprenant
-        lirePhraseDansOrdre(motsSelectionnes)
+        // Le feedback s'affichera après la lecture
+        lirePhraseDansOrdre(motsSelectionnes, () => {
+            if (correct) {
+                setFeedback({ type: 'success', message: '✅ Parfait ! C\'est bien ça !' })
+            } else {
+                setFeedback({
+                    type: 'error',
+                    message: `❌ Certains mots ne sont pas au bon endroit`
+                })
+            }
+            // Réactiver le bouton après affichage du feedback
+            setIsVerifying(false)
+        })
     }
 
     function phraseSuivante() {
         stopperLecture() // Interrompre la lecture audio en cours
+        setIsVerifying(false) // Réinitialiser pour la phrase suivante
         const nextIndex = indexGroupe + 1
         setIndexGroupe(nextIndex)
         preparerQuestionRemettreOrdre(nextIndex)
@@ -1590,7 +1604,10 @@ export default function ReconnaitreLesMotsPage() {
                     <div style={{
                         ...styles.exerciceCard,
                         padding: isMobile ? '8px' : '32px'
-                    }} onClick={() => router.push('/lire/ecoute-et-trouve')}>
+                    }} onClick={() => {
+                        const texteIds = textesSelectionnes.join(',')
+                        router.push(`/lire/ecoute-et-trouve?texte_ids=${texteIds}`)
+                    }}>
                         <div style={{
                             ...styles.exerciceIcon,
                             fontSize: isMobile ? '16px' : '64px',
@@ -1611,7 +1628,10 @@ export default function ReconnaitreLesMotsPage() {
                     <div style={{
                         ...styles.exerciceCard,
                         padding: isMobile ? '8px' : '32px'
-                    }} onClick={() => router.push('/lire/lis-et-trouve')}>
+                    }} onClick={() => {
+                        const texteIds = textesSelectionnes.join(',')
+                        router.push(`/lire/lis-et-trouve?texte_ids=${texteIds}`)
+                    }}>
                         <div style={{
                             ...styles.exerciceIcon,
                             fontSize: isMobile ? '16px' : '64px',
@@ -1625,6 +1645,67 @@ export default function ReconnaitreLesMotsPage() {
                         {!isMobile && (
                             <p style={styles.exerciceDescription}>
                                 Lis un mot et trouve le bon son parmi plusieurs audios
+                            </p>
+                        )}
+                    </div>
+
+                    <div style={{
+                        ...styles.exerciceCard,
+                        padding: isMobile ? '8px' : '32px'
+                    }} onClick={async () => {
+                        if (textesSelectionnes.length === 0) {
+                            alert('Veuillez d\'abord sélectionner des textes et démarrer les exercices')
+                            return
+                        }
+
+                        try {
+                            // Récupérer les groupes de sens des textes sélectionnés
+                            const { data, error: err } = await supabase
+                                .from('groupes_sens')
+                                .select('contenu')
+                                .in('texte_reference_id', textesSelectionnes)
+
+                            if (err) throw err
+
+                            // Extraire tous les mots des groupes
+                            const tousLesMots = []
+                            data.forEach(groupe => {
+                                const mots = groupe.contenu
+                                    .trim()
+                                    .split(/\s+/)
+                                    .filter(mot => mot && mot.trim().length > 0)
+                                    .filter(mot => !/^[.,:;!?]+$/.test(mot))
+                                    .map(mot => mot.replace(/^[.,;:!?¡¿'"«»\-—]+/, '').replace(/[.,;:!?¡¿'"«»\-—]+$/, ''))
+                                tousLesMots.push(...mots)
+                            })
+
+                            const motsUniques = [...new Set(tousLesMots)]
+
+                            if (motsUniques.length === 0) {
+                                alert('Aucun mot trouvé dans les textes sélectionnés')
+                                return
+                            }
+
+                            localStorage.setItem('construis-phrases-mots', JSON.stringify(motsUniques))
+                            router.push('/lire/construis-phrases')
+                        } catch (error) {
+                            console.error('Erreur récupération mots:', error)
+                            alert('Erreur lors de la récupération des mots')
+                        }
+                    }}>
+                        <div style={{
+                            ...styles.exerciceIcon,
+                            fontSize: isMobile ? '16px' : '64px',
+                            marginBottom: isMobile ? '4px' : '16px'
+                        }}>📝</div>
+                        <h3 style={{
+                            ...styles.exerciceTitle,
+                            fontSize: isMobile ? '12px' : '20px',
+                            marginBottom: isMobile ? '2px' : '8px'
+                        }}>Construis des phrases</h3>
+                        {!isMobile && (
+                            <p style={styles.exerciceDescription}>
+                                Crée des phrases avec les mots de tes textes
                             </p>
                         )}
                     </div>
@@ -1713,7 +1794,7 @@ export default function ReconnaitreLesMotsPage() {
                                     ←
                                 </button>
                                 <button
-                                    onClick={() => setExerciceActif(null)}
+                                    onClick={() => setEtape('selection')}
                                     style={{
                                         padding: '8px 12px',
                                         backgroundColor: 'white',
@@ -1724,7 +1805,7 @@ export default function ReconnaitreLesMotsPage() {
                                         display: 'flex',
                                         alignItems: 'center'
                                     }}
-                                    title="Retour aux exercices"
+                                    title="Sélection des textes"
                                 >
                                     👁️
                                 </button>
@@ -3189,7 +3270,7 @@ export default function ReconnaitreLesMotsPage() {
                                     ←
                                 </button>
                                 <button
-                                    onClick={() => setExerciceActif(null)}
+                                    onClick={() => setEtape('selection')}
                                     style={{
                                         padding: '8px 12px',
                                         backgroundColor: 'white',
@@ -3200,7 +3281,7 @@ export default function ReconnaitreLesMotsPage() {
                                         display: 'flex',
                                         alignItems: 'center'
                                     }}
-                                    title="Retour aux exercices"
+                                    title="Sélection des textes"
                                 >
                                     👁️
                                 </button>
@@ -3385,10 +3466,10 @@ export default function ReconnaitreLesMotsPage() {
                 <div style={styles.actions}>
                     <button
                         onClick={verifierOrdre}
-                        disabled={motsSelectionnes.length === 0 || feedback !== null}
+                        disabled={motsSelectionnes.length === 0 || feedback !== null || isVerifying}
                         style={{
                             ...styles.primaryButton,
-                            ...(motsSelectionnes.length === 0 || feedback ? { opacity: 0.5, cursor: 'not-allowed' } : {}),
+                            ...(motsSelectionnes.length === 0 || feedback || isVerifying ? { opacity: 0.5, cursor: 'not-allowed' } : {}),
                             ...(isMobile ? { padding: '8px 12px', fontSize: '14px' } : {})
                         }}
                     >
