@@ -63,6 +63,7 @@ export default function ReconnaitreLesMotsPage() {
     const [sonSelectionne, setSonSelectionne] = useState(null)
     const [sonsDesordre, setSonsDesordre] = useState([])
     const [listeMotsQuestCe, setListeMotsQuestCe] = useState([]) // Liste de tous les mots pour "Qu'est-ce ?"
+    const [reponseValidee, setReponseValidee] = useState(null) // { correct: boolean, motChoisi: string }
 
     // Découpage
     const [separations, setSeparations] = useState([])
@@ -1008,23 +1009,23 @@ export default function ReconnaitreLesMotsPage() {
                 ...prev,
                 reussis: [...prev.reussis, motActuel]
             }))
-            setFeedback({ type: 'success', message: '✅ Correct !' })
         } else {
             setResultats(prev => ({
                 ...prev,
                 rates: [...prev.rates, motActuel]
             }))
-            setFeedback({ type: 'error', message: `❌ Non, c'était "${motActuel}"` })
         }
 
-        // Question suivante après 1.5 sec
-        setTimeout(() => {
-            setFeedback(null)
-            setSonSelectionne(null) // Réinitialiser la sélection
-            const nextIndex = indexQuestion + 1
-            setIndexQuestion(nextIndex)
-            preparerQuestionQuestCe(nextIndex)
-        }, 1500)
+        // Enregistrer la validation pour afficher les bordures
+        setReponseValidee({ correct, motChoisi })
+    }
+
+    function questionSuivanteQuestCe() {
+        setReponseValidee(null)
+        setSonSelectionne(null)
+        const nextIndex = indexQuestion + 1
+        setIndexQuestion(nextIndex)
+        preparerQuestionQuestCe(nextIndex)
     }
 
     // ==================== EXERCICE 5 : REMETTRE DANS L'ORDRE ====================
@@ -3009,15 +3010,6 @@ export default function ReconnaitreLesMotsPage() {
                     )}
                 </div>
 
-                {feedback && (
-                    <div style={{
-                        ...styles.feedbackBox,
-                        ...(feedback.type === 'success' ? styles.feedbackSuccess : styles.feedbackError)
-                    }}>
-                        {feedback.message}
-                    </div>
-                )}
-
                 {isMobile ? (
                     <div
                         ref={phraseRefQuestCe}
@@ -3080,40 +3072,64 @@ export default function ReconnaitreLesMotsPage() {
                         marginBottom: '16px'
                     } : {})
                 }}>
-                    {sonsDesordre.map((mot, index) => (
-                        <button
-                            key={index}
-                            onClick={() => {
-                                setSonSelectionne(mot)
-                                lireTTS(mot)
-                            }}
-                            disabled={feedback !== null}
-                            style={{
-                                ...styles.audioButton,
-                                ...(isMobile ? {
-                                    padding: '16px',
-                                    fontSize: '18px'
-                                } : {}),
-                                ...(sonSelectionne === mot ? styles.audioButtonSelected : {}),
-                                ...(feedback ? { opacity: 0.5, cursor: 'not-allowed' } : {})
-                            }}
-                        >
-                            🔊 {index + 1}
-                        </button>
-                    ))}
+                    {sonsDesordre.map((mot, index) => {
+                        // Déterminer la couleur de bordure
+                        let borderStyle = {}
+                        if (reponseValidee) {
+                            if (mot === motActuel) {
+                                // Le bon mot : bordure verte épaisse
+                                borderStyle = { border: '3px solid #10b981' }
+                            } else if (mot === reponseValidee.motChoisi && !reponseValidee.correct) {
+                                // Le mot choisi si c'était faux : bordure rouge
+                                borderStyle = { border: '3px solid #ef4444' }
+                            }
+                        }
+
+                        return (
+                            <button
+                                key={index}
+                                onClick={() => {
+                                    setSonSelectionne(mot)
+                                    lireTTS(mot)
+                                }}
+                                disabled={reponseValidee !== null}
+                                style={{
+                                    ...styles.audioButton,
+                                    ...(isMobile ? {
+                                        padding: '16px',
+                                        fontSize: '18px'
+                                    } : {}),
+                                    ...(sonSelectionne === mot && !reponseValidee ? styles.audioButtonSelected : {}),
+                                    ...(reponseValidee ? { opacity: 0.5, cursor: 'not-allowed' } : {}),
+                                    ...borderStyle
+                                }}
+                            >
+                                🔊 {index + 1}
+                            </button>
+                        )
+                    })}
                 </div>
 
                 <div style={styles.actions}>
-                    <button
-                        onClick={() => verifierReponseQuestCe(sonSelectionne)}
-                        disabled={!sonSelectionne || feedback !== null}
-                        style={{
-                            ...styles.primaryButton,
-                            ...(!sonSelectionne || feedback ? { opacity: 0.5, cursor: 'not-allowed' } : {})
-                        }}
-                    >
-                        Valider
-                    </button>
+                    {!reponseValidee ? (
+                        <button
+                            onClick={() => verifierReponseQuestCe(sonSelectionne)}
+                            disabled={!sonSelectionne}
+                            style={{
+                                ...styles.primaryButton,
+                                ...(!sonSelectionne ? { opacity: 0.5, cursor: 'not-allowed' } : {})
+                            }}
+                        >
+                            Valider
+                        </button>
+                    ) : (
+                        <button
+                            onClick={questionSuivanteQuestCe}
+                            style={styles.primaryButton}
+                        >
+                            Suivant ➡️
+                        </button>
+                    )}
                 </div>
 
                 {/* Icônes de navigation */}
