@@ -3073,15 +3073,22 @@ export default function ReconnaitreLesMotsPage() {
                     } : {})
                 }}>
                     {sonsDesordre.map((mot, index) => {
-                        // Déterminer la couleur de bordure
+                        // Déterminer la couleur de bordure et si le bouton est cliquable
                         let borderStyle = {}
+                        let isClickable = true
+
                         if (reponseValidee) {
                             if (mot === motActuel) {
-                                // Le bon mot : bordure verte épaisse
+                                // Le bon mot : bordure verte épaisse, reste cliquable
                                 borderStyle = { border: '3px solid #10b981' }
+                                isClickable = true
                             } else if (mot === reponseValidee.motChoisi && !reponseValidee.correct) {
-                                // Le mot choisi si c'était faux : bordure rouge
+                                // Le mot choisi si c'était faux : bordure rouge, reste cliquable
                                 borderStyle = { border: '3px solid #ef4444' }
+                                isClickable = true
+                            } else {
+                                // Les autres mots : grisés et non cliquables
+                                isClickable = false
                             }
                         }
 
@@ -3092,7 +3099,7 @@ export default function ReconnaitreLesMotsPage() {
                                     setSonSelectionne(mot)
                                     lireTTS(mot)
                                 }}
-                                disabled={reponseValidee !== null}
+                                disabled={reponseValidee !== null && !isClickable}
                                 style={{
                                     ...styles.audioButton,
                                     ...(isMobile ? {
@@ -3100,7 +3107,7 @@ export default function ReconnaitreLesMotsPage() {
                                         fontSize: '18px'
                                     } : {}),
                                     ...(sonSelectionne === mot && !reponseValidee ? styles.audioButtonSelected : {}),
-                                    ...(reponseValidee ? { opacity: 0.5, cursor: 'not-allowed' } : {}),
+                                    ...(reponseValidee && !isClickable ? { opacity: 0.3, cursor: 'not-allowed' } : {}),
                                     ...borderStyle
                                 }}
                             >
