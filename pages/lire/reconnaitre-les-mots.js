@@ -2024,7 +2024,7 @@ export default function ReconnaitreLesMotsPage() {
                                     ←
                                 </button>
                                 <button
-                                    onClick={() => setExerciceActif(null)}
+                                    onClick={() => setEtape('selection')}
                                     style={{
                                         padding: '8px 12px',
                                         backgroundColor: 'white',
@@ -2035,7 +2035,7 @@ export default function ReconnaitreLesMotsPage() {
                                         display: 'flex',
                                         alignItems: 'center'
                                     }}
-                                    title="Retour aux exercices"
+                                    title="Sélection des textes"
                                 >
                                     👁️
                                 </button>
