@@ -475,7 +475,7 @@ export default function ModifierTexte() {
                         marginBottom: '30px'
                     }}>
                         <button
-                            onClick={() => router.push('/lire')}
+                            onClick={() => router.push('/lire/voir-mes-textes')}
                             style={{
                                 width: '55px',
                                 height: '55px',
@@ -887,7 +887,7 @@ export default function ModifierTexte() {
                                     justifyContent: 'center'
                                 }}
                             >
-                                ❌
+                                ✕
                             </button>
                             <button
                                 onClick={saveText}
@@ -895,15 +895,16 @@ export default function ModifierTexte() {
                                 style={{
                                     width: '45px',
                                     height: '45px',
-                                    backgroundColor: isSaving ? '#9ca3af' : '#10b981',
-                                    color: 'white',
-                                    border: 'none',
+                                    backgroundColor: 'white',
+                                    color: '#3b82f6',
+                                    border: '2px solid #3b82f6',
                                     borderRadius: '8px',
                                     fontSize: '20px',
                                     cursor: isSaving ? 'not-allowed' : 'pointer',
                                     display: 'flex',
                                     alignItems: 'center',
-                                    justifyContent: 'center'
+                                    justifyContent: 'center',
+                                    opacity: isSaving ? 0.5 : 1
                                 }}
                             >
                                 💾
@@ -964,8 +965,8 @@ export default function ModifierTexte() {
                                 }}
                             >
                                 {selectedGroups.size > 0
-                                    ? `❌ Supprimer sélection (${selectedGroups.size})`
-                                    : '❌ Supprimer dernier'
+                                    ? `✕ Supprimer sélection (${selectedGroups.size})`
+                                    : '✕ Supprimer dernier'
                                 }
                             </button>
                             <button
