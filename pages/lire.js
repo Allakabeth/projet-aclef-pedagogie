@@ -5,6 +5,7 @@ export default function Lire() {
     const [user, setUser] = useState(null)
     const [isLoading, setIsLoading] = useState(true)
     const router = useRouter()
+    const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768
 
     // Fonction pour lire le texte avec une voix masculine
     const lireTexte = (texte) => {
@@ -111,45 +112,65 @@ export default function Lire() {
             minHeight: '100vh',
             background: 'white',
             display: 'flex',
-            alignItems: 'center',
+            alignItems: 'flex-start',
             justifyContent: 'center',
-            padding: '15px'
+            padding: isMobile ? '8px' : '15px'
         }}>
             <div style={{
                 backgroundColor: 'white',
-                padding: 'clamp(15px, 4vw, 25px)',
+                padding: isMobile ? '10px' : 'clamp(15px, 4vw, 25px)',
                 maxWidth: '600px',
                 width: '100%',
                 textAlign: 'center'
             }}>
-                {/* Titre */}
-                <h1 style={{
-                    fontSize: 'clamp(22px, 5vw, 28px)',
-                    fontWeight: 'bold',
-                    marginBottom: '10px',
-                    background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                    WebkitBackgroundClip: 'text',
-                    WebkitTextFillColor: 'transparent'
+                {/* Titre centré */}
+                <div style={{
+                    textAlign: 'center',
+                    marginBottom: isMobile ? '20px' : '75px'
                 }}>
-                    📖 Module Lire
-                </h1>
+                    <h1 style={{
+                        fontSize: isMobile ? 'clamp(22px, 5vw, 28px)' : '36px',
+                        fontWeight: 'bold',
+                        margin: 0,
+                        marginBottom: '12px'
+                    }}>
+                        <span style={{ marginRight: '8px' }}>📖</span>
+                        <span style={{
+                            background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                            WebkitBackgroundClip: 'text',
+                            WebkitTextFillColor: 'transparent'
+                        }}>
+                            Module Lire
+                        </span>
+                    </h1>
 
-                {/* Message */}
-                <p style={{
-                    fontSize: 'clamp(16px, 3vw, 18px)',
-                    color: '#666',
-                    marginBottom: 'clamp(20px, 5vw, 35px)',
-                    lineHeight: '1.4'
-                }}>
-                    Choisissez une activité de lecture :
-                </p>
+                    <button
+                        onClick={() => router.push('/dashboard')}
+                        style={{
+                            padding: '8px 12px',
+                            backgroundColor: 'white',
+                            border: '2px solid #f59e0b',
+                            borderRadius: '8px',
+                            cursor: 'pointer',
+                            fontSize: '20px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            margin: '0 auto'
+                        }}
+                        title="Retour au menu principal"
+                    >
+                        🏠
+                    </button>
+                </div>
 
                 {/* Grille de boutons */}
                 <div style={{
                     display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-                    gap: 'clamp(10px, 3vw, 15px)',
-                    marginBottom: 'clamp(15px, 4vw, 25px)'
+                    gridTemplateColumns: isMobile
+                        ? 'repeat(2, 1fr)'
+                        : 'repeat(3, 1fr)',
+                    gap: isMobile ? '18px' : '20px',
+                    marginBottom: isMobile ? '10px' : '25px'
                 }}>
                     <div style={{ position: 'relative', display: 'inline-block', width: '100%' }}>
                         <button
@@ -157,14 +178,18 @@ export default function Lire() {
                             style={{
                                 backgroundColor: '#10b981',
                                 color: 'white',
-                                padding: 'clamp(15px, 4vw, 20px) clamp(10px, 3vw, 15px)',
+                                padding: isMobile ? '10px 8px' : '26px 20px',
                                 border: 'none',
                                 borderRadius: '12px',
-                                fontSize: 'clamp(13px, 3vw, 15px)',
+                                fontSize: isMobile ? '12px' : '19px',
                                 fontWeight: 'bold',
                                 cursor: 'pointer',
                                 transition: 'transform 0.2s ease',
-                                width: '100%'
+                                width: '100%',
+                                height: isMobile ? '55px' : '104px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
                             }}
                             onMouseOver={(e) => e.target.style.transform = 'translateY(-2px)'}
                             onMouseOut={(e) => e.target.style.transform = 'translateY(0)'}
@@ -203,14 +228,18 @@ export default function Lire() {
                             style={{
                                 backgroundColor: '#3b82f6',
                                 color: 'white',
-                                padding: 'clamp(15px, 4vw, 20px) clamp(10px, 3vw, 15px)',
+                                padding: isMobile ? '10px 8px' : '26px 20px',
                                 border: 'none',
                                 borderRadius: '12px',
-                                fontSize: 'clamp(13px, 3vw, 15px)',
+                                fontSize: isMobile ? '12px' : '19px',
                                 fontWeight: 'bold',
                                 cursor: 'pointer',
                                 transition: 'transform 0.2s ease',
-                                width: '100%'
+                                width: '100%',
+                                height: isMobile ? '55px' : '104px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
                             }}
                             onMouseOver={(e) => e.target.style.transform = 'translateY(-2px)'}
                             onMouseOut={(e) => e.target.style.transform = 'translateY(0)'}
@@ -249,14 +278,18 @@ export default function Lire() {
                             style={{
                                 backgroundColor: '#8b5cf6',
                                 color: 'white',
-                                padding: 'clamp(15px, 4vw, 20px) clamp(10px, 3vw, 15px)',
+                                padding: isMobile ? '10px 8px' : '26px 20px',
                                 border: 'none',
                                 borderRadius: '12px',
-                                fontSize: 'clamp(13px, 3vw, 15px)',
+                                fontSize: isMobile ? '12px' : '19px',
                                 fontWeight: 'bold',
                                 cursor: 'pointer',
                                 transition: 'transform 0.2s ease',
-                                width: '100%'
+                                width: '100%',
+                                height: isMobile ? '55px' : '104px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
                             }}
                             onMouseOver={(e) => e.target.style.transform = 'translateY(-2px)'}
                             onMouseOut={(e) => e.target.style.transform = 'translateY(0)'}
@@ -295,14 +328,18 @@ export default function Lire() {
                             style={{
                                 backgroundColor: '#ec4899',
                                 color: 'white',
-                                padding: 'clamp(15px, 4vw, 20px) clamp(10px, 3vw, 15px)',
+                                padding: isMobile ? '10px 8px' : '26px 20px',
                                 border: 'none',
                                 borderRadius: '12px',
-                                fontSize: 'clamp(13px, 3vw, 15px)',
+                                fontSize: isMobile ? '12px' : '19px',
                                 fontWeight: 'bold',
                                 cursor: 'pointer',
                                 transition: 'transform 0.2s ease',
-                                width: '100%'
+                                width: '100%',
+                                height: isMobile ? '55px' : '104px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
                             }}
                             onMouseOver={(e) => e.target.style.transform = 'translateY(-2px)'}
                             onMouseOut={(e) => e.target.style.transform = 'translateY(0)'}
@@ -337,18 +374,72 @@ export default function Lire() {
 
                     <div style={{ position: 'relative', display: 'inline-block', width: '100%' }}>
                         <button
+                            onClick={() => router.push('/lire/dictees-recherche')}
+                            style={{
+                                backgroundColor: '#a855f7',
+                                color: 'white',
+                                padding: isMobile ? '10px 8px' : '26px 20px',
+                                border: 'none',
+                                borderRadius: '12px',
+                                fontSize: isMobile ? '12px' : '19px',
+                                fontWeight: 'bold',
+                                cursor: 'pointer',
+                                transition: 'transform 0.2s ease',
+                                width: '100%',
+                                height: isMobile ? '55px' : '104px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                            }}
+                            onMouseOver={(e) => e.target.style.transform = 'translateY(-2px)'}
+                            onMouseOut={(e) => e.target.style.transform = 'translateY(0)'}
+                        >
+                            🔍 Dictées recherche
+                        </button>
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation()
+                                lireTexte('Dictées recherche')
+                            }}
+                            style={{
+                                position: 'absolute',
+                                top: '5px',
+                                right: '5px',
+                                backgroundColor: 'rgba(255,255,255,0.2)',
+                                border: 'none',
+                                borderRadius: '50%',
+                                width: '25px',
+                                height: '25px',
+                                cursor: 'pointer',
+                                fontSize: '12px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                            }}
+                            title="Écouter"
+                        >
+                            🔊
+                        </button>
+                    </div>
+
+                    <div style={{ position: 'relative', display: 'inline-block', width: '100%' }}>
+                        <button
                             onClick={() => router.push('/lire/reconnaitre-les-mots')}
                             style={{
                                 backgroundColor: '#06b6d4',
                                 color: 'white',
-                                padding: 'clamp(15px, 4vw, 20px) clamp(10px, 3vw, 15px)',
+                                padding: isMobile ? '10px 8px' : '26px 20px',
                                 border: 'none',
                                 borderRadius: '12px',
-                                fontSize: 'clamp(13px, 3vw, 15px)',
+                                fontSize: isMobile ? '12px' : '19px',
                                 fontWeight: 'bold',
                                 cursor: 'pointer',
                                 transition: 'transform 0.2s ease',
-                                width: '100%'
+                                width: '100%',
+                                height: isMobile ? '55px' : '104px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
                             }}
                             onMouseOver={(e) => e.target.style.transform = 'translateY(-2px)'}
                             onMouseOut={(e) => e.target.style.transform = 'translateY(0)'}
@@ -387,14 +478,18 @@ export default function Lire() {
                             style={{
                                 backgroundColor: '#14b8a6',
                                 color: 'white',
-                                padding: 'clamp(15px, 4vw, 20px) clamp(10px, 3vw, 15px)',
+                                padding: isMobile ? '10px 8px' : '26px 20px',
                                 border: 'none',
                                 borderRadius: '12px',
-                                fontSize: 'clamp(13px, 3vw, 15px)',
+                                fontSize: isMobile ? '12px' : '19px',
                                 fontWeight: 'bold',
                                 cursor: 'pointer',
                                 transition: 'transform 0.2s ease',
-                                width: '100%'
+                                width: '100%',
+                                height: isMobile ? '55px' : '104px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
                             }}
                             onMouseOver={(e) => e.target.style.transform = 'translateY(-2px)'}
                             onMouseOut={(e) => e.target.style.transform = 'translateY(0)'}
@@ -429,110 +524,22 @@ export default function Lire() {
 
                     <div style={{ position: 'relative', display: 'inline-block', width: '100%' }}>
                         <button
-                            onClick={() => router.push('/lire/segmentation-choix')}
-                            style={{
-                                backgroundColor: '#f59e0b',
-                                color: 'white',
-                                padding: 'clamp(15px, 4vw, 20px) clamp(10px, 3vw, 15px)',
-                                border: 'none',
-                                borderRadius: '12px',
-                                fontSize: 'clamp(13px, 3vw, 15px)',
-                                fontWeight: 'bold',
-                                cursor: 'pointer',
-                                transition: 'transform 0.2s ease',
-                                width: '100%'
-                            }}
-                            onMouseOver={(e) => e.target.style.transform = 'translateY(-2px)'}
-                            onMouseOut={(e) => e.target.style.transform = 'translateY(0)'}
-                        >
-                            ✂️ Segmentation des Syllabes
-                        </button>
-                        <button
-                            onClick={(e) => {
-                                e.stopPropagation()
-                                lireTexte('Segmentation des Syllabes')
-                            }}
-                            style={{
-                                position: 'absolute',
-                                top: '5px',
-                                right: '5px',
-                                backgroundColor: 'rgba(255,255,255,0.2)',
-                                border: 'none',
-                                borderRadius: '50%',
-                                width: '25px',
-                                height: '25px',
-                                cursor: 'pointer',
-                                fontSize: '12px',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center'
-                            }}
-                            title="Écouter"
-                        >
-                            🔊
-                        </button>
-                    </div>
-
-                    <div style={{ position: 'relative', display: 'inline-block', width: '100%' }}>
-                        <button
-                            onClick={() => router.push('/lire/dictees-recherche')}
-                            style={{
-                                backgroundColor: '#a855f7',
-                                color: 'white',
-                                padding: 'clamp(15px, 4vw, 20px) clamp(10px, 3vw, 15px)',
-                                border: 'none',
-                                borderRadius: '12px',
-                                fontSize: 'clamp(13px, 3vw, 15px)',
-                                fontWeight: 'bold',
-                                cursor: 'pointer',
-                                transition: 'transform 0.2s ease',
-                                width: '100%'
-                            }}
-                            onMouseOver={(e) => e.target.style.transform = 'translateY(-2px)'}
-                            onMouseOut={(e) => e.target.style.transform = 'translateY(0)'}
-                        >
-                            🔍 Dictées recherche
-                        </button>
-                        <button
-                            onClick={(e) => {
-                                e.stopPropagation()
-                                lireTexte('Dictées recherche')
-                            }}
-                            style={{
-                                position: 'absolute',
-                                top: '5px',
-                                right: '5px',
-                                backgroundColor: 'rgba(255,255,255,0.2)',
-                                border: 'none',
-                                borderRadius: '50%',
-                                width: '25px',
-                                height: '25px',
-                                cursor: 'pointer',
-                                fontSize: '12px',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center'
-                            }}
-                            title="Écouter"
-                        >
-                            🔊
-                        </button>
-                    </div>
-
-                    <div style={{ position: 'relative', display: 'inline-block', width: '100%' }}>
-                        <button
                             onClick={() => router.push('/lire/mes-syllabes-mots')}
                             style={{
                                 backgroundColor: '#ef4444',
                                 color: 'white',
-                                padding: 'clamp(15px, 4vw, 20px) clamp(10px, 3vw, 15px)',
+                                padding: isMobile ? '10px 8px' : '26px 20px',
                                 border: 'none',
                                 borderRadius: '12px',
-                                fontSize: 'clamp(13px, 3vw, 15px)',
+                                fontSize: isMobile ? '12px' : '19px',
                                 fontWeight: 'bold',
                                 cursor: 'pointer',
                                 transition: 'transform 0.2s ease',
-                                width: '100%'
+                                width: '100%',
+                                height: isMobile ? '55px' : '104px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
                             }}
                             onMouseOver={(e) => e.target.style.transform = 'translateY(-2px)'}
                             onMouseOut={(e) => e.target.style.transform = 'translateY(0)'}
@@ -567,18 +574,72 @@ export default function Lire() {
 
                     <div style={{ position: 'relative', display: 'inline-block', width: '100%' }}>
                         <button
+                            onClick={() => router.push('/lire/segmentation-choix')}
+                            style={{
+                                backgroundColor: '#f59e0b',
+                                color: 'white',
+                                padding: isMobile ? '10px 8px' : '26px 20px',
+                                border: 'none',
+                                borderRadius: '12px',
+                                fontSize: isMobile ? '12px' : '19px',
+                                fontWeight: 'bold',
+                                cursor: 'pointer',
+                                transition: 'transform 0.2s ease',
+                                width: '100%',
+                                height: isMobile ? '55px' : '104px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                            }}
+                            onMouseOver={(e) => e.target.style.transform = 'translateY(-2px)'}
+                            onMouseOut={(e) => e.target.style.transform = 'translateY(0)'}
+                        >
+                            ✂️ Segmentation des Syllabes
+                        </button>
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation()
+                                lireTexte('Segmentation des Syllabes')
+                            }}
+                            style={{
+                                position: 'absolute',
+                                top: '5px',
+                                right: '5px',
+                                backgroundColor: 'rgba(255,255,255,0.2)',
+                                border: 'none',
+                                borderRadius: '50%',
+                                width: '25px',
+                                height: '25px',
+                                cursor: 'pointer',
+                                fontSize: '12px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                            }}
+                            title="Écouter"
+                        >
+                            🔊
+                        </button>
+                    </div>
+
+                    <div style={{ position: 'relative', display: 'inline-block', width: '100%' }}>
+                        <button
                             onClick={() => router.push('/lire/syllabes-paniers')}
                             style={{
                                 backgroundColor: '#84cc16',
                                 color: 'white',
-                                padding: 'clamp(15px, 4vw, 20px) clamp(10px, 3vw, 15px)',
+                                padding: isMobile ? '10px 8px' : '26px 20px',
                                 border: 'none',
                                 borderRadius: '12px',
-                                fontSize: 'clamp(13px, 3vw, 15px)',
+                                fontSize: isMobile ? '12px' : '19px',
                                 fontWeight: 'bold',
                                 cursor: 'pointer',
                                 transition: 'transform 0.2s ease',
-                                width: '100%'
+                                width: '100%',
+                                height: isMobile ? '55px' : '104px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
                             }}
                             onMouseOver={(e) => e.target.style.transform = 'translateY(-2px)'}
                             onMouseOut={(e) => e.target.style.transform = 'translateY(0)'}
@@ -617,14 +678,18 @@ export default function Lire() {
                             style={{
                                 backgroundColor: '#ec4899',
                                 color: 'white',
-                                padding: 'clamp(15px, 4vw, 20px) clamp(10px, 3vw, 15px)',
+                                padding: isMobile ? '10px 8px' : '26px 20px',
                                 border: 'none',
                                 borderRadius: '12px',
-                                fontSize: 'clamp(13px, 3vw, 15px)',
+                                fontSize: isMobile ? '12px' : '19px',
                                 fontWeight: 'bold',
                                 cursor: 'pointer',
                                 transition: 'transform 0.2s ease',
-                                width: '100%'
+                                width: '100%',
+                                height: isMobile ? '55px' : '104px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
                             }}
                             onMouseOver={(e) => e.target.style.transform = 'translateY(-2px)'}
                             onMouseOut={(e) => e.target.style.transform = 'translateY(0)'}
@@ -663,14 +728,18 @@ export default function Lire() {
                             style={{
                                 backgroundColor: '#6366f1',
                                 color: 'white',
-                                padding: 'clamp(15px, 4vw, 20px) clamp(10px, 3vw, 15px)',
+                                padding: isMobile ? '10px 8px' : '26px 20px',
                                 border: 'none',
                                 borderRadius: '12px',
-                                fontSize: 'clamp(13px, 3vw, 15px)',
+                                fontSize: isMobile ? '12px' : '19px',
                                 fontWeight: 'bold',
                                 cursor: 'pointer',
                                 transition: 'transform 0.2s ease',
-                                width: '100%'
+                                width: '100%',
+                                height: isMobile ? '55px' : '104px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
                             }}
                             onMouseOver={(e) => e.target.style.transform = 'translateY(-2px)'}
                             onMouseOut={(e) => e.target.style.transform = 'translateY(0)'}
@@ -703,82 +772,15 @@ export default function Lire() {
                         </button>
                     </div>
 
-                    <div style={{ position: 'relative', display: 'inline-block', width: '100%' }}>
-                        <button
-                            onClick={() => router.push('/lire/statistiques')}
-                            style={{
-                                backgroundColor: '#64748b',
-                                color: 'white',
-                                padding: 'clamp(15px, 4vw, 20px) clamp(10px, 3vw, 15px)',
-                                border: 'none',
-                                borderRadius: '12px',
-                                fontSize: 'clamp(13px, 3vw, 15px)',
-                                fontWeight: 'bold',
-                                cursor: 'pointer',
-                                transition: 'transform 0.2s ease',
-                                width: '100%'
-                            }}
-                            onMouseOver={(e) => e.target.style.transform = 'translateY(-2px)'}
-                            onMouseOut={(e) => e.target.style.transform = 'translateY(0)'}
-                        >
-                            📊 Statistiques
-                        </button>
-                        <button
-                            onClick={(e) => {
-                                e.stopPropagation()
-                                lireTexte('Statistiques')
-                            }}
-                            style={{
-                                position: 'absolute',
-                                top: '5px',
-                                right: '5px',
-                                backgroundColor: 'rgba(255,255,255,0.2)',
-                                border: 'none',
-                                borderRadius: '50%',
-                                width: '25px',
-                                height: '25px',
-                                cursor: 'pointer',
-                                fontSize: '12px',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center'
-                            }}
-                            title="Écouter"
-                        >
-                            🔊
-                        </button>
-                    </div>
-
                 </div>
-
-                {/* Bouton Retour */}
-                <button
-                    onClick={handleRetourDashboard}
-                    style={{
-                        backgroundColor: '#6b7280',
-                        color: 'white',
-                        padding: '12px 30px',
-                        border: 'none',
-                        borderRadius: '12px',
-                        fontSize: '14px',
-                        fontWeight: 'bold',
-                        cursor: 'pointer',
-                        transition: 'all 0.3s ease',
-                        marginTop: '10px'
-                    }}
-                    onMouseOver={(e) => e.target.style.backgroundColor = '#4b5563'}
-                    onMouseOut={(e) => e.target.style.backgroundColor = '#6b7280'}
-                >
-                    ← Retour au menu principal
-                </button>
 
                 {/* Informations utilisateur */}
                 <div style={{
-                    marginTop: '25px',
-                    padding: '15px',
+                    marginTop: isMobile ? '10px' : '25px',
+                    padding: isMobile ? '8px' : '15px',
                     backgroundColor: '#f8fafc',
                     borderRadius: '12px',
-                    fontSize: '12px',
+                    fontSize: isMobile ? '10px' : '12px',
                     color: '#64748b'
                 }}>
                     Module Lire - Connecté : <strong>{user.identifiant}</strong> ({user.prenom} {user.nom})

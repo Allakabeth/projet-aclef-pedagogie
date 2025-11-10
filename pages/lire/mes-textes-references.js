@@ -126,13 +126,58 @@ export default function MesTextesReferences() {
                 <h1 style={{
                     fontSize: 'clamp(20px, 5vw, 26px)',
                     fontWeight: 'bold',
-                    marginBottom: '10px',
-                    background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                    WebkitBackgroundClip: 'text',
-                    WebkitTextFillColor: 'transparent'
+                    marginBottom: '10px'
                 }}>
-                    📚 Mes textes références
+                    <span style={{ marginRight: '8px' }}>📚</span>
+                    <span style={{
+                        background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                        WebkitBackgroundClip: 'text',
+                        WebkitTextFillColor: 'transparent'
+                    }}>
+                        Mes textes références
+                    </span>
                 </h1>
+
+                {/* Icônes de navigation */}
+                <div style={{
+                    display: 'flex',
+                    justifyContent: 'center',
+                    gap: '20px',
+                    marginBottom: '20px'
+                }}>
+                    <button
+                        onClick={() => router.push('/lire')}
+                        style={{
+                            background: 'none',
+                            border: 'none',
+                            fontSize: '32px',
+                            cursor: 'pointer',
+                            padding: '0',
+                            transition: 'transform 0.2s ease'
+                        }}
+                        onMouseOver={(e) => e.target.style.transform = 'scale(1.2)'}
+                        onMouseOut={(e) => e.target.style.transform = 'scale(1)'}
+                        title="Retour à Lire"
+                    >
+                        📖
+                    </button>
+                    <button
+                        onClick={() => router.push('/dashboard')}
+                        style={{
+                            background: 'none',
+                            border: 'none',
+                            fontSize: '32px',
+                            cursor: 'pointer',
+                            padding: '0',
+                            transition: 'transform 0.2s ease'
+                        }}
+                        onMouseOver={(e) => e.target.style.transform = 'scale(1.2)'}
+                        onMouseOut={(e) => e.target.style.transform = 'scale(1)'}
+                        title="Accueil"
+                    >
+                        🏠
+                    </button>
+                </div>
 
                 {/* Message */}
                 <p style={{
@@ -169,7 +214,7 @@ export default function MesTextesReferences() {
                             onMouseOver={(e) => e.target.style.transform = 'translateY(-2px)'}
                             onMouseOut={(e) => e.target.style.transform = 'translateY(0)'}
                         >
-                            📖 Voir mes textes
+                            📚 Voir mes textes
                         </button>
                         <button
                             onClick={(e) => {
@@ -338,27 +383,6 @@ export default function MesTextesReferences() {
 
 
                 </div>
-
-                {/* Bouton Retour */}
-                <button
-                    onClick={handleRetourLire}
-                    style={{
-                        backgroundColor: '#6b7280',
-                        color: 'white',
-                        padding: '12px 30px',
-                        border: 'none',
-                        borderRadius: '12px',
-                        fontSize: '14px',
-                        fontWeight: 'bold',
-                        cursor: 'pointer',
-                        transition: 'all 0.3s ease',
-                        marginTop: '10px'
-                    }}
-                    onMouseOver={(e) => e.target.style.backgroundColor = '#4b5563'}
-                    onMouseOut={(e) => e.target.style.backgroundColor = '#6b7280'}
-                >
-                    ← Retour à Lire
-                </button>
 
                 {/* Informations utilisateur */}
                 <div style={{
