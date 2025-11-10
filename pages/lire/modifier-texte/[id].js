@@ -70,6 +70,7 @@ export default function ModifierTexte() {
     const [selectedGroups, setSelectedGroups] = useState(new Set())
     const router = useRouter()
     const { id } = router.query
+    const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768
 
     useEffect(() => {
         // Vérifier l'authentification
@@ -451,16 +452,12 @@ export default function ModifierTexte() {
                 }}>
                     {/* Titre */}
                     <h1 style={{
-                        fontSize: 'clamp(22px, 5vw, 28px)',
+                        fontSize: 'clamp(16px, 4vw, 24px)',
                         fontWeight: 'bold',
                         marginBottom: '20px',
-                        textAlign: 'center',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '10px'
+                        textAlign: 'center'
                     }}>
-                        <span style={{ fontSize: 'clamp(22px, 5vw, 28px)' }}>✏️</span>
+                        <span style={{ fontSize: 'clamp(16px, 4vw, 24px)' }}>✏️</span>
                         <span style={{
                             background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
                             WebkitBackgroundClip: 'text',
@@ -547,23 +544,25 @@ export default function ModifierTexte() {
                         >
                             💾
                         </button>
-                        <button
-                            onClick={() => window.print()}
-                            style={{
-                                width: '55px',
-                                height: '55px',
-                                borderRadius: '12px',
-                                border: '2px solid #f59e0b',
-                                background: 'white',
-                                fontSize: '24px',
-                                cursor: 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center'
-                            }}
-                        >
-                            🖨️
-                        </button>
+                        {!isMobile && (
+                            <button
+                                onClick={() => window.print()}
+                                style={{
+                                    width: '55px',
+                                    height: '55px',
+                                    borderRadius: '12px',
+                                    border: '2px solid #f59e0b',
+                                    background: 'white',
+                                    fontSize: '24px',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center'
+                                }}
+                            >
+                                🖨️
+                            </button>
+                        )}
                     </div>
 
                     {/* Champ titre */}
@@ -594,166 +593,178 @@ export default function ModifierTexte() {
                         />
                     </div>
 
-                    {/* Contrôles de sélection et style */}
-                    <div style={{
-                        background: '#f8f9fa',
-                        padding: '20px',
-                        borderRadius: '8px',
-                        marginBottom: '20px'
-                    }}>
-                        <h3 style={{ marginBottom: '15px', fontSize: '18px', color: '#333' }}>
-                            Contrôles ({selectedGroups.size} groupe{selectedGroups.size > 1 ? 's' : ''} sélectionné{selectedGroups.size > 1 ? 's' : ''})
-                        </h3>
+                    {/* Contrôles de sélection et style (PC uniquement) */}
+                    {!isMobile && (
+                        <div style={{
+                            background: '#f8f9fa',
+                            padding: '20px',
+                            borderRadius: '8px',
+                            marginBottom: '20px'
+                        }}>
+                            <h3 style={{ marginBottom: '15px', fontSize: '18px', color: '#333' }}>
+                                Contrôles ({selectedGroups.size} groupe{selectedGroups.size > 1 ? 's' : ''} sélectionné{selectedGroups.size > 1 ? 's' : ''})
+                            </h3>
 
-                        {/* Boutons de sélection + Police/Taille */}
-                        <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', alignItems: 'center' }}>
-                            <button
-                                onClick={selectAllGroups}
-                                style={{
-                                    padding: '8px 15px',
-                                    backgroundColor: '#10b981',
-                                    color: 'white',
-                                    border: 'none',
-                                    borderRadius: '4px',
-                                    fontSize: '14px',
-                                    cursor: 'pointer'
-                                }}
-                            >
-                                ✓ Sélectionner tous
-                            </button>
-                            <button
-                                onClick={deselectAllGroups}
-                                style={{
-                                    padding: '8px 15px',
-                                    backgroundColor: '#6c757d',
-                                    color: 'white',
-                                    border: 'none',
-                                    borderRadius: '4px',
-                                    fontSize: '14px',
-                                    cursor: 'pointer'
-                                }}
-                            >
-                                ✗ Désélectionner tous
-                            </button>
-                            <div>
-                                <label style={{ marginRight: '10px', fontSize: '14px', fontWeight: '500' }}>
-                                    Police :
-                                </label>
-                                <select
-                                    value={textFont}
-                                    onChange={(e) => {
-                                        const newFont = e.target.value
-                                        setTextFont(newFont)
-                                        localStorage.setItem('textFont', newFont)
-                                        // Appliquer à tous les groupes
-                                        setTextGroups(textGroups.map(group => ({
-                                            ...group,
-                                            font: newFont
-                                        })))
-                                    }}
+                            {/* Boutons de sélection + Police/Taille */}
+                            <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', alignItems: 'center' }}>
+                                <button
+                                    onClick={selectAllGroups}
                                     style={{
-                                        padding: '8px',
+                                        padding: '8px 15px',
+                                        backgroundColor: '#10b981',
+                                        color: 'white',
+                                        border: 'none',
                                         borderRadius: '4px',
-                                        border: '1px solid #ddd',
-                                        fontSize: '14px'
+                                        fontSize: '14px',
+                                        cursor: 'pointer'
                                     }}
                                 >
-                                    <option value="Arial">Arial</option>
-                                    <option value="Times New Roman">Times New Roman</option>
-                                    <option value="Georgia">Georgia</option>
-                                    <option value="Comic Sans MS">Comic Sans MS</option>
-                                    <option value="Verdana">Verdana</option>
-                                    <option value="Helvetica">Helvetica</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label style={{ marginRight: '10px', fontSize: '14px', fontWeight: '500' }}>
-                                    Taille :
-                                </label>
-                                <select
-                                    value={textSize}
-                                    onChange={(e) => {
-                                        const newSize = e.target.value
-                                        setTextSize(newSize)
-                                        localStorage.setItem('textSize', newSize)
-                                        // Appliquer à tous les groupes
-                                        setTextGroups(textGroups.map(group => ({
-                                            ...group,
-                                            size: newSize
-                                        })))
-                                    }}
+                                    ✓ Sélectionner tous
+                                </button>
+                                <button
+                                    onClick={deselectAllGroups}
                                     style={{
-                                        padding: '8px',
+                                        padding: '8px 15px',
+                                        backgroundColor: '#6c757d',
+                                        color: 'white',
+                                        border: 'none',
                                         borderRadius: '4px',
-                                        border: '1px solid #ddd',
-                                        fontSize: '14px'
+                                        fontSize: '14px',
+                                        cursor: 'pointer'
                                     }}
                                 >
-                                    <option value="14">14px</option>
-                                    <option value="16">16px</option>
-                                    <option value="18">18px</option>
-                                    <option value="20">20px</option>
-                                    <option value="22">22px</option>
-                                    <option value="24">24px</option>
-                                    <option value="28">28px</option>
-                                </select>
+                                    ✗ Désélectionner tous
+                                </button>
+                                <div>
+                                    <label style={{ marginRight: '10px', fontSize: '14px', fontWeight: '500' }}>
+                                        Police :
+                                    </label>
+                                    <select
+                                        value={textFont}
+                                        onChange={(e) => {
+                                            const newFont = e.target.value
+                                            setTextFont(newFont)
+                                            localStorage.setItem('textFont', newFont)
+                                            // Appliquer à tous les groupes
+                                            setTextGroups(textGroups.map(group => ({
+                                                ...group,
+                                                font: newFont
+                                            })))
+                                        }}
+                                        style={{
+                                            padding: '8px',
+                                            borderRadius: '4px',
+                                            border: '1px solid #ddd',
+                                            fontSize: '14px'
+                                        }}
+                                    >
+                                        <option value="Arial">Arial</option>
+                                        <option value="Times New Roman">Times New Roman</option>
+                                        <option value="Georgia">Georgia</option>
+                                        <option value="Comic Sans MS">Comic Sans MS</option>
+                                        <option value="Verdana">Verdana</option>
+                                        <option value="Helvetica">Helvetica</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label style={{ marginRight: '10px', fontSize: '14px', fontWeight: '500' }}>
+                                        Taille :
+                                    </label>
+                                    <select
+                                        value={textSize}
+                                        onChange={(e) => {
+                                            const newSize = e.target.value
+                                            setTextSize(newSize)
+                                            localStorage.setItem('textSize', newSize)
+                                            // Appliquer à tous les groupes
+                                            setTextGroups(textGroups.map(group => ({
+                                                ...group,
+                                                size: newSize
+                                            })))
+                                        }}
+                                        style={{
+                                            padding: '8px',
+                                            borderRadius: '4px',
+                                            border: '1px solid #ddd',
+                                            fontSize: '14px'
+                                        }}
+                                    >
+                                        <option value="14">14px</option>
+                                        <option value="16">16px</option>
+                                        <option value="18">18px</option>
+                                        <option value="20">20px</option>
+                                        <option value="22">22px</option>
+                                        <option value="24">24px</option>
+                                        <option value="28">28px</option>
+                                    </select>
+                                </div>
                             </div>
                         </div>
-                    </div>
+                    )}
 
                     {/* Groupes de texte */}
                     <div style={{ marginBottom: '20px' }}>
                         {textGroups.map((group, index) => (
                             <div key={group.id}>
-                                <div style={{ marginBottom: '15px' }}>
+                                <div style={{ marginBottom: isMobile ? '2px' : '15px' }}>
                                     {group.type === 'text' ? (
                                         <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
-                                            {/* Case à cocher */}
-                                            <input
-                                                type="checkbox"
-                                                checked={selectedGroups.has(group.id)}
-                                                onChange={() => toggleGroupSelection(group.id)}
+                                            {/* Case à cocher (PC uniquement) */}
+                                            {!isMobile && (
+                                                <input
+                                                    type="checkbox"
+                                                    checked={selectedGroups.has(group.id)}
+                                                    onChange={() => toggleGroupSelection(group.id)}
+                                                    style={{
+                                                        marginTop: '20px',
+                                                        transform: 'scale(1.2)',
+                                                        cursor: 'pointer'
+                                                    }}
+                                                />
+                                            )}
+
+                                            <div
+                                                onClick={isMobile ? () => toggleGroupSelection(group.id) : undefined}
                                                 style={{
-                                                    marginTop: '20px',
-                                                    transform: 'scale(1.2)',
-                                                    cursor: 'pointer'
-                                                }}
-                                            />
-                                            
-                                            <div style={{
-                                                flex: 1,
-                                                background: selectedGroups.has(group.id) ? '#e8f5e8' : '#f8f9fa',
-                                                border: selectedGroups.has(group.id) ? '2px solid #10b981' : '2px solid #dee2e6',
-                                                borderRadius: '8px',
-                                                padding: '10px',
-                                                position: 'relative'
-                                            }}>
-                                                <div style={{
-                                                    position: 'absolute',
-                                                    top: '-12px',
-                                                    left: '12px',
-                                                    background: '#10b981',
-                                                    color: 'white',
-                                                    padding: '2px 8px',
-                                                    borderRadius: '4px',
-                                                    fontSize: '12px'
+                                                    flex: 1,
+                                                    background: selectedGroups.has(group.id) ? '#e8f5e8' : '#f8f9fa',
+                                                    border: selectedGroups.has(group.id) ? '2px solid #10b981' : '2px solid #dee2e6',
+                                                    borderRadius: isMobile ? '4px' : '8px',
+                                                    padding: isMobile ? '0px' : '10px',
+                                                    position: 'relative',
+                                                    cursor: isMobile ? 'pointer' : 'default'
                                                 }}>
-                                                    {index + 1}
-                                                </div>
+                                                {!isMobile && (
+                                                    <div style={{
+                                                        position: 'absolute',
+                                                        top: '-12px',
+                                                        left: '12px',
+                                                        background: '#10b981',
+                                                        color: 'white',
+                                                        padding: '2px 8px',
+                                                        borderRadius: '3px',
+                                                        fontSize: '12px'
+                                                    }}>
+                                                        {index + 1}
+                                                    </div>
+                                                )}
                                                 <textarea
                                                     placeholder="Saisissez votre groupe de mots..."
                                                     value={group.content || ''}
                                                     onChange={(e) => updateGroupContent(group.id, e.target.value)}
                                                     style={{
                                                         width: '100%',
-                                                        minHeight: '60px',
-                                                        padding: '10px',
+                                                        minHeight: isMobile ? 'auto' : '60px',
+                                                        height: isMobile ? 'auto' : 'auto',
+                                                        padding: isMobile ? '0px' : '10px',
                                                         border: 'none',
                                                         outline: 'none',
                                                         resize: 'none',
                                                         fontSize: textSize + 'px',
                                                         fontFamily: textFont,
-                                                        background: 'transparent'
+                                                        background: 'transparent',
+                                                        lineHeight: isMobile ? '1.2' : 'normal',
+                                                        overflow: 'hidden'
                                                     }}
                                                 />
                                             </div>
@@ -780,79 +791,201 @@ export default function ModifierTexte() {
                         ))}
                     </div>
 
-                    {/* Boutons d'actions */}
-                    <div style={{
-                        display: 'flex',
-                        gap: '10px',
-                        flexWrap: 'wrap',
-                        marginBottom: '20px',
-                        justifyContent: 'center'
-                    }}>
-                        <button
-                            onClick={addGroup}
-                            style={{
-                                padding: '12px 20px',
-                                backgroundColor: '#10b981',
-                                color: 'white',
-                                border: 'none',
-                                borderRadius: '8px',
-                                fontSize: '15px',
-                                fontWeight: 'bold',
-                                cursor: 'pointer'
-                            }}
-                        >
-                            ➕ Ajouter groupe
-                        </button>
-                        <button
-                            onClick={addLineBreak}
-                            style={{
-                                padding: '12px 20px',
-                                backgroundColor: '#3b82f6',
-                                color: 'white',
-                                border: 'none',
-                                borderRadius: '8px',
-                                fontSize: '15px',
-                                fontWeight: 'bold',
-                                cursor: 'pointer'
-                            }}
-                        >
-                            +↵ Ajouter saut de ligne
-                        </button>
-                        <button
-                            onClick={removeSelectedGroups}
-                            style={{
-                                padding: '12px 20px',
-                                backgroundColor: '#ef4444',
-                                color: 'white',
-                                border: 'none',
-                                borderRadius: '8px',
-                                fontSize: '15px',
-                                fontWeight: 'bold',
-                                cursor: 'pointer'
-                            }}
-                        >
-                            {selectedGroups.size > 0
-                                ? `❌ Supprimer sélection (${selectedGroups.size})`
-                                : '❌ Supprimer dernier'
-                            }
-                        </button>
-                        <button
-                            onClick={saveText}
-                            disabled={isSaving}
-                            style={{
-                                padding: '12px 20px',
-                                backgroundColor: isSaving ? '#9ca3af' : '#10b981',
-                                color: 'white',
-                                border: 'none',
-                                borderRadius: '8px',
-                                fontSize: '15px',
-                                fontWeight: 'bold',
-                                cursor: isSaving ? 'not-allowed' : 'pointer'
-                            }}
-                        >
-                            {isSaving ? 'Modification...' : '💾 Sauvegarder'}
-                        </button>
-                    </div>
+                    {/* Boutons actions mobile - Une seule ligne */}
+                    {isMobile && (
+                        <div style={{
+                            display: 'flex',
+                            gap: '8px',
+                            justifyContent: 'center',
+                            marginBottom: '20px'
+                        }}>
+                            <button
+                                onClick={selectAllGroups}
+                                style={{
+                                    width: '45px',
+                                    height: '45px',
+                                    backgroundColor: '#10b981',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    fontSize: '20px',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center'
+                                }}
+                            >
+                                ✓
+                            </button>
+                            <button
+                                onClick={deselectAllGroups}
+                                style={{
+                                    width: '45px',
+                                    height: '45px',
+                                    backgroundColor: '#6c757d',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    fontSize: '20px',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center'
+                                }}
+                            >
+                                ✗
+                            </button>
+                            <button
+                                onClick={addGroup}
+                                style={{
+                                    width: '45px',
+                                    height: '45px',
+                                    backgroundColor: '#10b981',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    fontSize: '20px',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center'
+                                }}
+                            >
+                                ➕
+                            </button>
+                            <button
+                                onClick={addLineBreak}
+                                style={{
+                                    width: '45px',
+                                    height: '45px',
+                                    backgroundColor: '#3b82f6',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    fontSize: '20px',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center'
+                                }}
+                            >
+                                ↵
+                            </button>
+                            <button
+                                onClick={removeSelectedGroups}
+                                style={{
+                                    width: '45px',
+                                    height: '45px',
+                                    backgroundColor: '#ef4444',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    fontSize: '20px',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center'
+                                }}
+                            >
+                                ❌
+                            </button>
+                            <button
+                                onClick={saveText}
+                                disabled={isSaving}
+                                style={{
+                                    width: '45px',
+                                    height: '45px',
+                                    backgroundColor: isSaving ? '#9ca3af' : '#10b981',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    fontSize: '20px',
+                                    cursor: isSaving ? 'not-allowed' : 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center'
+                                }}
+                            >
+                                💾
+                            </button>
+                        </div>
+                    )}
+
+                    {/* Boutons d'actions PC */}
+                    {!isMobile && (
+                        <div style={{
+                            display: 'flex',
+                            gap: '10px',
+                            flexWrap: 'wrap',
+                            marginBottom: '20px',
+                            justifyContent: 'center'
+                        }}>
+                            <button
+                                onClick={addGroup}
+                                style={{
+                                    padding: '12px 20px',
+                                    backgroundColor: '#10b981',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    fontSize: '15px',
+                                    fontWeight: 'bold',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                ➕ Ajouter groupe
+                            </button>
+                            <button
+                                onClick={addLineBreak}
+                                style={{
+                                    padding: '12px 20px',
+                                    backgroundColor: '#3b82f6',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    fontSize: '15px',
+                                    fontWeight: 'bold',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                +↵ Ajouter saut de ligne
+                            </button>
+                            <button
+                                onClick={removeSelectedGroups}
+                                style={{
+                                    padding: '12px 20px',
+                                    backgroundColor: '#ef4444',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    fontSize: '15px',
+                                    fontWeight: 'bold',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                {selectedGroups.size > 0
+                                    ? `❌ Supprimer sélection (${selectedGroups.size})`
+                                    : '❌ Supprimer dernier'
+                                }
+                            </button>
+                            <button
+                                onClick={saveText}
+                                disabled={isSaving}
+                                style={{
+                                    padding: '12px 20px',
+                                    backgroundColor: isSaving ? '#9ca3af' : '#10b981',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    fontSize: '15px',
+                                    fontWeight: 'bold',
+                                    cursor: isSaving ? 'not-allowed' : 'pointer'
+                                }}
+                            >
+                                {isSaving ? 'Modification...' : '💾 Sauvegarder'}
+                            </button>
+                        </div>
+                    )}
 
                     {/* Aperçu */}
                     {showPreview && (
