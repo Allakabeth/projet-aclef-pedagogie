@@ -147,11 +147,26 @@ export default function ModifierTexte() {
     const addGroup = () => {
         const newCounter = groupCounter + 1
         setGroupCounter(newCounter)
-        setTextGroups([...textGroups, { 
-            id: `new_${newCounter}`, 
-            type: 'text', 
-            content: '' 
-        }])
+        const newGroup = {
+            id: `new_${newCounter}`,
+            type: 'text',
+            content: ''
+        }
+
+        // Si exactement UNE case cochée, ajouter APRÈS elle
+        if (selectedGroups.size === 1) {
+            const selectedId = Array.from(selectedGroups)[0]
+            const index = textGroups.findIndex(g => g.id === selectedId)
+            if (index !== -1) {
+                const newGroups = [...textGroups]
+                newGroups.splice(index + 1, 0, newGroup)
+                setTextGroups(newGroups)
+                return
+            }
+        }
+
+        // Sinon ajouter à la fin
+        setTextGroups([...textGroups, newGroup])
     }
 
     const addLineBreak = () => {
@@ -216,12 +231,24 @@ export default function ModifierTexte() {
         setTextGroups(newGroups.filter(g => !groupsToRemove.includes(g.id)))
     }
 
-    const removeLastGroup = () => {
-        if (textGroups.length <= 1) {
-            alert('Vous devez garder au moins un groupe !')
-            return
+    const removeSelectedGroups = () => {
+        // Si des groupes sont sélectionnés, les supprimer
+        if (selectedGroups.size > 0) {
+            const remainingGroups = textGroups.filter(g => !selectedGroups.has(g.id))
+            if (remainingGroups.length === 0) {
+                alert('Vous devez garder au moins un groupe !')
+                return
+            }
+            setTextGroups(remainingGroups)
+            setSelectedGroups(new Set()) // Désélectionner tout
+        } else {
+            // Sinon comportement classique : supprimer le dernier
+            if (textGroups.length <= 1) {
+                alert('Vous devez garder au moins un groupe !')
+                return
+            }
+            setTextGroups(textGroups.slice(0, -1))
         }
-        setTextGroups(textGroups.slice(0, -1))
     }
 
     const updateGroupContent = (groupId, content) => {
@@ -426,14 +453,118 @@ export default function ModifierTexte() {
                     <h1 style={{
                         fontSize: 'clamp(22px, 5vw, 28px)',
                         fontWeight: 'bold',
-                        marginBottom: '10px',
-                        background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                        WebkitBackgroundClip: 'text',
-                        WebkitTextFillColor: 'transparent',
-                        textAlign: 'center'
+                        marginBottom: '20px',
+                        textAlign: 'center',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '10px'
                     }}>
-                        ✏️ Modifier le Texte de Référence
+                        <span style={{ fontSize: 'clamp(22px, 5vw, 28px)' }}>✏️</span>
+                        <span style={{
+                            background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                            WebkitBackgroundClip: 'text',
+                            WebkitTextFillColor: 'transparent'
+                        }}>
+                            Modifier le Texte de Référence
+                        </span>
                     </h1>
+
+                    {/* Navigation avec icônes */}
+                    <div style={{
+                        display: 'flex',
+                        justifyContent: 'center',
+                        gap: '12px',
+                        marginBottom: '30px'
+                    }}>
+                        <button
+                            onClick={() => router.push('/lire')}
+                            style={{
+                                width: '55px',
+                                height: '55px',
+                                borderRadius: '12px',
+                                border: '2px solid #64748b',
+                                background: 'white',
+                                fontSize: '24px',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                            }}
+                        >
+                            ←
+                        </button>
+                        <button
+                            onClick={() => router.push('/lire')}
+                            style={{
+                                width: '55px',
+                                height: '55px',
+                                borderRadius: '12px',
+                                border: '2px solid #10b981',
+                                background: 'white',
+                                fontSize: '24px',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                            }}
+                        >
+                            📖
+                        </button>
+                        <button
+                            onClick={() => router.push('/dashboard')}
+                            style={{
+                                width: '55px',
+                                height: '55px',
+                                borderRadius: '12px',
+                                border: '2px solid #8b5cf6',
+                                background: 'white',
+                                fontSize: '24px',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                            }}
+                        >
+                            🏠
+                        </button>
+                        <button
+                            onClick={saveText}
+                            disabled={isSaving}
+                            style={{
+                                width: '55px',
+                                height: '55px',
+                                borderRadius: '12px',
+                                border: '2px solid #3b82f6',
+                                background: 'white',
+                                fontSize: '24px',
+                                cursor: isSaving ? 'not-allowed' : 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                opacity: isSaving ? 0.5 : 1
+                            }}
+                        >
+                            💾
+                        </button>
+                        <button
+                            onClick={() => window.print()}
+                            style={{
+                                width: '55px',
+                                height: '55px',
+                                borderRadius: '12px',
+                                border: '2px solid #f59e0b',
+                                background: 'white',
+                                fontSize: '24px',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                            }}
+                        >
+                            🖨️
+                        </button>
+                    </div>
 
                     {/* Champ titre */}
                     <div style={{ marginBottom: '20px' }}>
@@ -456,7 +587,8 @@ export default function ModifierTexte() {
                                 border: '2px solid #dee2e6',
                                 borderRadius: '8px',
                                 fontSize: '16px',
-                                outline: 'none'
+                                outline: 'none',
+                                boxSizing: 'border-box'
                             }}
                             placeholder="Titre de votre texte..."
                         />
@@ -472,9 +604,9 @@ export default function ModifierTexte() {
                         <h3 style={{ marginBottom: '15px', fontSize: '18px', color: '#333' }}>
                             Contrôles ({selectedGroups.size} groupe{selectedGroups.size > 1 ? 's' : ''} sélectionné{selectedGroups.size > 1 ? 's' : ''})
                         </h3>
-                        
-                        {/* Boutons de sélection */}
-                        <div style={{ marginBottom: '15px', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+
+                        {/* Boutons de sélection + Police/Taille */}
+                        <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', alignItems: 'center' }}>
                             <button
                                 onClick={selectAllGroups}
                                 style={{
@@ -503,47 +635,6 @@ export default function ModifierTexte() {
                             >
                                 ✗ Désélectionner tous
                             </button>
-                        </div>
-
-                        {/* Boutons saut de ligne */}
-                        <div style={{ marginBottom: '15px', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                            <button
-                                onClick={addLineBreakAfterSelected}
-                                disabled={selectedGroups.size === 0}
-                                style={{
-                                    padding: '8px 15px',
-                                    backgroundColor: selectedGroups.size > 0 ? '#3b82f6' : '#ccc',
-                                    color: 'white',
-                                    border: 'none',
-                                    borderRadius: '4px',
-                                    fontSize: '14px',
-                                    cursor: selectedGroups.size > 0 ? 'pointer' : 'not-allowed'
-                                }}
-                            >
-                                +↵ Ajouter saut de ligne
-                            </button>
-                            <button
-                                onClick={removeLineBreakAfterSelected}
-                                disabled={selectedGroups.size === 0}
-                                style={{
-                                    padding: '8px 15px',
-                                    backgroundColor: selectedGroups.size > 0 ? '#ef4444' : '#ccc',
-                                    color: 'white',
-                                    border: 'none',
-                                    borderRadius: '4px',
-                                    fontSize: '14px',
-                                    cursor: selectedGroups.size > 0 ? 'pointer' : 'not-allowed'
-                                }}
-                            >
-                                -↵ Supprimer saut de ligne
-                            </button>
-                        </div>
-                        <div style={{
-                            display: 'flex',
-                            gap: '20px',
-                            flexWrap: 'wrap',
-                            alignItems: 'center'
-                        }}>
                             <div>
                                 <label style={{ marginRight: '10px', fontSize: '14px', fontWeight: '500' }}>
                                     Police :
@@ -551,8 +642,14 @@ export default function ModifierTexte() {
                                 <select
                                     value={textFont}
                                     onChange={(e) => {
-                                        setTextFont(e.target.value)
-                                        localStorage.setItem('textFont', e.target.value)
+                                        const newFont = e.target.value
+                                        setTextFont(newFont)
+                                        localStorage.setItem('textFont', newFont)
+                                        // Appliquer à tous les groupes
+                                        setTextGroups(textGroups.map(group => ({
+                                            ...group,
+                                            font: newFont
+                                        })))
                                     }}
                                     style={{
                                         padding: '8px',
@@ -576,8 +673,14 @@ export default function ModifierTexte() {
                                 <select
                                     value={textSize}
                                     onChange={(e) => {
-                                        setTextSize(e.target.value)
-                                        localStorage.setItem('textSize', e.target.value)
+                                        const newSize = e.target.value
+                                        setTextSize(newSize)
+                                        localStorage.setItem('textSize', newSize)
+                                        // Appliquer à tous les groupes
+                                        setTextGroups(textGroups.map(group => ({
+                                            ...group,
+                                            size: newSize
+                                        })))
                                     }}
                                     style={{
                                         padding: '8px',
@@ -688,86 +791,66 @@ export default function ModifierTexte() {
                         <button
                             onClick={addGroup}
                             style={{
-                                padding: '10px 15px',
+                                padding: '12px 20px',
                                 backgroundColor: '#10b981',
                                 color: 'white',
                                 border: 'none',
-                                borderRadius: '5px',
-                                fontSize: '14px',
+                                borderRadius: '8px',
+                                fontSize: '15px',
+                                fontWeight: 'bold',
                                 cursor: 'pointer'
                             }}
                         >
                             ➕ Ajouter groupe
                         </button>
                         <button
-                            onClick={removeLastGroup}
+                            onClick={addLineBreak}
                             style={{
-                                padding: '10px 15px',
-                                backgroundColor: '#ef4444',
-                                color: 'white',
-                                border: 'none',
-                                borderRadius: '5px',
-                                fontSize: '14px',
-                                cursor: 'pointer'
-                            }}
-                        >
-                            ❌ Supprimer dernier
-                        </button>
-                    </div>
-
-                    {/* Boutons principaux */}
-                    <div style={{
-                        display: 'flex',
-                        gap: '10px',
-                        justifyContent: 'center',
-                        marginBottom: '20px',
-                        flexWrap: 'wrap'
-                    }}>
-                        <button
-                            onClick={saveText}
-                            disabled={isSaving}
-                            style={{
-                                padding: '15px 25px',
-                                backgroundColor: isSaving ? '#9ca3af' : '#10b981',
-                                color: 'white',
-                                border: 'none',
-                                borderRadius: '8px',
-                                fontSize: '16px',
-                                fontWeight: 'bold',
-                                cursor: isSaving ? 'not-allowed' : 'pointer'
-                            }}
-                        >
-                            {isSaving ? 'Modification...' : '💾 Sauvegarder les modifications'}
-                        </button>
-                        <button
-                            onClick={togglePreview}
-                            style={{
-                                padding: '15px 25px',
+                                padding: '12px 20px',
                                 backgroundColor: '#3b82f6',
                                 color: 'white',
                                 border: 'none',
                                 borderRadius: '8px',
-                                fontSize: '16px',
+                                fontSize: '15px',
                                 fontWeight: 'bold',
                                 cursor: 'pointer'
                             }}
                         >
-                            👁️ Aperçu
+                            +↵ Ajouter saut de ligne
                         </button>
                         <button
-                            onClick={printText}
+                            onClick={removeSelectedGroups}
                             style={{
-                                padding: '15px 25px',
-                                backgroundColor: '#8b5cf6',
+                                padding: '12px 20px',
+                                backgroundColor: '#ef4444',
                                 color: 'white',
                                 border: 'none',
                                 borderRadius: '8px',
-                                fontSize: '16px',
+                                fontSize: '15px',
                                 fontWeight: 'bold',
                                 cursor: 'pointer'
                             }}
                         >
-                            🖨️ Imprimer
+                            {selectedGroups.size > 0
+                                ? `❌ Supprimer sélection (${selectedGroups.size})`
+                                : '❌ Supprimer dernier'
+                            }
+                        </button>
+                        <button
+                            onClick={saveText}
+                            disabled={isSaving}
+                            style={{
+                                padding: '12px 20px',
+                                backgroundColor: isSaving ? '#9ca3af' : '#10b981',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '8px',
+                                fontSize: '15px',
+                                fontWeight: 'bold',
+                                cursor: isSaving ? 'not-allowed' : 'pointer'
+                            }}
+                        >
+                            {isSaving ? 'Modification...' : '💾 Sauvegarder'}
                         </button>
                     </div>
 
@@ -817,25 +900,6 @@ export default function ModifierTexte() {
                             <p><strong>{stats.multiSyllableWords}</strong> mots multi-syllabes dans l'entraînement</p>
                         </div>
                     )}
-
-                    {/* Bouton retour */}
-                    <div style={{ textAlign: 'center', marginTop: '30px' }}>
-                        <button
-                            onClick={() => router.push('/lire/voir-mes-textes')}
-                            style={{
-                                backgroundColor: '#6b7280',
-                                color: 'white',
-                                padding: '12px 30px',
-                                border: 'none',
-                                borderRadius: '8px',
-                                fontSize: '14px',
-                                fontWeight: 'bold',
-                                cursor: 'pointer'
-                            }}
-                        >
-                            ← Retour à mes textes
-                        </button>
-                    </div>
                 </div>
             </div>
         </>
