@@ -96,30 +96,26 @@ ${motsUniques.join(', ')}
 
 RÈGLES IMPORTANTES :
 1. Utilise UNIQUEMENT les mots de la liste ci-dessus (pas d'autres mots)
-2. Chaque phrase doit contenir entre 3 et 8 mots
+2. Chaque phrase doit contenir entre 3 et 8 mots MAXIMUM
 3. Les phrases doivent avoir du SENS en français
-4. Sois CRÉATIF et VARIE au maximum :
-   - Structures différentes (déclaratives, interrogatives, exclamatives)
-   - Thèmes variés (actions, descriptions, émotions, lieux)
-   - Combinaisons originales de mots
-   - Ordre des mots différent à chaque fois
-5. N'utilise JAMAIS la même phrase deux fois
-6. Majuscule en début, ponctuation en fin (. ! ?)
-7. Fais preuve d'imagination pour créer des phrases intéressantes et variées
+4. IMPÉRATIF : VARIE ABSOLUMENT les débuts de phrases :
+   - Ne commence JAMAIS deux phrases de suite par le même mot
+   - Ne commence JAMAIS deux phrases de suite par les deux mêmes mots
+   - Alterne les sujets, les actions, les structures
+5. Structures différentes (déclaratives, interrogatives, exclamatives)
+6. Thèmes variés (actions, descriptions, émotions, lieux)
+7. N'utilise JAMAIS la même phrase deux fois
+8. Majuscule en début, ponctuation en fin (. ! ?)
 
-THÈMES À VARIER :
-- Actions quotidiennes
-- Descriptions
-- Questions
-- Lieux et déplacements
-- Émotions et ressentis
-- Nature et animaux
-- Relations et interactions
+VARIÉTÉ OBLIGATOIRE - EXEMPLES DE STRUCTURES :
+- Sujet + Verbe + Complément : "Marie mange une pomme."
+- Question : "Où est le chat ?"
+- Exclamation : "Quelle belle journée !"
+- Complément en début : "Dans le jardin, Paul joue."
+- Phrase courte : "Il court vite."
+- Phrase moyenne : "Le chien noir aboie fort."
 
-EXEMPLES (adapter selon les mots disponibles) :
-- "Chat mange poisson." (si 'chat', 'mange', 'poisson' disponibles)
-- "Marie court vite !" (si 'Marie', 'court', 'vite' disponibles)
-- Utilise SEULEMENT les mots fournis, même si cela rend les phrases moins fluides
+IMPÉRATIF : Assure-toi que les 50 phrases ont des DÉBUTS DIFFÉRENTS !
 
 Réponds UNIQUEMENT avec le JSON suivant (pas de texte avant ou après) :
 {
@@ -136,7 +132,7 @@ Réponds UNIQUEMENT avec le JSON suivant (pas de texte avant ou après) :
             // Essayer Gemini avec température équilibrée (créativité + respect des contraintes)
             console.log('🤖 Tentative avec Gemini...')
             const model = genAI.getGenerativeModel({
-                model: 'gemini-1.5-flash',
+                model: 'gemini-1.5-flash-latest',
                 generationConfig: {
                     temperature: 0.9,  // Température équilibrée pour créativité tout en respectant les contraintes
                     topP: 0.95,
@@ -154,20 +150,48 @@ Réponds UNIQUEMENT avec le JSON suivant (pas de texte avant ou après) :
             const parsed = JSON.parse(cleanedText)
 
             if (parsed.phrases && Array.isArray(parsed.phrases)) {
+                console.log(`📊 Gemini a généré ${parsed.phrases.length} phrases brutes`)
+
                 // Normaliser la liste des mots autorisés
                 const motsAutorisesNormalises = motsUniques.map(normalizeWord)
 
                 // Filtrer : longueur ET validation stricte des mots
-                phrases = parsed.phrases.filter(p => {
+                let phrasesValides = parsed.phrases.filter(p => {
                     // Vérifications basiques
-                    if (!p.texte || !p.mots || !Array.isArray(p.mots)) return false
-                    if (p.mots.length < 3 || p.mots.length > 10) return false
+                    if (!p.texte || !p.mots || !Array.isArray(p.mots)) {
+                        console.log(`❌ Phrase rejetée (format invalide)`)
+                        return false
+                    }
+                    if (p.mots.length < 3) {
+                        console.log(`❌ Phrase trop courte (${p.mots.length} mots): "${p.texte}"`)
+                        return false
+                    }
+                    if (p.mots.length > 8) {
+                        console.log(`❌ Phrase trop longue (${p.mots.length} mots): "${p.texte}"`)
+                        return false
+                    }
 
                     // ⚠️ VALIDATION STRICTE : Tous les mots doivent être autorisés
                     return validatePhrase(p, motsAutorisesNormalises)
                 })
 
-                console.log(`✅ ${phrases.length} phrases VALIDES générées par Gemini (après validation stricte)`)
+                console.log(`✅ ${phrasesValides.length} phrases valides après validation des mots`)
+
+                // Filtre anti-duplication SOUPLE : rejeter seulement si EXACTEMENT la même phrase
+                const textesVus = new Set()
+                phrases = phrasesValides.filter(p => {
+                    const texteNormalise = p.texte.toLowerCase().replace(/[.!?,;:]/g, '').trim()
+
+                    if (textesVus.has(texteNormalise)) {
+                        console.log(`⚠️ Phrase dupliquée rejetée: "${p.texte}"`)
+                        return false
+                    }
+
+                    textesVus.add(texteNormalise)
+                    return true
+                })
+
+                console.log(`✅ ${phrases.length} phrases UNIQUES générées par Gemini`)
             }
         } catch (aiError) {
             console.error('❌ Erreur Gemini:', aiError)
@@ -176,6 +200,7 @@ Réponds UNIQUEMENT avec le JSON suivant (pas de texte avant ou après) :
 
             // Fallback vers Groq
             try {
+                console.log('🔄 Tentative Groq avec API key présente:', !!process.env.GROQ_API_KEY)
                 const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
                     method: 'POST',
                     headers: {
@@ -192,6 +217,8 @@ Réponds UNIQUEMENT avec le JSON suivant (pas de texte avant ou après) :
                     })
                 })
 
+                console.log('📡 Réponse Groq status:', groqResponse.status)
+
                 if (groqResponse.ok) {
                     const groqData = await groqResponse.json()
                     const groqText = groqData.choices[0].message.content
@@ -201,23 +228,53 @@ Réponds UNIQUEMENT avec le JSON suivant (pas de texte avant ou après) :
                     const parsed = JSON.parse(cleanedText)
 
                     if (parsed.phrases && Array.isArray(parsed.phrases)) {
+                        console.log(`📊 Groq a généré ${parsed.phrases.length} phrases brutes`)
+
                         // Normaliser la liste des mots autorisés
                         const motsAutorisesNormalises = motsUniques.map(normalizeWord)
 
                         // Filtrer : longueur ET validation stricte des mots
-                        phrases = parsed.phrases.filter(p => {
+                        let phrasesValides = parsed.phrases.filter(p => {
                             // Vérifications basiques
-                            if (!p.texte || !p.mots || !Array.isArray(p.mots)) return false
-                            if (p.mots.length < 3 || p.mots.length > 10) return false
+                            if (!p.texte || !p.mots || !Array.isArray(p.mots)) {
+                                console.log(`❌ Phrase rejetée (format invalide)`)
+                                return false
+                            }
+                            if (p.mots.length < 3) {
+                                console.log(`❌ Phrase trop courte (${p.mots.length} mots): "${p.texte}"`)
+                                return false
+                            }
+                            if (p.mots.length > 8) {
+                                console.log(`❌ Phrase trop longue (${p.mots.length} mots): "${p.texte}"`)
+                                return false
+                            }
 
                             // ⚠️ VALIDATION STRICTE : Tous les mots doivent être autorisés
                             return validatePhrase(p, motsAutorisesNormalises)
                         })
 
-                        console.log(`✅ ${phrases.length} phrases VALIDES générées par Groq (après validation stricte)`)
+                        console.log(`✅ ${phrasesValides.length} phrases valides après validation des mots`)
+
+                        // Filtre anti-duplication SOUPLE : rejeter seulement si EXACTEMENT la même phrase
+                        const textesVus = new Set()
+                        phrases = phrasesValides.filter(p => {
+                            const texteNormalise = p.texte.toLowerCase().replace(/[.!?,;:]/g, '').trim()
+
+                            if (textesVus.has(texteNormalise)) {
+                                console.log(`⚠️ Phrase dupliquée rejetée: "${p.texte}"`)
+                                return false
+                            }
+
+                            textesVus.add(texteNormalise)
+                            return true
+                        })
+
+                        console.log(`✅ ${phrases.length} phrases UNIQUES générées par Groq`)
                     }
                 } else {
-                    console.error('❌ Groq a aussi échoué')
+                    const errorText = await groqResponse.text()
+                    console.error('❌ Groq a échoué. Status:', groqResponse.status)
+                    console.error('❌ Erreur Groq:', errorText)
                 }
             } catch (groqError) {
                 console.error('❌ Erreur Groq:', groqError)
@@ -230,9 +287,43 @@ Réponds UNIQUEMENT avec le JSON suivant (pas de texte avant ou après) :
 
         // Vérifier qu'on a bien des phrases
         if (phrases.length === 0) {
-            return res.status(500).json({
-                error: 'Aucune IA n\'a généré de phrases valides'
-            })
+            console.log('⚠️ Aucune IA disponible - Génération fallback JavaScript')
+
+            // FALLBACK : Générer des phrases simples en JavaScript
+            const templates = [
+                (mots) => `${mots[0]} ${mots[1]}.`,
+                (mots) => `${mots[0]} ${mots[1]} ${mots[2]}.`,
+                (mots) => `${mots[0]} ${mots[1]} ${mots[2]} ${mots[3]}.`,
+                (mots) => `${mots[0]} ${mots[1]} ${mots[2]} ${mots[3]} ${mots[4]}.`,
+            ]
+
+            const phrasesGenereesJS = []
+            const motsShuffled = [...motsUniques]
+
+            // Fisher-Yates pour mélanger les mots
+            for (let i = motsShuffled.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [motsShuffled[i], motsShuffled[j]] = [motsShuffled[j], motsShuffled[i]]
+            }
+
+            // Générer 15 phrases simples
+            for (let i = 0; i < Math.min(15, Math.floor(motsShuffled.length / 3)); i++) {
+                const taille = Math.min(3 + (i % 3), 5) // Phrases de 3 à 5 mots
+                const debut = i * 3
+                const motsPhrase = motsShuffled.slice(debut, debut + taille)
+
+                if (motsPhrase.length >= 3) {
+                    const template = templates[Math.min(motsPhrase.length - 2, templates.length - 1)]
+                    const texte = template(motsPhrase)
+                    phrasesGenereesJS.push({
+                        texte: texte,
+                        mots: motsPhrase
+                    })
+                }
+            }
+
+            phrases = phrasesGenereesJS
+            console.log(`✅ ${phrases.length} phrases générées en fallback JavaScript`)
         }
 
         console.log(`📊 ${phrases.length} phrases valides générées au total`)

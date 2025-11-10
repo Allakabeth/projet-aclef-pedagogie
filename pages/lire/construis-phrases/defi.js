@@ -18,10 +18,18 @@ export default function ConstruisPhrasesDefi() {
     const [visualFeedback, setVisualFeedback] = useState({ correct: false, incorrect: false })
     const [phraseVisible, setPhraseVisible] = useState(false)
     const [nbMotsIntrus, setNbMotsIntrus] = useState(8)
+    const [motsStatuts, setMotsStatuts] = useState([]) // Statut de chaque mot sélectionné
+    const [afficherBoutonSuivant, setAfficherBoutonSuivant] = useState(false)
+    const [enregistrementsMap, setEnregistrementsMap] = useState({})
 
     const router = useRouter()
 
     const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768
+
+    // Chargement des enregistrements vocaux personnalisés
+    useEffect(() => {
+        loadEnregistrements()
+    }, [])
 
     useEffect(() => {
         // Vérifier l'authentification
@@ -49,6 +57,23 @@ export default function ConstruisPhrasesDefi() {
         setIsLoading(false)
         chargerPhrases()
     }, [router])
+
+    // Charger les enregistrements vocaux personnalisés
+    const loadEnregistrements = async () => {
+        try {
+            const token = localStorage.getItem('token')
+            const response = await fetch('/api/enregistrements-mots/list', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            })
+
+            if (response.ok) {
+                const data = await response.json()
+                setEnregistrementsMap(data.enregistrementsMap || {})
+            }
+        } catch (error) {
+            console.error('Erreur chargement enregistrements vocaux:', error)
+        }
+    }
 
     // Démarrer la première phrase quand phrases ET nbMotsIntrus sont prêts
     useEffect(() => {
@@ -100,6 +125,8 @@ export default function ConstruisPhrasesDefi() {
         setMotsSelectionnes([])
         setVisualFeedback({ correct: false, incorrect: false })
         setPhraseVisible(false)
+        setMotsStatuts([])
+        setAfficherBoutonSuivant(false)
 
         // Récupérer les mots de la phrase actuelle
         const motsPhrase = [...phrase.mots]
@@ -129,11 +156,17 @@ export default function ConstruisPhrasesDefi() {
         console.log('🎲 Mots intrus ajoutés:', motsIntrus.length)
         console.log('👉 Intrus:', motsIntrus)
 
-        // Combiner les mots de la phrase + les intrus et mélanger
+        // Combiner les mots de la phrase + les intrus et mélanger avec Fisher-Yates
         const tousLesMots = [...motsPhrase, ...motsIntrus]
-        const motsMelanges = tousLesMots.sort(() => Math.random() - 0.5)
+
+        // Fisher-Yates shuffle pour un vrai hasard
+        for (let i = tousLesMots.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [tousLesMots[i], tousLesMots[j]] = [tousLesMots[j], tousLesMots[i]]
+        }
+
         console.log('✅ Total de mots présentés:', tousLesMots.length)
-        setMotsDisponibles(motsMelanges)
+        setMotsDisponibles(tousLesMots)
 
         // Lire automatiquement la phrase après 1 seconde
         setTimeout(() => {
@@ -141,63 +174,103 @@ export default function ConstruisPhrasesDefi() {
         }, 1000)
     }
 
-    // Fonction TTS pour lire la phrase
-    const lirePhrase = async (text) => {
-        if (isPlaying) return
+    // Fonction pour lire un mot individuel avec priorités
+    const lireUnMot = async (mot, onEnded = null) => {
+        // Normaliser le mot (enlever ponctuation)
+        const motNormalise = mot
+            .toLowerCase()
+            .trim()
+            .replace(/^[.,;:!?¡¿'"«»\-—]+/, '')
+            .replace(/[.,;:!?¡¿'"«»\-—]+$/, '')
 
-        setIsPlaying(true)
+        // PRIORITÉ 1 : Voix personnalisée de l'apprenant
+        if (enregistrementsMap[motNormalise]) {
+            try {
+                const audio = new Audio(enregistrementsMap[motNormalise].audio_url)
+                if (onEnded) audio.addEventListener('ended', onEnded)
+                await audio.play()
+                return
+            } catch (err) {
+                console.error('Erreur lecture voix perso:', err)
+                // Fallback sur ElevenLabs
+            }
+        }
 
-        // Essayer ElevenLabs en premier
+        // PRIORITÉ 2 : ElevenLabs
         try {
+            const token = localStorage.getItem('token')
             const response = await fetch('/api/speech/elevenlabs', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    'Authorization': `Bearer ${token}`
                 },
-                body: JSON.stringify({
-                    text: text,
-                    voice_id: 'AfbuxQ9DVtS4azaxN1W7' // Paul (voix d'homme)
-                })
+                body: JSON.stringify({ text: mot })
             })
 
             if (response.ok) {
                 const data = await response.json()
                 const audio = new Audio(data.audio)
-                audio.onended = () => setIsPlaying(false)
-                audio.play()
+                if (onEnded) audio.addEventListener('ended', onEnded)
+                await audio.play()
                 return
             }
         } catch (error) {
-            console.log('ElevenLabs non disponible, utilisation Web Speech API')
+            console.log('ElevenLabs non disponible pour mot:', mot)
         }
 
-        // Fallback vers Web Speech API
+        // PRIORITÉ 3 : Web Speech API (SAUF Hortense)
         if ('speechSynthesis' in window) {
-            const utterance = new SpeechSynthesisUtterance(text)
+            const voices = window.speechSynthesis.getVoices()
+            const frenchVoice = voices.find(v =>
+                v.lang.startsWith('fr') &&
+                !v.name.toLowerCase().includes('hortense')
+            )
+
+            const utterance = new SpeechSynthesisUtterance(mot)
             utterance.lang = 'fr-FR'
             utterance.rate = 0.9
+            if (frenchVoice) utterance.voice = frenchVoice
 
-            utterance.onend = () => setIsPlaying(false)
-
-            // Chercher une voix masculine française
-            const voices = speechSynthesis.getVoices()
-            const maleVoice = voices.find(voice =>
-                voice.lang.includes('fr') &&
-                (voice.name.toLowerCase().includes('paul') ||
-                 voice.name.toLowerCase().includes('thomas') ||
-                 voice.name.toLowerCase().includes('male') ||
-                 voice.name.toLowerCase().includes('homme'))
-            ) || voices.find(voice => voice.lang.includes('fr'))
-
-            if (maleVoice) {
-                utterance.voice = maleVoice
-            }
+            if (onEnded) utterance.addEventListener('end', onEnded)
 
             window.speechSynthesis.speak(utterance)
         } else {
-            setIsPlaying(false)
+            if (onEnded) onEnded()
         }
+    }
+
+    // Fonction TTS pour lire la phrase mot par mot
+    const lirePhrase = async (text) => {
+        if (isPlaying) return
+
+        setIsPlaying(true)
+
+        // Découper la phrase en mots
+        const mots = text
+            .trim()
+            .split(/\s+/)
+            .filter(mot => mot && mot.trim().length > 0)
+            .filter(mot => !/^[.,:;!?]+$/.test(mot))
+
+        let index = 0
+
+        // Fonction récursive pour lire les mots les uns après les autres
+        function lireMotSuivant() {
+            if (index >= mots.length) {
+                setIsPlaying(false)
+                return
+            }
+
+            const onAudioEnded = () => {
+                index++
+                lireMotSuivant() // Pas de délai, enchaîne directement
+            }
+
+            lireUnMot(mots[index], onAudioEnded)
+        }
+
+        lireMotSuivant()
     }
 
     const handleMotClick = (mot, index) => {
@@ -207,14 +280,11 @@ export default function ConstruisPhrasesDefi() {
         const nouveauxMots = [...motsSelectionnes, mot]
         setMotsSelectionnes(nouveauxMots)
 
-        // Vérifier si la phrase est complète
-        if (nouveauxMots.length === phraseActuelle.mots.length) {
-            verifierPhrase(nouveauxMots)
-        }
+        // La vérification se fait maintenant manuellement via le bouton Valider
     }
 
     const retirerMot = (index) => {
-        if (visualFeedback.correct || visualFeedback.incorrect) return
+        if (visualFeedback.correct || visualFeedback.incorrect || motsStatuts.length > 0) return
 
         const nouveauxMots = motsSelectionnes.filter((_, i) => i !== index)
         setMotsSelectionnes(nouveauxMots)
@@ -223,15 +293,22 @@ export default function ConstruisPhrasesDefi() {
     const verifierPhrase = (motsConstruit) => {
         setAttempts(attempts + 1)
 
-        // Comparer la phrase construite avec la phrase attendue
-        const phraseReconstruite = motsConstruit.join(' ').toLowerCase()
-        const phraseAttendue = phraseActuelle.mots.join(' ').toLowerCase()
+        // Comparer mot par mot
+        const motsAttendus = phraseActuelle.mots.map(m => m.toLowerCase())
+        const statuts = motsConstruit.map((mot, index) => ({
+            mot: mot,
+            correct: index < motsAttendus.length && mot.toLowerCase() === motsAttendus[index]
+        }))
 
-        const isCorrect = phraseReconstruite === phraseAttendue
+        setMotsStatuts(statuts)
 
-        if (isCorrect) {
+        // Vérifier si tout est correct
+        const toutCorrect = statuts.every(s => s.correct) && statuts.length === motsAttendus.length
+
+        if (toutCorrect) {
             setScore(score + 1)
             setVisualFeedback({ correct: true, incorrect: false })
+            setAfficherBoutonSuivant(false)
 
             // Passer à la phrase suivante après 2 secondes
             setTimeout(() => {
@@ -245,13 +322,17 @@ export default function ConstruisPhrasesDefi() {
             }, 2000)
         } else {
             setVisualFeedback({ correct: false, incorrect: true })
-
-            // Réinitialiser après 2 secondes
-            setTimeout(() => {
-                setMotsSelectionnes([])
-                setVisualFeedback({ correct: false, incorrect: false })
-            }, 2000)
+            setAfficherBoutonSuivant(true) // Afficher le bouton Suivant
         }
+    }
+
+    const passerPhraseApresErreur = () => {
+        // Réinitialiser pour la phrase suivante
+        setMotsSelectionnes([])
+        setMotsStatuts([])
+        setVisualFeedback({ correct: false, incorrect: false })
+        setAfficherBoutonSuivant(false)
+        passerPhrase()
     }
 
     const afficherPhrase = () => {
@@ -385,62 +466,141 @@ export default function ConstruisPhrasesDefi() {
     return (
         <div style={{
             minHeight: '100vh',
-            background: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)',
-            padding: '20px'
+            background: 'white',
+            padding: '5px 15px'
         }}>
             <div style={{
                 maxWidth: '800px',
                 margin: '0 auto'
             }}>
-                {/* En-tête */}
+                {/* LIGNE 1 : Titre */}
+                <h1 style={{
+                    fontSize: isMobile ? '24px' : '28px',
+                    fontWeight: 'bold',
+                    color: '#10b981',
+                    textAlign: 'center',
+                    margin: '0 0 10px 0'
+                }}>
+                    🎯 Mode Défi
+                </h1>
+
+                {/* LIGNE 2 : Phrase + Score */}
                 <div style={{
                     display: 'flex',
                     justifyContent: 'space-between',
                     alignItems: 'center',
-                    marginBottom: '30px',
-                    color: 'white',
+                    marginBottom: '15px',
                     fontSize: isMobile ? '14px' : '16px',
-                    fontWeight: 'bold',
-                    flexWrap: 'wrap',
-                    gap: '10px'
+                    fontWeight: 'bold'
                 }}>
-                    <div>Phrase {phraseIndex + 1}/{phrases.length}</div>
-                    <div>Score: {score}/{attempts}</div>
-                    <div style={{ fontSize: isMobile ? '12px' : '14px' }}>
-                        Mots intrus: {nbMotsIntrus}
+                    <div style={{ color: '#666' }}>
+                        Phrase {phraseIndex + 1}/{phrases.length}
                     </div>
+                    <div style={{ color: '#10b981' }}>
+                        Score: {score}/{attempts}
+                    </div>
+                </div>
+
+                {/* LIGNE 3 : Icônes de navigation + Écouter */}
+                <div style={{
+                    display: 'flex',
+                    gap: isMobile ? '8px' : '10px',
+                    justifyContent: 'center',
+                    marginBottom: '20px'
+                }}>
                     <button
-                        onClick={() => router.push('/lire/construis-phrases')}
-                        style={{
-                            backgroundColor: '#dc2626',
-                            color: 'white',
-                            padding: isMobile ? '8px 16px' : '10px 20px',
-                            border: 'none',
-                            borderRadius: '8px',
-                            fontSize: isMobile ? '14px' : '16px',
-                            fontWeight: 'bold',
-                            cursor: 'pointer'
+                        onClick={() => {
+                            const texteIds = localStorage.getItem('construis-phrases-texte-ids')
+                            if (texteIds) {
+                                router.push(`/lire/reconnaitre-les-mots?etape=exercices&texte_ids=${texteIds}`)
+                            } else {
+                                router.push('/lire/reconnaitre-les-mots?etape=exercices')
+                            }
                         }}
+                        style={{
+                            padding: '8px 16px',
+                            backgroundColor: 'white',
+                            border: '2px solid #64748b',
+                            borderRadius: '8px',
+                            cursor: 'pointer',
+                            fontSize: '20px',
+                            display: 'flex',
+                            alignItems: 'center'
+                        }}
+                        title="Menu exercices"
                     >
-                        🚪 Quitter
+                        ←
+                    </button>
+                    <button
+                        onClick={() => router.push('/lire/reconnaitre-les-mots?etape=selection')}
+                        style={{
+                            padding: '8px 16px',
+                            backgroundColor: 'white',
+                            border: '2px solid #3b82f6',
+                            borderRadius: '8px',
+                            cursor: 'pointer',
+                            fontSize: '20px',
+                            display: 'flex',
+                            alignItems: 'center'
+                        }}
+                        title="Sélection des textes"
+                    >
+                        👁️
+                    </button>
+                    <button
+                        onClick={() => router.push('/lire')}
+                        style={{
+                            padding: '8px 16px',
+                            backgroundColor: 'white',
+                            border: '2px solid #10b981',
+                            borderRadius: '8px',
+                            cursor: 'pointer',
+                            fontSize: '20px',
+                            display: 'flex',
+                            alignItems: 'center'
+                        }}
+                        title="Menu Lire"
+                    >
+                        📖
+                    </button>
+                    <button
+                        onClick={() => router.push('/dashboard')}
+                        style={{
+                            padding: '8px 16px',
+                            backgroundColor: 'white',
+                            border: '2px solid #8b5cf6',
+                            borderRadius: '8px',
+                            cursor: 'pointer',
+                            fontSize: '20px',
+                            display: 'flex',
+                            alignItems: 'center'
+                        }}
+                        title="Accueil"
+                    >
+                        🏠
+                    </button>
+                    <button
+                        onClick={() => lirePhrase(phraseActuelle.texte)}
+                        disabled={isPlaying}
+                        style={{
+                            padding: '8px 16px',
+                            backgroundColor: isPlaying ? '#d1d5db' : 'white',
+                            border: '2px solid #f59e0b',
+                            borderRadius: '8px',
+                            cursor: isPlaying ? 'not-allowed' : 'pointer',
+                            fontSize: '20px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            opacity: isPlaying ? 0.6 : 1
+                        }}
+                        title="Écouter la phrase"
+                    >
+                        🔊
                     </button>
                 </div>
 
-                {/* Zone principale */}
-                <div style={{
-                    background: 'white',
-                    borderRadius: '20px',
-                    padding: isMobile ? '20px' : '40px'
-                }}>
-                    <div style={{
-                        fontSize: '20px',
-                        fontWeight: 'bold',
-                        color: '#8b5cf6',
-                        marginBottom: '30px',
-                        textAlign: 'center'
-                    }}>
-                        🎯 Mode Défi
-                    </div>
+                {/* Zone de jeu (sans cadre blanc) */}
+                <div>
 
                     {/* Phrase (cachée ou visible) */}
                     {phraseVisible && (
@@ -464,14 +624,16 @@ export default function ConstruisPhrasesDefi() {
                         marginBottom: '30px',
                         textAlign: 'center'
                     }}>
-                        <p style={{
-                            fontSize: '16px',
-                            fontWeight: 'bold',
-                            marginBottom: '15px',
-                            color: '#666'
-                        }}>
-                            {phraseVisible ? 'Construis la phrase :' : '🎧 Écoute et construis la phrase :'}
-                        </p>
+                        {!isMobile && (
+                            <p style={{
+                                fontSize: '16px',
+                                fontWeight: 'bold',
+                                marginBottom: '15px',
+                                color: '#666'
+                            }}>
+                                {phraseVisible ? 'Construis la phrase :' : '🎧 Écoute et construis la phrase :'}
+                            </p>
+                        )}
 
                         <div style={{
                             display: 'flex',
@@ -492,33 +654,36 @@ export default function ConstruisPhrasesDefi() {
                                     Clique sur les mots...
                                 </div>
                             ) : (
-                                motsSelectionnes.map((mot, index) => (
-                                    <div
-                                        key={index}
-                                        onClick={() => retirerMot(index)}
-                                        style={{
-                                            background: visualFeedback.correct
-                                                ? '#10b981'
-                                                : visualFeedback.incorrect
-                                                ? '#ef4444'
-                                                : '#8b5cf6',
-                                            color: 'white',
-                                            padding: '10px 20px',
-                                            borderRadius: '8px',
-                                            fontSize: isMobile ? '14px' : '16px',
-                                            fontWeight: 'bold',
-                                            cursor: (visualFeedback.correct || visualFeedback.incorrect) ? 'not-allowed' : 'pointer',
-                                            border: '2px solid',
-                                            borderColor: visualFeedback.correct
-                                                ? '#059669'
-                                                : visualFeedback.incorrect
-                                                ? '#dc2626'
-                                                : '#7c3aed'
-                                        }}
-                                    >
-                                        {mot}
-                                    </div>
-                                ))
+                                motsSelectionnes.map((mot, index) => {
+                                    // Déterminer la couleur selon le statut du mot
+                                    const statut = motsStatuts[index]
+                                    const isCorrect = statut && statut.correct
+                                    const isIncorrect = statut && !statut.correct
+
+                                    return (
+                                        <div
+                                            key={index}
+                                            onClick={() => retirerMot(index)}
+                                            style={{
+                                                background: '#f3f4f6',
+                                                color: '#333',
+                                                padding: '10px 20px',
+                                                borderRadius: '8px',
+                                                fontSize: isMobile ? '14px' : '16px',
+                                                fontWeight: 'bold',
+                                                cursor: motsStatuts.length > 0 ? 'not-allowed' : 'pointer',
+                                                border: '3px solid',
+                                                borderColor: isCorrect
+                                                    ? '#10b981'
+                                                    : isIncorrect
+                                                    ? '#ef4444'
+                                                    : '#8b5cf6'
+                                            }}
+                                        >
+                                            {mot}
+                                        </div>
+                                    )
+                                })
                             )}
                         </div>
 
@@ -527,85 +692,73 @@ export default function ConstruisPhrasesDefi() {
                                 ✅ Bravo ! C'est correct !
                             </p>
                         )}
-
-                        {visualFeedback.incorrect && (
-                            <p style={{ color: '#ef4444', fontWeight: 'bold', fontSize: '18px' }}>
-                                ❌ Essaie encore !
-                            </p>
-                        )}
                     </div>
 
-                    {/* Boutons d'aide */}
+                    {/* Boutons Valider et Suivant */}
                     <div style={{
                         display: 'flex',
-                        gap: '10px',
+                        gap: '15px',
                         justifyContent: 'center',
-                        flexWrap: 'wrap',
                         marginBottom: '30px'
                     }}>
-                        <button
-                            onClick={() => lirePhrase(phraseActuelle.texte)}
-                            disabled={isPlaying}
-                            style={{
-                                background: isPlaying ? '#ccc' : 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
-                                color: 'white',
-                                padding: '12px 20px',
-                                border: 'none',
-                                borderRadius: '10px',
-                                fontSize: '14px',
-                                fontWeight: 'bold',
-                                cursor: isPlaying ? 'not-allowed' : 'pointer'
-                            }}
-                        >
-                            🔊 Réécouter
-                        </button>
-
-                        {!phraseVisible && (
+                        {!afficherBoutonSuivant && (
                             <button
-                                onClick={afficherPhrase}
+                                onClick={() => {
+                                    if (motsSelectionnes.length > 0) {
+                                        verifierPhrase(motsSelectionnes)
+                                    }
+                                }}
+                                disabled={motsSelectionnes.length === 0 || visualFeedback.correct || visualFeedback.incorrect}
                                 style={{
-                                    background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+                                    background: (motsSelectionnes.length === 0 || visualFeedback.correct || visualFeedback.incorrect)
+                                        ? '#d1d5db'
+                                        : 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
                                     color: 'white',
-                                    padding: '12px 20px',
+                                    padding: '15px 40px',
                                     border: 'none',
                                     borderRadius: '10px',
-                                    fontSize: '14px',
+                                    fontSize: '18px',
+                                    fontWeight: 'bold',
+                                    cursor: (motsSelectionnes.length === 0 || visualFeedback.correct || visualFeedback.incorrect) ? 'not-allowed' : 'pointer',
+                                    opacity: (motsSelectionnes.length === 0 || visualFeedback.correct || visualFeedback.incorrect) ? 0.5 : 1
+                                }}
+                            >
+                                ✓ Valider
+                            </button>
+                        )}
+
+                        {afficherBoutonSuivant && (
+                            <button
+                                onClick={passerPhraseApresErreur}
+                                style={{
+                                    background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+                                    color: 'white',
+                                    padding: '15px 40px',
+                                    border: 'none',
+                                    borderRadius: '10px',
+                                    fontSize: '18px',
                                     fontWeight: 'bold',
                                     cursor: 'pointer'
                                 }}
                             >
-                                💡 Voir la phrase
+                                → Suivant
                             </button>
                         )}
-
-                        <button
-                            onClick={passerPhrase}
-                            style={{
-                                background: 'transparent',
-                                color: '#666',
-                                padding: '12px 20px',
-                                border: '2px solid #d1d5db',
-                                borderRadius: '10px',
-                                fontSize: '14px',
-                                fontWeight: 'bold',
-                                cursor: 'pointer'
-                            }}
-                        >
-                            ⏭️ Passer
-                        </button>
                     </div>
 
                     {/* Mots disponibles */}
                     <div>
-                        <p style={{
-                            fontSize: '14px',
-                            fontWeight: 'bold',
-                            marginBottom: '15px',
-                            color: '#666',
-                            textAlign: 'center'
-                        }}>
-                            Mots disponibles :
-                        </p>
+                        {!isMobile && (
+                            <p style={{
+                                fontSize: '14px',
+                                fontWeight: 'bold',
+                                marginBottom: '15px',
+                                color: '#666',
+                                textAlign: 'center'
+                            }}>
+                                Mots disponibles :
+                            </p>
+                        )}
                         <div style={{
                             display: 'grid',
                             gridTemplateColumns: 'repeat(2, 1fr)',
@@ -638,15 +791,17 @@ export default function ConstruisPhrasesDefi() {
                         </div>
                     </div>
 
-                    <p style={{
-                        marginTop: '30px',
-                        textAlign: 'center',
-                        color: '#666',
-                        fontSize: '12px',
-                        opacity: 0.8
-                    }}>
-                        Clique sur les mots dans le bon ordre pour reconstituer la phrase
-                    </p>
+                    {!isMobile && (
+                        <p style={{
+                            marginTop: '30px',
+                            textAlign: 'center',
+                            color: '#666',
+                            fontSize: '12px',
+                            opacity: 0.8
+                        }}>
+                            Clique sur les mots dans le bon ordre pour reconstituer la phrase
+                        </p>
+                    )}
                 </div>
             </div>
         </div>
