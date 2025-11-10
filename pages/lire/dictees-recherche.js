@@ -174,316 +174,354 @@ export default function DicteesRecherche() {
         }}>
             <style dangerouslySetInnerHTML={{ __html: mobileStyles }} />
             <div style={{
-                maxWidth: '800px',
-                margin: '0 auto'
+                maxWidth: window.innerWidth <= 768 ? '800px' : '100%',
+                margin: '0 auto',
+                padding: window.innerWidth <= 768 ? '0' : '0 20px'
             }}>
                 <h1 style={{
                     fontSize: 'clamp(22px, 5vw, 28px)',
                     fontWeight: 'bold',
                     marginBottom: '20px',
-                    background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
-                    WebkitBackgroundClip: 'text',
-                    WebkitTextFillColor: 'transparent',
                     textAlign: 'center'
                 }}>
-                    🔍 Dictées Recherche
+                    <span style={{ marginRight: '8px' }}>🔍</span>
+                    <span style={{
+                        background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+                        WebkitBackgroundClip: 'text',
+                        WebkitTextFillColor: 'transparent'
+                    }}>
+                        Dictées Recherche
+                    </span>
                 </h1>
 
-                <p style={{
-                    textAlign: 'center',
-                    marginBottom: '40px',
-                    color: '#666',
-                    fontSize: '18px'
-                }}>
-                    {window.innerWidth <= 768 ? '' : 'Créer des nouvelles phrases avec vos groupes de sens !'}
-                </p>
-
-                {/* Sélection des textes */}
-                <div style={{
-                    background: window.innerWidth <= 768 ? 'transparent' : '#f8f9fa',
-                    padding: window.innerWidth <= 768 ? '0' : '30px',
-                    borderRadius: window.innerWidth <= 768 ? '0' : '12px',
-                    marginBottom: '40px'
-                }}>
-                    <h2 className="desktop-only" style={{
+                {window.innerWidth > 768 && (
+                    <p style={{
+                        textAlign: 'center',
                         marginBottom: '20px',
-                        color: '#333',
-                        fontSize: '20px'
+                        color: '#666',
+                        fontSize: '16px'
                     }}>
-                        📚 Choisissez vos textes ({selectedTextes.size} sélectionné{selectedTextes.size > 1 ? 's' : ''})
-                    </h2>
-
-                    {textes.length === 0 ? (
-                        <div style={{
-                            textAlign: 'center',
-                            padding: '40px',
-                            background: '#fff3cd',
-                            borderRadius: '8px',
-                            border: '1px solid #ffeaa7'
-                        }}>
-                            <p style={{ fontSize: '18px', marginBottom: '10px' }}>😔 Aucun texte disponible</p>
-                            <p style={{ fontSize: '14px', color: '#666' }}>
-                                Créez d'abord un texte de référence dans "📚 Mes textes références"
-                            </p>
-                        </div>
-                    ) : (
-                        <div style={{ display: 'grid', gap: '15px' }}>
-                            {textes.map(texte => (
-                                <label key={texte.id} style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '15px',
-                                    padding: '20px',
-                                    background: selectedTextes.has(texte.id) ? '#e8f5e8' : 'white',
-                                    borderRadius: '8px',
-                                    border: selectedTextes.has(texte.id) ? '3px solid #10b981' : '2px solid #ddd',
-                                    cursor: 'pointer',
-                                    transition: 'all 0.3s ease'
-                                }}>
-                                    <input
-                                        type="checkbox"
-                                        checked={selectedTextes.has(texte.id)}
-                                        onChange={() => toggleTexteSelection(texte.id)}
-                                        style={{
-                                            transform: 'scale(1.5)',
-                                            cursor: 'pointer'
-                                        }}
-                                    />
-                                    <div>
-                                        <div style={{
-                                            fontSize: '18px',
-                                            fontWeight: 'bold',
-                                            marginBottom: '5px'
-                                        }}>
-                                            {texte.titre}
-                                        </div>
-                                        <div className="desktop-only" style={{ fontSize: '14px', color: '#666' }}>
-                                            {texte.nombre_mots_total} mots • {texte.nombre_groupes} groupes de sens
-                                        </div>
-                                    </div>
-                                </label>
-                            ))}
-                        </div>
-                    )}
-                </div>
-
-                {/* Choix du mode */}
-                {textes.length > 0 && (
-                    <div style={{
-                        background: window.innerWidth <= 768 ? 'transparent' : '#f0f9ff',
-                        padding: window.innerWidth <= 768 ? '10px' : '30px',
-                        borderRadius: window.innerWidth <= 768 ? '0' : '12px',
-                        marginBottom: '30px'
-                    }}>
-                        <h2 className="desktop-only" style={{
-                            marginBottom: '25px',
-                            color: '#0369a1',
-                            fontSize: '20px',
-                            textAlign: 'center'
-                        }}>
-                            🎯 Comment voulez-vous vous entraîner ?
-                        </h2>
-
-                        <div style={{
-                            display: 'grid',
-                            gridTemplateColumns: window.innerWidth <= 768 ? '1fr 1fr' : 'repeat(auto-fit, minmax(300px, 1fr))',
-                            gap: '20px'
-                        }}>
-                            {/* Mode Auto-évaluation */}
-                            <div
-                                onClick={() => {
-                                    if (window.innerWidth <= 768) {
-                                        speakModeDescription('auto-evaluation')
-                                        setSelectedModeForMobile('auto-evaluation')
-                                    } else {
-                                        speakModeDescription('auto-evaluation')
-                                    }
-                                }}
-                                style={{
-                                    background: 'white',
-                                    padding: window.innerWidth <= 768 ? '15px' : '25px',
-                                    borderRadius: window.innerWidth <= 768 ? '8px' : '12px',
-                                    border: '2px solid #10b981',
-                                    textAlign: 'center',
-                                    cursor: window.innerWidth <= 768 ? 'pointer' : 'default',
-                                    opacity: window.innerWidth <= 768 ? (selectedModeForMobile === 'auto-evaluation' ? 0.8 : 1) : 1,
-                                    backgroundColor: window.innerWidth <= 768 && selectedModeForMobile === 'auto-evaluation' ? '#f0fdf4' : 'white',
-                                    transition: 'transform 0.2s',
-                                    transform: 'scale(1)',
-                                    minHeight: window.innerWidth <= 768 ? '120px' : 'auto',
-                                    display: window.innerWidth <= 768 ? 'flex' : 'block',
-                                    flexDirection: window.innerWidth <= 768 ? 'column' : 'initial',
-                                    justifyContent: window.innerWidth <= 768 ? 'center' : 'initial'
-                                }}
-                            >
-                                <div style={{
-                                    fontSize: window.innerWidth <= 768 ? '32px' : '48px',
-                                    marginBottom: window.innerWidth <= 768 ? '8px' : '15px'
-                                }}>
-                                    😌
-                                </div>
-                                <h3 style={{
-                                    color: '#10b981',
-                                    margin: window.innerWidth <= 768 ? '0' : '0 0 15px 0',
-                                    fontSize: window.innerWidth <= 768 ? '14px' : '20px',
-                                    fontWeight: 'bold'
-                                }}>
-                                    Mode Tranquille
-                                </h3>
-                                <p className="desktop-only" style={{
-                                    color: '#666',
-                                    marginBottom: '20px',
-                                    lineHeight: '1.5'
-                                }}>
-                                    • Lisez la phrase créée<br/>
-                                    • Écoutez-la si besoin<br/>
-                                    • Dites "J'ai réussi !"<br/>
-                                    • Pas de pression
-                                </p>
-                                <button
-                                    className="desktop-only"
-                                    onClick={() => startMode('auto-evaluation')}
-                                    disabled={selectedTextes.size === 0}
-                                    style={{
-                                        backgroundColor: selectedTextes.size === 0 ? '#ccc' : '#10b981',
-                                        color: 'white',
-                                        padding: '12px 24px',
-                                        border: 'none',
-                                        borderRadius: '8px',
-                                        fontSize: '16px',
-                                        fontWeight: 'bold',
-                                        cursor: selectedTextes.size === 0 ? 'not-allowed' : 'pointer',
-                                        width: '100%'
-                                    }}
-                                >
-                                    ✅ Je choisis le mode tranquille
-                                </button>
-                            </div>
-
-                            {/* Mode Évaluation */}
-                            <div
-                                onClick={() => {
-                                    if (window.innerWidth <= 768) {
-                                        speakModeDescription('evaluation')
-                                        setSelectedModeForMobile('evaluation')
-                                    } else {
-                                        speakModeDescription('evaluation')
-                                    }
-                                }}
-                                style={{
-                                    background: 'white',
-                                    padding: window.innerWidth <= 768 ? '15px' : '25px',
-                                    borderRadius: window.innerWidth <= 768 ? '8px' : '12px',
-                                    border: '2px solid #3b82f6',
-                                    textAlign: 'center',
-                                    cursor: window.innerWidth <= 768 ? 'pointer' : 'default',
-                                    opacity: window.innerWidth <= 768 ? (selectedModeForMobile === 'evaluation' ? 0.8 : 1) : 1,
-                                    backgroundColor: window.innerWidth <= 768 && selectedModeForMobile === 'evaluation' ? '#eff6ff' : 'white',
-                                    transition: 'transform 0.2s',
-                                    transform: 'scale(1)',
-                                    minHeight: window.innerWidth <= 768 ? '120px' : 'auto',
-                                    display: window.innerWidth <= 768 ? 'flex' : 'block',
-                                    flexDirection: window.innerWidth <= 768 ? 'column' : 'initial',
-                                    justifyContent: window.innerWidth <= 768 ? 'center' : 'initial'
-                                }}
-                            >
-                                <div style={{
-                                    fontSize: window.innerWidth <= 768 ? '32px' : '48px',
-                                    marginBottom: window.innerWidth <= 768 ? '8px' : '15px'
-                                }}>
-                                    🎤
-                                </div>
-                                <h3 style={{
-                                    color: '#3b82f6',
-                                    margin: window.innerWidth <= 768 ? '0' : '0 0 15px 0',
-                                    fontSize: window.innerWidth <= 768 ? '14px' : '20px',
-                                    fontWeight: 'bold'
-                                }}>
-                                    Mode Défi
-                                </h3>
-                                <p className="desktop-only" style={{
-                                    color: '#666',
-                                    marginBottom: '20px',
-                                    lineHeight: '1.5'
-                                }}>
-                                    • Écoutez la phrase créée<br/>
-                                    • Répétez-la de mémoire<br/>
-                                    • Vérifiez avec le texte<br/>
-                                    • Plus challenging !
-                                </p>
-                                <button
-                                    className="desktop-only"
-                                    onClick={() => startMode('evaluation')}
-                                    disabled={selectedTextes.size === 0}
-                                    style={{
-                                        backgroundColor: selectedTextes.size === 0 ? '#ccc' : '#3b82f6',
-                                        color: 'white',
-                                        padding: '12px 24px',
-                                        border: 'none',
-                                        borderRadius: '8px',
-                                        fontSize: '16px',
-                                        fontWeight: 'bold',
-                                        cursor: selectedTextes.size === 0 ? 'not-allowed' : 'pointer',
-                                        width: '100%'
-                                    }}
-                                >
-                                    🎤 Je choisis le mode défi
-                                </button>
-                            </div>
-                        </div>
-
-                        {/* Bouton valider pour mobile */}
-                        {selectedModeForMobile && window.innerWidth <= 768 && (
-                            <div style={{
-                                display: 'flex',
-                                justifyContent: 'center',
-                                marginTop: '20px'
-                            }}>
-                                <button
-                                    onClick={() => {
-                                        if (selectedTextes.size === 0) {
-                                            alert('Sélectionnez au moins un texte avant de commencer')
-                                            return
-                                        }
-                                        startMode(selectedModeForMobile)
-                                    }}
-                                    disabled={selectedTextes.size === 0}
-                                    style={{
-                                        backgroundColor: selectedTextes.size === 0 ? '#ccc' : (selectedModeForMobile === 'auto-evaluation' ? '#10b981' : '#3b82f6'),
-                                        color: 'white',
-                                        padding: '15px 40px',
-                                        border: 'none',
-                                        borderRadius: '8px',
-                                        fontSize: '16px',
-                                        fontWeight: 'bold',
-                                        cursor: selectedTextes.size === 0 ? 'not-allowed' : 'pointer'
-                                    }}
-                                >
-                                    ✅ Valider
-                                </button>
-                            </div>
-                        )}
-                    </div>
+                        Créer des nouvelles phrases avec vos groupes de sens !
+                    </p>
                 )}
 
-                {/* Bouton retour */}
-                <div style={{ textAlign: 'center' }}>
+                {/* Navigation icônes */}
+                <div style={{
+                    display: 'flex',
+                    justifyContent: 'center',
+                    gap: '12px',
+                    marginBottom: '40px'
+                }}>
                     <button
                         onClick={() => router.push('/lire')}
                         style={{
-                            backgroundColor: '#6b7280',
-                            color: 'white',
-                            padding: '12px 30px',
-                            border: 'none',
-                            borderRadius: '8px',
-                            fontSize: '14px',
-                            fontWeight: 'bold',
-                            cursor: 'pointer'
+                            width: '55px',
+                            height: '55px',
+                            backgroundColor: 'white',
+                            color: '#10b981',
+                            border: '2px solid #10b981',
+                            borderRadius: '12px',
+                            fontSize: '24px',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
                         }}
                     >
-                        ← Retour au menu Lire
+                        📖
                     </button>
+                    <button
+                        onClick={() => router.push('/dashboard')}
+                        style={{
+                            width: '55px',
+                            height: '55px',
+                            backgroundColor: 'white',
+                            color: '#8b5cf6',
+                            border: '2px solid #8b5cf6',
+                            borderRadius: '12px',
+                            fontSize: '24px',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                        }}
+                    >
+                        🏠
+                    </button>
+                    {window.innerWidth <= 768 && (
+                        <>
+                            <button
+                                onClick={() => {
+                                    if (selectedTextes.size === 0) {
+                                        alert('Sélectionnez au moins un texte avant de commencer')
+                                        return
+                                    }
+                                    startMode('auto-evaluation')
+                                }}
+                                style={{
+                                    width: '55px',
+                                    height: '55px',
+                                    backgroundColor: 'white',
+                                    color: '#10b981',
+                                    border: '2px solid #10b981',
+                                    borderRadius: '12px',
+                                    fontSize: '24px',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center'
+                                }}
+                            >
+                                😌
+                            </button>
+                            <button
+                                onClick={() => {
+                                    if (selectedTextes.size === 0) {
+                                        alert('Sélectionnez au moins un texte avant de commencer')
+                                        return
+                                    }
+                                    startMode('evaluation')
+                                }}
+                                style={{
+                                    width: '55px',
+                                    height: '55px',
+                                    backgroundColor: 'white',
+                                    color: '#3b82f6',
+                                    border: '2px solid #3b82f6',
+                                    borderRadius: '12px',
+                                    fontSize: '24px',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center'
+                                }}
+                            >
+                                🎤
+                            </button>
+                        </>
+                    )}
                 </div>
+
+{textes.length === 0 ? (
+                    <div style={{
+                        textAlign: 'center',
+                        padding: '40px',
+                        background: '#fff3cd',
+                        borderRadius: '8px',
+                        border: '1px solid #ffeaa7',
+                        marginBottom: '40px'
+                    }}>
+                        <p style={{ fontSize: '18px', marginBottom: '10px' }}>😔 Aucun texte disponible</p>
+                        <p style={{ fontSize: '14px', color: '#666' }}>
+                            Créez d'abord un texte de référence dans "📚 Mes textes références"
+                        </p>
+                    </div>
+                ) : (
+                    <div style={{
+                        display: window.innerWidth <= 768 ? 'block' : 'grid',
+                        gridTemplateColumns: window.innerWidth <= 768 ? '1fr' : '300px 1fr 300px',
+                        gap: '20px',
+                        marginBottom: '40px'
+                    }}>
+                        {/* COLONNE GAUCHE - Mode Tranquille (Desktop only) */}
+                        <div className="desktop-only" style={{
+                            background: 'white',
+                            padding: '25px',
+                            borderRadius: '12px',
+                            border: '2px solid #10b981',
+                            textAlign: 'center'
+                        }}>
+                            <div style={{ fontSize: '48px', marginBottom: '15px' }}>😌</div>
+                            <h3 style={{
+                                color: '#10b981',
+                                margin: '0 0 20px 0',
+                                fontSize: '20px',
+                                fontWeight: 'bold'
+                            }}>
+                                Mode Tranquille
+                            </h3>
+
+                            <p style={{
+                                color: '#666',
+                                marginBottom: '20px',
+                                lineHeight: '1.5',
+                                fontSize: '14px'
+                            }}>
+                                • Lisez la phrase créée<br/>
+                                • Écoutez-la si besoin<br/>
+                                • Dites "J'ai réussi !"<br/>
+                                • Pas de pression
+                            </p>
+
+                            <button
+                                onClick={() => startMode('auto-evaluation')}
+                                disabled={selectedTextes.size === 0}
+                                style={{
+                                    backgroundColor: selectedTextes.size === 0 ? '#ccc' : '#10b981',
+                                    color: 'white',
+                                    padding: '12px 24px',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    fontSize: '16px',
+                                    fontWeight: 'bold',
+                                    cursor: selectedTextes.size === 0 ? 'not-allowed' : 'pointer',
+                                    width: '100%'
+                                }}
+                            >
+                                ✅ Commencer
+                            </button>
+                        </div>
+
+                        {/* COLONNE CENTRE - Liste des textes */}
+                        <div style={{
+                            background: window.innerWidth <= 768 ? 'transparent' : '#f8f9fa',
+                            padding: window.innerWidth <= 768 ? '0' : '30px',
+                            borderRadius: window.innerWidth <= 768 ? '0' : '12px'
+                        }}>
+                            <h2 className="desktop-only" style={{
+                                marginBottom: '20px',
+                                color: '#333',
+                                fontSize: '20px',
+                                textAlign: 'center'
+                            }}>
+                                📚 Choisissez vos textes ({selectedTextes.size} sélectionné{selectedTextes.size > 1 ? 's' : ''})
+                            </h2>
+
+                            <div style={{ display: 'grid', gap: '15px' }}>
+                                {textes.map((texte, index) => {
+                                    const couleurs = [
+                                        { bg: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', shadow: 'rgba(102, 126, 234, 0.3)' },
+                                        { bg: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)', shadow: 'rgba(240, 147, 251, 0.3)' },
+                                        { bg: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)', shadow: 'rgba(79, 172, 254, 0.3)' },
+                                        { bg: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)', shadow: 'rgba(67, 233, 123, 0.3)' },
+                                        { bg: 'linear-gradient(135deg, #fa709a 0%, #fee140 100%)', shadow: 'rgba(250, 112, 154, 0.3)' },
+                                        { bg: 'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)', shadow: 'rgba(168, 237, 234, 0.3)' },
+                                        { bg: 'linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%)', shadow: 'rgba(255, 154, 158, 0.3)' },
+                                        { bg: 'linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%)', shadow: 'rgba(255, 236, 210, 0.3)' }
+                                    ]
+                                    const couleur = couleurs[index % couleurs.length]
+
+                                    return (
+                                        <div
+                                            key={texte.id}
+                                            onClick={() => toggleTexteSelection(texte.id)}
+                                            style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '15px',
+                                                padding: '15px',
+                                                background: couleur.bg,
+                                                borderRadius: '12px',
+                                                border: selectedTextes.has(texte.id) ? '3px solid #10b981' : 'none',
+                                                cursor: 'pointer',
+                                                transition: 'all 0.3s ease',
+                                                boxShadow: selectedTextes.has(texte.id)
+                                                    ? `0 8px 24px ${couleur.shadow}, 0 0 0 3px rgba(16, 185, 129, 0.2)`
+                                                    : `0 4px 12px ${couleur.shadow}`
+                                            }}
+                                        >
+                                            {window.innerWidth > 768 && (
+                                                <input
+                                                    type="checkbox"
+                                                    checked={selectedTextes.has(texte.id)}
+                                                    onChange={(e) => {
+                                                        e.stopPropagation()
+                                                        toggleTexteSelection(texte.id)
+                                                    }}
+                                                    style={{
+                                                        width: '20px',
+                                                        height: '20px',
+                                                        cursor: 'pointer',
+                                                        accentColor: '#10b981',
+                                                        flexShrink: 0,
+                                                        margin: 0
+                                                    }}
+                                                />
+                                            )}
+                                            <div style={{
+                                                flex: 1,
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'space-between',
+                                                gap: '15px'
+                                            }}>
+                                                <div style={{
+                                                    fontSize: '18px',
+                                                    fontWeight: 'bold',
+                                                    color: 'white',
+                                                    textShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                                                }}>
+                                                    {texte.titre}
+                                                </div>
+                                                {window.innerWidth > 768 && (
+                                                    <div style={{
+                                                        fontSize: '14px',
+                                                        color: 'white',
+                                                        whiteSpace: 'nowrap',
+                                                        textShadow: '0 1px 2px rgba(0,0,0,0.2)'
+                                                    }}>
+                                                        {texte.nombre_mots_total} mots • {texte.nombre_groupes} groupes de sens
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    )
+                                })}
+                            </div>
+                        </div>
+
+                        {/* COLONNE DROITE - Mode Défi (Desktop only) */}
+                        <div className="desktop-only" style={{
+                            background: 'white',
+                            padding: '25px',
+                            borderRadius: '12px',
+                            border: '2px solid #3b82f6',
+                            textAlign: 'center'
+                        }}>
+                            <div style={{ fontSize: '48px', marginBottom: '15px' }}>🎤</div>
+                            <h3 style={{
+                                color: '#3b82f6',
+                                margin: '0 0 20px 0',
+                                fontSize: '20px',
+                                fontWeight: 'bold'
+                            }}>
+                                Mode Défi
+                            </h3>
+
+                            <p style={{
+                                color: '#666',
+                                marginBottom: '20px',
+                                lineHeight: '1.5',
+                                fontSize: '14px'
+                            }}>
+                                • Écoutez la phrase créée<br/>
+                                • Répétez-la de mémoire<br/>
+                                • Vérifiez avec le texte<br/>
+                                • Plus de défi !
+                            </p>
+
+                            <button
+                                onClick={() => startMode('evaluation')}
+                                disabled={selectedTextes.size === 0}
+                                style={{
+                                    backgroundColor: selectedTextes.size === 0 ? '#ccc' : '#3b82f6',
+                                    color: 'white',
+                                    padding: '12px 24px',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    fontSize: '16px',
+                                    fontWeight: 'bold',
+                                    cursor: selectedTextes.size === 0 ? 'not-allowed' : 'pointer',
+                                    width: '100%'
+                                }}
+                            >
+                                🎤 Commencer
+                            </button>
+                        </div>
+                    </div>
+                )}
+
+
             </div>
         </div>
     )
