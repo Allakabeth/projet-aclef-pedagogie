@@ -274,7 +274,7 @@ export default function ConstruisPhrasesDifficile() {
                             🔄 Recommencer
                         </button>
                         <button
-                            onClick={() => router.push('/lire/reconnaitre-les-mots')}
+                            onClick={() => router.push('/lire/reconnaitre-les-mots?etape=exercices')}
                             style={{
                                 backgroundColor: '#6b7280',
                                 color: 'white',

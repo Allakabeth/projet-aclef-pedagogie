@@ -33,11 +33,16 @@ export default function ConstruisPhrasesIndex() {
             return
         }
 
+        // Stocker les texte_ids depuis l'URL
+        if (router.query.texte_ids) {
+            localStorage.setItem('construis-phrases-texte-ids', router.query.texte_ids)
+        }
+
         // Vérifier qu'il y a des mots
         const mots = JSON.parse(localStorage.getItem('construis-phrases-mots') || '[]')
         if (mots.length === 0) {
             alert('Aucun mot disponible. Retournez au menu des exercices.')
-            router.push('/lire/reconnaitre-les-mots')
+            router.push('/lire/reconnaitre-les-mots?etape=exercices')
             return
         }
 
@@ -100,12 +105,11 @@ export default function ConstruisPhrasesIndex() {
                 }}>
                     <button
                         onClick={() => {
-                            const mots = JSON.parse(localStorage.getItem('construis-phrases-mots') || '[]')
-                            if (mots.length > 0 && mots[0]?.texte_ids) {
-                                const texteIds = mots[0].texte_ids.join(',')
+                            const texteIds = localStorage.getItem('construis-phrases-texte-ids')
+                            if (texteIds) {
                                 router.push(`/lire/reconnaitre-les-mots?etape=exercices&texte_ids=${texteIds}`)
                             } else {
-                                router.push('/lire/reconnaitre-les-mots')
+                                router.push('/lire/reconnaitre-les-mots?etape=exercices')
                             }
                         }}
                         style={{
@@ -123,7 +127,7 @@ export default function ConstruisPhrasesIndex() {
                         ←
                     </button>
                     <button
-                        onClick={() => router.push('/lire/reconnaitre-les-mots')}
+                        onClick={() => router.push('/lire/reconnaitre-les-mots?etape=selection')}
                         style={{
                             padding: '8px 16px',
                             backgroundColor: 'white',

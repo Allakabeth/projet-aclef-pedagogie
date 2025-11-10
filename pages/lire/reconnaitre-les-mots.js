@@ -1754,7 +1754,8 @@ export default function ReconnaitreLesMotsPage() {
                             }
 
                             localStorage.setItem('construis-phrases-mots', JSON.stringify(motsUniques))
-                            router.push('/lire/construis-phrases')
+                            const texteIds = textesSelectionnes.join(',')
+                            router.push(`/lire/construis-phrases?texte_ids=${texteIds}`)
                         } catch (error) {
                             console.error('Erreur récupération mots:', error)
                             alert('Erreur lors de la récupération des mots')
