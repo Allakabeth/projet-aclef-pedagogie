@@ -15,6 +15,7 @@ export default function ConstruisPhrasesDifficile() {
     const [mediaRecorder, setMediaRecorder] = useState(null)
     const [isTranscribing, setIsTranscribing] = useState(false)
     const [visualFeedback, setVisualFeedback] = useState({ correct: false, incorrect: false })
+    const [motsStatuts, setMotsStatuts] = useState([])
 
     const router = useRouter()
 
@@ -151,23 +152,81 @@ export default function ConstruisPhrasesDifficile() {
     }
 
     const verifierPhraseVocale = (texteTranscrit) => {
-        // Normaliser les textes (enlever ponctuation, minuscules)
+        // Normaliser les textes
         const normaliser = (text) => {
             return text
                 .toLowerCase()
-                .replace(/[.,;:!?'"«»\-—]/g, '')
-                .trim()
+                .replace(/[.,;:!?'"«»\-—\s]/g, '')  // Enlever TOUT (espaces inclus)
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '')    // Enlever accents
         }
 
-        const phraseTranscrite = normaliser(texteTranscrit)
-        const phraseAttendue = normaliser(phraseActuelle.texte)
+        const phraseTranscriteNormalisee = normaliser(texteTranscrit)
+        const phraseAttendueNormalisee = normaliser(phraseActuelle.texte)
 
-        console.log('Transcrit:', phraseTranscrite)
-        console.log('Attendu:', phraseAttendue)
+        console.log('Phrase transcrite (normalisée):', phraseTranscriteNormalisee)
+        console.log('Phrase attendue (normalisée):', phraseAttendueNormalisee)
 
-        const isCorrect = phraseTranscrite === phraseAttendue
+        // Calculer la distance de Levenshtein (similarité)
+        const calculerSimilarite = (s1, s2) => {
+            const longueurMax = Math.max(s1.length, s2.length)
+            if (longueurMax === 0) return 100
 
-        if (isCorrect) {
+            const distance = levenshtein(s1, s2)
+            return Math.round(((longueurMax - distance) / longueurMax) * 100)
+        }
+
+        // Distance de Levenshtein
+        const levenshtein = (s1, s2) => {
+            const matrix = []
+
+            for (let i = 0; i <= s2.length; i++) {
+                matrix[i] = [i]
+            }
+
+            for (let j = 0; j <= s1.length; j++) {
+                matrix[0][j] = j
+            }
+
+            for (let i = 1; i <= s2.length; i++) {
+                for (let j = 1; j <= s1.length; j++) {
+                    if (s2.charAt(i - 1) === s1.charAt(j - 1)) {
+                        matrix[i][j] = matrix[i - 1][j - 1]
+                    } else {
+                        matrix[i][j] = Math.min(
+                            matrix[i - 1][j - 1] + 1,
+                            matrix[i][j - 1] + 1,
+                            matrix[i - 1][j] + 1
+                        )
+                    }
+                }
+            }
+
+            return matrix[s2.length][s1.length]
+        }
+
+        const similarite = calculerSimilarite(phraseTranscriteNormalisee, phraseAttendueNormalisee)
+        console.log('Similarité:', similarite + '%')
+
+        // Si similarité >= 80% → CORRECT
+        const toutCorrect = similarite >= 80
+
+        // Pour l'affichage, découper les mots attendus
+        const motsAttendus = phraseActuelle.texte
+            .toLowerCase()
+            .replace(/[.,;:!?'"«»\-—]/g, '')
+            .split(/\s+/)
+            .filter(m => m.length > 0)
+
+        // Si correct, tout en vert. Sinon, tout en rouge
+        const statuts = motsAttendus.map(mot => ({
+            mot: mot,
+            correct: toutCorrect
+        }))
+
+        setMotsStatuts(statuts)
+
+        if (toutCorrect) {
             setScore(score + 1)
             setVisualFeedback({ correct: true, incorrect: false })
 
@@ -178,17 +237,13 @@ export default function ConstruisPhrasesDifficile() {
                     setPhraseIndex(nextIndex)
                     setPhraseActuelle(phrases[nextIndex])
                     setVisualFeedback({ correct: false, incorrect: false })
+                    setMotsStatuts([])
                 } else {
                     setGameFinished(true)
                 }
             }, 3000)
         } else {
             setVisualFeedback({ correct: false, incorrect: true })
-
-            // Réinitialiser après 3 secondes
-            setTimeout(() => {
-                setVisualFeedback({ correct: false, incorrect: false })
-            }, 3000)
         }
     }
 
@@ -197,6 +252,8 @@ export default function ConstruisPhrasesDifficile() {
         if (nextIndex < phrases.length) {
             setPhraseIndex(nextIndex)
             setPhraseActuelle(phrases[nextIndex])
+            setMotsStatuts([])
+            setVisualFeedback({ correct: false, incorrect: false })
         } else {
             setGameFinished(true)
         }
@@ -211,7 +268,7 @@ export default function ConstruisPhrasesDifficile() {
                 alignItems: 'center',
                 justifyContent: 'center'
             }}>
-                <div style={{ color: '#dc2626', fontSize: '18px' }}>Chargement...</div>
+                <div style={{ color: '#f97316', fontSize: '18px' }}>Chargement...</div>
             </div>
         )
     }
@@ -222,7 +279,7 @@ export default function ConstruisPhrasesDifficile() {
         return (
             <div style={{
                 minHeight: '100vh',
-                background: 'linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)',
+                background: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -240,7 +297,7 @@ export default function ConstruisPhrasesDifficile() {
                     <h1 style={{
                         fontSize: '28px',
                         fontWeight: 'bold',
-                        color: '#dc2626',
+                        color: '#f97316',
                         marginBottom: '20px'
                     }}>
                         Bravo !
@@ -261,7 +318,7 @@ export default function ConstruisPhrasesDifficile() {
                         <button
                             onClick={() => router.push('/lire/construis-phrases')}
                             style={{
-                                backgroundColor: '#dc2626',
+                                backgroundColor: '#f97316',
                                 color: 'white',
                                 padding: '12px 24px',
                                 border: 'none',
@@ -301,6 +358,8 @@ export default function ConstruisPhrasesDifficile() {
         )
     }
 
+    const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768
+
     return (
         <>
             <style>{`
@@ -317,96 +376,173 @@ export default function ConstruisPhrasesDifficile() {
             `}</style>
             <div style={{
                 minHeight: '100vh',
-                background: 'linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)',
-                padding: '20px'
+                background: 'white',
+                padding: '5px 15px'
             }}>
                 <div style={{
                     maxWidth: '800px',
                     margin: '0 auto'
                 }}>
-                    {/* En-tête */}
+                    {/* LIGNE 1 : Titre */}
+                    <h1 style={{
+                        fontSize: isMobile ? '24px' : '28px',
+                        fontWeight: 'bold',
+                        color: '#f97316',
+                        textAlign: 'center',
+                        margin: '0 0 10px 0'
+                    }}>
+                        🔥 Mode Difficile
+                    </h1>
+
+                    {/* LIGNE 2 : Phrase + Score */}
                     <div style={{
                         display: 'flex',
                         justifyContent: 'space-between',
                         alignItems: 'center',
-                        marginBottom: '30px',
-                        color: 'white',
-                        fontSize: window.innerWidth <= 768 ? '14px' : '16px',
-                        fontWeight: 'bold',
-                        flexWrap: 'wrap',
-                        gap: '10px'
+                        marginBottom: '15px',
+                        fontSize: isMobile ? '14px' : '16px',
+                        fontWeight: 'bold'
                     }}>
-                        <div>Phrase {phraseIndex + 1}/{phrases.length}</div>
-                        <div>Score: {score}</div>
+                        <div style={{ color: '#666' }}>
+                            Phrase {phraseIndex + 1}/{phrases.length}
+                        </div>
+                        <div style={{ color: '#f97316' }}>
+                            Score: {score}
+                        </div>
+                    </div>
+
+                    {/* LIGNE 3 : Icônes de navigation */}
+                    <div style={{
+                        display: 'flex',
+                        gap: isMobile ? '8px' : '10px',
+                        justifyContent: 'center',
+                        marginBottom: '20px'
+                    }}>
                         <button
-                            onClick={() => router.push('/lire/construis-phrases')}
-                            style={{
-                                backgroundColor: '#7f1d1d',
-                                color: 'white',
-                                padding: window.innerWidth <= 768 ? '8px 16px' : '10px 20px',
-                                border: 'none',
-                                borderRadius: '8px',
-                                fontSize: window.innerWidth <= 768 ? '14px' : '16px',
-                                fontWeight: 'bold',
-                                cursor: 'pointer',
-                                transition: 'all 0.2s ease'
+                            onClick={() => {
+                                const texteIds = localStorage.getItem('construis-phrases-texte-ids')
+                                if (texteIds) {
+                                    router.push(`/lire/reconnaitre-les-mots?etape=exercices&texte_ids=${texteIds}`)
+                                } else {
+                                    router.push('/lire/reconnaitre-les-mots?etape=exercices')
+                                }
                             }}
+                            style={{
+                                padding: '8px 16px',
+                                backgroundColor: 'white',
+                                border: '2px solid #64748b',
+                                borderRadius: '8px',
+                                cursor: 'pointer',
+                                fontSize: '20px',
+                                display: 'flex',
+                                alignItems: 'center'
+                            }}
+                            title="Menu exercices"
                         >
-                            🚪 Quitter
+                            ←
+                        </button>
+                        <button
+                            onClick={() => router.push('/lire/reconnaitre-les-mots?etape=selection')}
+                            style={{
+                                padding: '8px 16px',
+                                backgroundColor: 'white',
+                                border: '2px solid #3b82f6',
+                                borderRadius: '8px',
+                                cursor: 'pointer',
+                                fontSize: '20px',
+                                display: 'flex',
+                                alignItems: 'center'
+                            }}
+                            title="Sélection des textes"
+                        >
+                            👁️
+                        </button>
+                        <button
+                            onClick={() => router.push('/lire')}
+                            style={{
+                                padding: '8px 16px',
+                                backgroundColor: 'white',
+                                border: '2px solid #10b981',
+                                borderRadius: '8px',
+                                cursor: 'pointer',
+                                fontSize: '20px',
+                                display: 'flex',
+                                alignItems: 'center'
+                            }}
+                            title="Menu Lire"
+                        >
+                            📖
+                        </button>
+                        <button
+                            onClick={() => router.push('/dashboard')}
+                            style={{
+                                padding: '8px 16px',
+                                backgroundColor: 'white',
+                                border: '2px solid #8b5cf6',
+                                borderRadius: '8px',
+                                cursor: 'pointer',
+                                fontSize: '20px',
+                                display: 'flex',
+                                alignItems: 'center'
+                            }}
+                            title="Accueil"
+                        >
+                            🏠
                         </button>
                     </div>
 
-                    {/* Zone phrase */}
-                    <div style={{
-                        background: 'white',
-                        borderRadius: '20px',
-                        padding: '40px',
-                        textAlign: 'center'
-                    }}>
-                        <div style={{
-                            fontSize: '20px',
-                            fontWeight: 'bold',
-                            color: '#dc2626',
-                            marginBottom: '30px'
-                        }}>
-                            🔥 Mode Difficile
-                        </div>
+                    {/* Zone de contenu (sans cadre blanc) */}
+                    <div style={{ textAlign: 'center' }}>
 
-                        {/* La phrase */}
+                        {/* La phrase avec mots colorés */}
                         <div style={{
-                            fontSize: window.innerWidth <= 768 ? '24px' : '32px',
-                            fontWeight: 'bold',
-                            color: '#333',
-                            marginBottom: '40px',
-                            lineHeight: '1.5',
-                            padding: '30px',
-                            background: visualFeedback.correct
-                                ? '#dcfce7'
-                                : visualFeedback.incorrect
-                                ? '#fee2e2'
-                                : '#fef2f2',
-                            borderRadius: '15px',
-                            border: `3px solid ${
-                                visualFeedback.correct
-                                ? '#10b981'
-                                : visualFeedback.incorrect
-                                ? '#ef4444'
-                                : '#dc2626'
-                            }`
+                            marginBottom: '30px',
+                            display: 'flex',
+                            flexWrap: 'wrap',
+                            gap: '10px',
+                            justifyContent: 'center',
+                            alignItems: 'center',
+                            minHeight: '80px'
                         }}>
-                            {phraseActuelle.texte}
+                            {motsStatuts.length > 0 ? (
+                                // Afficher mots avec statuts
+                                motsStatuts.map((statut, index) => (
+                                    <div
+                                        key={index}
+                                        style={{
+                                            fontSize: isMobile ? '20px' : '28px',
+                                            fontWeight: 'bold',
+                                            color: '#333',
+                                            padding: '10px 20px',
+                                            background: statut.correct ? '#dcfce7' : '#fee2e2',
+                                            border: `3px solid ${statut.correct ? '#10b981' : '#ef4444'}`,
+                                            borderRadius: '12px'
+                                        }}
+                                    >
+                                        {statut.mot}
+                                    </div>
+                                ))
+                            ) : (
+                                // Afficher phrase normale
+                                <div style={{
+                                    fontSize: isMobile ? '20px' : '28px',
+                                    fontWeight: 'bold',
+                                    color: '#333',
+                                    padding: '20px',
+                                    background: '#fff7ed',
+                                    borderRadius: '12px',
+                                    border: '3px solid #f97316',
+                                    lineHeight: '1.5'
+                                }}>
+                                    {phraseActuelle.texte}
+                                </div>
+                            )}
                         </div>
 
                         {/* Feedback visuel */}
                         {visualFeedback.correct && (
                             <p style={{ color: '#10b981', fontWeight: 'bold', fontSize: '18px', marginBottom: '20px' }}>
                                 ✅ Parfait ! Vous avez bien lu la phrase !
-                            </p>
-                        )}
-
-                        {visualFeedback.incorrect && (
-                            <p style={{ color: '#ef4444', fontWeight: 'bold', fontSize: '18px', marginBottom: '20px' }}>
-                                ❌ Essayez encore !
                             </p>
                         )}
 
@@ -423,10 +559,10 @@ export default function ConstruisPhrasesDifficile() {
                                 disabled={isTranscribing || visualFeedback.correct}
                                 style={{
                                     background: isRecording
-                                        ? 'linear-gradient(135deg, #7f1d1d 0%, #991b1b 100%)'
+                                        ? 'linear-gradient(135deg, #c2410c 0%, #9a3412 100%)'
                                         : isTranscribing
                                         ? '#9ca3af'
-                                        : 'linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)',
+                                        : 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)',
                                     color: 'white',
                                     padding: '15px 30px',
                                     border: 'none',
