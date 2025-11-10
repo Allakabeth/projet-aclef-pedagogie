@@ -379,9 +379,29 @@ export default function VoirTexte() {
         }
     }
 
-    const lireToutLeTexte = () => {
-        const texteComplet = groupesSens.map(groupe => groupe.contenu).join('. ')
-        lireTexte(texteComplet, 'all')
+    const lireToutLeTexte = async () => {
+        // Lire chaque groupe avec pause de 100ms entre chaque
+        for (let i = 0; i < groupesSens.length; i++) {
+            const groupe = groupesSens[i]
+            if (groupe.contenu && groupe.contenu.trim()) {
+                await lireTexte(groupe.contenu, groupe.id)
+
+                // Attendre que la lecture soit terminée
+                await new Promise((resolve) => {
+                    const checkSpeaking = setInterval(() => {
+                        if (!speaking) {
+                            clearInterval(checkSpeaking)
+                            resolve()
+                        }
+                    }, 100)
+                })
+
+                // Pause de 100ms avant le prochain groupe
+                if (i < groupesSens.length - 1) {
+                    await new Promise(resolve => setTimeout(resolve, 100))
+                }
+            }
+        }
     }
 
     const printText = () => {
@@ -598,154 +618,252 @@ export default function VoirTexte() {
                     </div>
                 ) : texte ? (
                     <>
-                        {/* Titre */}
-                        <div style={{
-                            textAlign: 'center',
-                            marginBottom: '30px'
+                        {/* Ligne 1 : Titre */}
+                        <h1 style={{
+                            fontSize: '24px',
+                            fontWeight: 'bold',
+                            marginBottom: '15px',
+                            color: '#333',
+                            textAlign: 'center'
                         }}>
-                            <h1 style={{
-                                fontSize: 'clamp(22px, 5vw, 28px)',
-                                fontWeight: 'bold',
-                                marginBottom: '10px',
-                                color: '#333'
-                            }}>
-                                {texte.titre}
-                            </h1>
-                            
-                            {/* Contrôles de style */}
-                            <div style={{
-                                background: '#f8f9fa',
-                                padding: '15px',
-                                borderRadius: '8px',
-                                marginBottom: '20px',
-                                display: 'flex',
-                                gap: '20px',
-                                flexWrap: 'wrap',
-                                alignItems: 'center',
-                                justifyContent: 'center'
-                            }}>
-                                <div>
-                                    <label style={{ marginRight: '10px', fontSize: '14px', fontWeight: '500' }}>
-                                        Police :
-                                    </label>
-                                    <select
-                                        value={textFont}
-                                        onChange={(e) => {
-                                            setTextFont(e.target.value)
-                                            localStorage.setItem('textFont', e.target.value)
-                                        }}
+                            {texte.titre}
+                        </h1>
+
+                        {/* Ligne 2 : Stats (groupes | mots) */}
+                        <div style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            fontSize: '16px',
+                            color: '#666',
+                            marginBottom: '15px'
+                        }}>
+                            <span>{texte.nombre_groupes || 0} groupes de sens</span>
+                            <span>{texte.nombre_mots_total || 0} mots</span>
+                        </div>
+
+                        {/* Ligne 3 : Navigation (← 📖 🏠 🔊 🖨️ ✏️) */}
+                        <div style={{
+                            display: 'flex',
+                            gap: typeof window !== 'undefined' && window.innerWidth <= 768 ? '6px' : '12px',
+                            marginBottom: '30px',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                        }}>
+                            {(() => {
+                                const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768
+                                const buttons = [
+                                    { icon: '←', onClick: () => router.push('/lire/voir-mes-textes'), title: 'Retour à mes textes', color: '#000000' },
+                                    { icon: '📖', onClick: () => router.push('/lire'), title: 'Module Lire', color: '#00bcd4' },
+                                    { icon: '🏠', onClick: () => router.push('/dashboard'), title: 'Accueil', color: '#ff9800' },
+                                    { icon: '🔊', onClick: lireToutLeTexte, title: 'Lire tout le texte', color: '#ffc107', disabled: isGeneratingAudio },
+                                    { icon: '🖨️', onClick: printText, title: 'Imprimer', color: '#9c27b0', hideOnMobile: true },
+                                    { icon: '✏️', onClick: () => router.push(`/lire/modifier-texte/${texte.id}`), title: 'Modifier', color: '#4caf50' }
+                                ]
+
+                                // Filtrer les boutons sur mobile
+                                const filteredButtons = isMobile
+                                    ? buttons.filter(btn => !btn.hideOnMobile)
+                                    : buttons
+
+                                const size = isMobile ? 40 : 55
+                                const fontSize = isMobile ? 20 : 28
+
+                                return filteredButtons.map((btn, idx) => (
+                                    <button
+                                        key={idx}
+                                        onClick={btn.onClick}
+                                        disabled={btn.disabled}
                                         style={{
-                                            padding: '8px',
-                                            borderRadius: '4px',
-                                            border: '1px solid #ddd',
-                                            fontSize: '14px'
+                                            fontSize: `${fontSize}px`,
+                                            background: 'white',
+                                            border: `2px solid ${btn.color}`,
+                                            borderRadius: '8px',
+                                            cursor: btn.disabled ? 'wait' : 'pointer',
+                                            padding: isMobile ? '5px' : '10px',
+                                            width: `${size}px`,
+                                            height: `${size}px`,
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            opacity: btn.disabled ? 0.5 : 1
                                         }}
+                                        title={btn.title}
                                     >
-                                        <option value="Arial">Arial</option>
-                                        <option value="Times New Roman">Times New Roman</option>
-                                        <option value="Georgia">Georgia</option>
-                                        <option value="Verdana">Verdana</option>
-                                        <option value="Comic Sans MS">Comic Sans MS</option>
-                                        <option value="Trebuchet MS">Trebuchet MS</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label style={{ marginRight: '10px', fontSize: '14px', fontWeight: '500' }}>
-                                        Taille :
-                                    </label>
-                                    <select
-                                        value={textSize}
-                                        onChange={(e) => {
-                                            setTextSize(e.target.value)
-                                            localStorage.setItem('textSize', e.target.value)
-                                        }}
-                                        style={{
-                                            padding: '8px',
-                                            borderRadius: '4px',
-                                            border: '1px solid #ddd',
-                                            fontSize: '14px'
-                                        }}
-                                    >
-                                        <option value="14">14px</option>
-                                        <option value="16">16px</option>
-                                        <option value="18">18px</option>
-                                        <option value="20">20px</option>
-                                        <option value="22">22px</option>
-                                        <option value="24">24px</option>
-                                        <option value="28">28px</option>
-                                    </select>
-                                </div>
-                            </div>
-                            
-                            {/* Bouton lecture complète */}
-                            {speechSupported && (
-                                <button
-                                    onClick={lireToutLeTexte}
-                                    disabled={isGeneratingAudio || (speaking && currentSpeaking !== 'all')}
-                                    style={{
-                                        backgroundColor: speaking && currentSpeaking === 'all' ? '#ef4444' : 
-                                                        isGeneratingAudio && currentSpeaking === 'all' ? '#f59e0b' : '#8b5cf6',
-                                        color: 'white',
-                                        border: getCachedAudio(groupesSens.map(g => g.contenu).join('. '), selectedVoice) ? '2px solid #fbbf24' : 'none',
-                                        borderRadius: '8px',
-                                        padding: '12px 20px',
-                                        fontSize: '16px',
-                                        fontWeight: 'bold',
-                                        cursor: isGeneratingAudio ? 'wait' : 'pointer',
-                                        marginTop: '10px',
-                                        opacity: (isGeneratingAudio || (speaking && currentSpeaking !== 'all')) ? 0.7 : 1
-                                    }}
-                                    title={getCachedAudio(groupesSens.map(g => g.contenu).join('. '), selectedVoice) ? 'Audio complet en cache - pas de quota utilisé' : 'Générera un nouveau audio'}
-                                >
-                                    {speaking && currentSpeaking === 'all' ? '⏹️ Arrêter' : 
-                                     isGeneratingAudio && currentSpeaking === 'all' ? '⏳ Génération...' : 
-                                     getCachedAudio(groupesSens.map(g => g.contenu).join('. '), selectedVoice) ? '💾 Lire tout (Cache)' : '🎤 Lire tout (ElevenLabs)'}
-                                </button>
-                            )}
+                                        {btn.icon}
+                                    </button>
+                                ))
+                            })()}
                         </div>
 
                         {/* Groupes de sens */}
-                        <div style={{
-                            background: '#f8f9fa',
-                            padding: '20px',
-                            borderRadius: '8px',
-                            marginBottom: '30px'
-                        }}>
+                        <div>
                             {groupesSens.length === 0 ? (
                                 <p style={{ textAlign: 'center', color: '#666' }}>
                                     Aucun groupe de sens trouvé
                                 </p>
                             ) : (
                                 <div>
-                                    {groupesSens.map((groupe, index) => (
-                                        <div key={groupe.id} style={{
-                                            marginBottom: index < groupesSens.length - 1 ? '20px' : '0'
-                                        }}>
-                                            <div style={{
-                                                display: 'flex',
-                                                justifyContent: 'space-between',
-                                                alignItems: 'flex-start',
-                                                gap: '15px'
+                                    {groupesSens.map((groupe, index) => {
+                                        const isDesktop = typeof window !== 'undefined' && window.innerWidth > 768
+                                        const hasContent = groupe.contenu && groupe.contenu.trim()
+
+                                        // Sur mobile, ne pas afficher les groupes vides
+                                        if (!isDesktop && !hasContent) {
+                                            return null
+                                        }
+
+                                        return (
+                                            <div key={groupe.id} style={{
+                                                background: isDesktop
+                                                    ? (hasContent ? '#f8f9fa' : 'transparent')
+                                                    : 'transparent',
+                                                border: isDesktop
+                                                    ? (hasContent ? '1px solid #dee2e6' : 'none')
+                                                    : 'none',
+                                                borderRadius: isDesktop ? '8px' : '0',
+                                                padding: isDesktop ? '15px' : '0',
+                                                marginBottom: '15px',
+                                                minHeight: isDesktop && !hasContent ? '20px' : 'auto'
                                             }}>
-                                                <div style={{
-                                                    fontSize: textSize + 'px',
-                                                    fontFamily: textFont,
-                                                    lineHeight: '1.6',
-                                                    color: '#333',
-                                                    flex: 1
-                                                }}>
-                                                    {groupe.contenu}
-                                                </div>
-                                                
-                                                {/* Boutons audio du groupe */}
-                                                <div style={{
-                                                    display: 'flex',
-                                                    gap: '8px',
-                                                    flexShrink: 0,
-                                                    alignItems: 'center'
-                                                }}>
-                                                    {/* Bouton TTS */}
-                                                    {speechSupported && groupe.contenu && groupe.contenu.trim() && (
+                                                {isDesktop ? (
+                                                    // PC : Texte à gauche + icônes à droite (sur la même ligne)
+                                                    <div style={{
+                                                        display: 'flex',
+                                                        justifyContent: 'space-between',
+                                                        alignItems: 'flex-start',
+                                                        gap: '15px'
+                                                    }}>
+                                                        <div style={{
+                                                            fontSize: textSize + 'px',
+                                                            fontFamily: textFont,
+                                                            lineHeight: '1.6',
+                                                            color: '#333',
+                                                            flex: 1
+                                                        }}>
+                                                            {groupe.contenu}
+                                                        </div>
+
+                                                        {/* Boutons audio du groupe (à droite) */}
+                                                        <div style={{
+                                                            display: 'flex',
+                                                            gap: '8px',
+                                                            flexShrink: 0,
+                                                            alignItems: 'center'
+                                                        }}>
+                                                            {/* Bouton TTS */}
+                                                            {speechSupported && groupe.contenu && groupe.contenu.trim() && (
+                                                                <button
+                                                                    onClick={() => lireTexte(groupe.contenu, groupe.id)}
+                                                                    disabled={isGeneratingAudio || (speaking && currentSpeaking !== groupe.id)}
+                                                                    style={{
+                                                                        backgroundColor: speaking && currentSpeaking === groupe.id ? '#ef4444' :
+                                                                                        isGeneratingAudio && currentSpeaking === groupe.id ? '#f59e0b' : '#10b981',
+                                                                        color: 'white',
+                                                                        border: getCachedAudio(groupe.contenu, selectedVoice) ? '2px solid #fbbf24' : 'none',
+                                                                        borderRadius: '6px',
+                                                                        padding: '8px 12px',
+                                                                        fontSize: '14px',
+                                                                        cursor: isGeneratingAudio ? 'wait' : 'pointer',
+                                                                        opacity: (isGeneratingAudio || (speaking && currentSpeaking !== groupe.id)) ? 0.7 : 1,
+                                                                        minWidth: '45px'
+                                                                    }}
+                                                                    title={getCachedAudio(groupe.contenu, selectedVoice) ? 'Audio en cache - pas de quota utilisé' : 'Générera un nouveau audio'}
+                                                                >
+                                                                    {speaking && currentSpeaking === groupe.id ? '⏹️' :
+                                                                     isGeneratingAudio && currentSpeaking === groupe.id ? '⏳' :
+                                                                     getCachedAudio(groupe.contenu, selectedVoice) ? '💾' : '🎤'}
+                                                                </button>
+                                                            )}
+
+                                                            {/* Boutons enregistrement */}
+                                                            {groupe.contenu && groupe.contenu.trim() && (
+                                                                <>
+                                                                    <button
+                                                                        onClick={() => isRecording && recordingGroupeId === groupe.id
+                                                                            ? stopRecording()
+                                                                            : startRecording(groupe.id)}
+                                                                        disabled={isUploading || (isRecording && recordingGroupeId !== groupe.id)}
+                                                                        style={{
+                                                                            backgroundColor: isRecording && recordingGroupeId === groupe.id
+                                                                                ? '#ef4444'
+                                                                                : '#dc2626',
+                                                                            color: 'white',
+                                                                            border: 'none',
+                                                                            borderRadius: '6px',
+                                                                            padding: '8px 12px',
+                                                                            fontSize: '14px',
+                                                                            cursor: (isUploading || (isRecording && recordingGroupeId !== groupe.id)) ? 'not-allowed' : 'pointer',
+                                                                            opacity: (isUploading || (isRecording && recordingGroupeId !== groupe.id)) ? 0.5 : 1,
+                                                                            minWidth: '45px',
+                                                                            fontWeight: '500'
+                                                                        }}
+                                                                        title={isRecording && recordingGroupeId === groupe.id
+                                                                            ? 'Arrêter l\'enregistrement'
+                                                                            : 'Enregistrer ma voix'}
+                                                                    >
+                                                                        {isRecording && recordingGroupeId === groupe.id
+                                                                            ? `⏹️ ${recordingDuration}s`
+                                                                            : '🔴'}
+                                                                    </button>
+
+                                                                    {enregistrements[groupe.id] && (
+                                                                        <button
+                                                                            onClick={() => playEnregistrement(groupe.id)}
+                                                                            disabled={isUploading || isRecording}
+                                                                            style={{
+                                                                                backgroundColor: '#8b5cf6',
+                                                                                color: 'white',
+                                                                                border: 'none',
+                                                                                borderRadius: '6px',
+                                                                                padding: '8px 12px',
+                                                                                fontSize: '14px',
+                                                                                cursor: (isUploading || isRecording) ? 'not-allowed' : 'pointer',
+                                                                                opacity: (isUploading || isRecording) ? 0.5 : 1,
+                                                                                minWidth: '45px'
+                                                                            }}
+                                                                            title="Écouter mon enregistrement"
+                                                                        >
+                                                                            🎵
+                                                                        </button>
+                                                                    )}
+                                                                </>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    // Mobile : Texte sur UNE ligne avec taille adaptative
+                                                    <>
+                                                        <div style={{
+                                                            fontSize: (() => {
+                                                                const textLength = groupe.contenu?.length || 0
+                                                                const baseSize = parseInt(textSize)
+                                                                // Adapter la taille selon la longueur
+                                                                if (textLength < 30) return `${baseSize}px`
+                                                                if (textLength < 50) return `${Math.max(baseSize * 0.85, 14)}px`
+                                                                if (textLength < 80) return `${Math.max(baseSize * 0.70, 12)}px`
+                                                                return `${Math.max(baseSize * 0.60, 10)}px`
+                                                            })(),
+                                                            fontFamily: textFont,
+                                                            lineHeight: '1.4',
+                                                            color: '#333',
+                                                            marginBottom: '10px',
+                                                            whiteSpace: 'nowrap',
+                                                            overflow: 'hidden',
+                                                            textOverflow: 'clip',
+                                                            width: '100%'
+                                                        }}>
+                                                            {groupe.contenu}
+                                                        </div>
+
+                                                        {/* Boutons audio du groupe (en dessous) */}
+                                                        <div style={{
+                                                            display: 'flex',
+                                                            gap: '8px',
+                                                            alignItems: 'center'
+                                                        }}>
+                                                            {/* Bouton TTS */}
+                                                            {speechSupported && groupe.contenu && groupe.contenu.trim() && (
                                                         <button
                                                             onClick={() => lireTexte(groupe.contenu, groupe.id)}
                                                             disabled={isGeneratingAudio || (speaking && currentSpeaking !== groupe.id)}
@@ -823,149 +941,18 @@ export default function VoirTexte() {
                                                                 </button>
                                                             )}
                                                         </>
-                                                    )}
-                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </>
+                                                )}
                                             </div>
-                                        </div>
-                                    ))}
+                                        )
+                                    })}
                                 </div>
                             )}
                         </div>
 
-                        {/* Sélecteur de voix et statut */}
-                        <div style={{
-                            background: '#f8f9fa',
-                            padding: '15px',
-                            borderRadius: '8px',
-                            marginBottom: '20px'
-                        }}>
-                            <div style={{
-                                display: 'flex',
-                                justifyContent: 'space-between',
-                                alignItems: 'center',
-                                flexWrap: 'wrap',
-                                gap: '15px'
-                            }}>
-                                {/* Contrôles audio */}
-                                <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', alignItems: 'center' }}>
-                                    {/* Sélection de voix */}
-                                    <div>
-                                        <label style={{ fontSize: '14px', fontWeight: 'bold', marginRight: '10px' }}>
-                                            🎤 Voix:
-                                        </label>
-                                        <select
-                                            value={selectedVoice}
-                                            onChange={(e) => setSelectedVoice(e.target.value)}
-                                            style={{
-                                                padding: '5px 10px',
-                                                borderRadius: '4px',
-                                                border: '1px solid #ddd',
-                                                fontSize: '14px'
-                                            }}
-                                        >
-                                            {availableVoices.map(voice => (
-                                                <option key={voice.voice_id} value={voice.voice_id}>
-                                                    {voice.name} {voice.recommended ? '⭐' : ''}
-                                                </option>
-                                            ))}
-                                        </select>
-                                    </div>
 
-                                    {/* Contrôle de vitesse (Web Speech API seulement) */}
-                                    <div>
-                                        <label style={{ fontSize: '14px', fontWeight: 'bold', marginRight: '10px' }}>
-                                            ⚡ Vitesse (fallback): {speechSpeed}x
-                                        </label>
-                                        <input
-                                            type="range"
-                                            min="0.5"
-                                            max="2.0"
-                                            step="0.1"
-                                            value={speechSpeed}
-                                            onChange={(e) => setSpeechSpeed(parseFloat(e.target.value))}
-                                            style={{
-                                                width: '100px',
-                                                accentColor: '#10b981',
-                                                opacity: quotaExceeded ? 1 : 0.5
-                                            }}
-                                            disabled={!quotaExceeded}
-                                        />
-                                    </div>
-                                </div>
-
-                                {/* Statut système */}
-                                <div style={{
-                                    fontSize: '13px',
-                                    color: quotaExceeded ? '#d97706' : '#059669'
-                                }}>
-                                    {quotaExceeded ? (
-                                        <span>⚠️ Fallback: Web Speech API (Paul/Julie) actif</span>
-                                    ) : (
-                                        <span>✅ ElevenLabs actif - Voix IA premium</span>
-                                    )}
-                                </div>
-
-                                {/* Boutons d'action */}
-                                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                                    {quotaExceeded && (
-                                        <button
-                                            onClick={() => {setQuotaExceeded(false); setUseElevenLabs(true)}}
-                                            style={{
-                                                backgroundColor: '#10b981',
-                                                color: 'white',
-                                                border: 'none',
-                                                borderRadius: '4px',
-                                                padding: '5px 10px',
-                                                fontSize: '12px',
-                                                cursor: 'pointer'
-                                            }}
-                                        >
-                                            🔄 Réessayer ElevenLabs
-                                        </button>
-                                    )}
-                                    
-                                    <button
-                                        onClick={() => {
-                                            const keys = Object.keys(localStorage).filter(key => key.startsWith('elevenlabs_'))
-                                            keys.forEach(key => localStorage.removeItem(key))
-                                            alert(`Cache audio vidé (${keys.length} fichiers supprimés)`)
-                                        }}
-                                        style={{
-                                            backgroundColor: '#6b7280',
-                                            color: 'white',
-                                            border: 'none',
-                                            borderRadius: '4px',
-                                            padding: '5px 10px',
-                                            fontSize: '12px',
-                                            cursor: 'pointer'
-                                        }}
-                                    >
-                                        🗑️ Vider cache
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Statistiques */}
-                        <div style={{
-                            background: '#f8f9fa',
-                            padding: '15px',
-                            borderRadius: '8px',
-                            marginBottom: '20px'
-                        }}>
-                            <h3 style={{ marginBottom: '10px', color: '#333' }}>📊 Statistiques</h3>
-                            <div style={{
-                                display: 'flex',
-                                gap: '20px',
-                                flexWrap: 'wrap',
-                                fontSize: '14px',
-                                color: '#666'
-                            }}>
-                                <span>📝 {texte.nombre_groupes || 0} groupes de sens</span>
-                                <span>🔤 {texte.nombre_mots_total || 0} mots total</span>
-                                <span>🧩 {texte.nombre_mots_multi_syllabes || 0} mots multi-syllabes</span>
-                            </div>
-                        </div>
                     </>
                 ) : (
                     <div style={{
@@ -977,65 +964,6 @@ export default function VoirTexte() {
                     </div>
                 )}
 
-                {/* Boutons de navigation */}
-                <div style={{
-                    textAlign: 'center',
-                    display: 'flex',
-                    gap: '10px',
-                    justifyContent: 'center',
-                    flexWrap: 'wrap'
-                }}>
-                    <button
-                        onClick={() => router.push('/lire/voir-mes-textes')}
-                        style={{
-                            backgroundColor: '#6b7280',
-                            color: 'white',
-                            padding: '12px 20px',
-                            border: 'none',
-                            borderRadius: '8px',
-                            fontSize: '14px',
-                            fontWeight: 'bold',
-                            cursor: 'pointer'
-                        }}
-                    >
-                        ← Retour à mes textes
-                    </button>
-
-                    {texte && (
-                        <>
-                            <button
-                                onClick={printText}
-                                style={{
-                                    backgroundColor: '#8b5cf6',
-                                    color: 'white',
-                                    padding: '12px 20px',
-                                    border: 'none',
-                                    borderRadius: '8px',
-                                    fontSize: '14px',
-                                    fontWeight: 'bold',
-                                    cursor: 'pointer'
-                                }}
-                            >
-                                🖨️ Imprimer
-                            </button>
-                            <button
-                                onClick={() => router.push(`/lire/modifier-texte/${texte.id}`)}
-                                style={{
-                                    backgroundColor: '#10b981',
-                                    color: 'white',
-                                    padding: '12px 20px',
-                                    border: 'none',
-                                    borderRadius: '8px',
-                                    fontSize: '14px',
-                                    fontWeight: 'bold',
-                                    cursor: 'pointer'
-                                }}
-                            >
-                                ✏️ Modifier ce texte
-                            </button>
-                        </>
-                    )}
-                </div>
             </div>
         </div>
     )
