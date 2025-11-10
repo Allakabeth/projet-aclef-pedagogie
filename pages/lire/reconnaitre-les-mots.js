@@ -465,6 +465,22 @@ export default function ReconnaitreLesMotsPage() {
             setGroupesSens(groupes)
             setIndexGroupe(0)
             setScore({ bonnes: 0, total: 0 })
+
+            // Extraire les mots pour "Construis des phrases"
+            const tousLesMots = []
+            groupes.forEach(groupe => {
+                const mots = groupe.contenu
+                    .trim()
+                    .split(/\s+/)
+                    .filter(mot => mot && mot.trim().length > 0)
+                    .filter(mot => !/^[.,:;!?]+$/.test(mot))
+                    .map(mot => mot.replace(/^[.,;:!?¡¿'"«»\-—]+/, '').replace(/[.,;:!?¡¿'"«»\-—]+$/, ''))
+                tousLesMots.push(...mots)
+            })
+            const motsUniques = [...new Set(tousLesMots)]
+            localStorage.setItem('construis-phrases-mots', JSON.stringify(motsUniques))
+            localStorage.setItem('construis-phrases-texte-ids', texteIds.join(','))
+
         } catch (err) {
             console.error('Erreur chargement groupes:', err)
             setError('Impossible de charger les groupes de sens')
@@ -1720,6 +1736,17 @@ export default function ReconnaitreLesMotsPage() {
                         ...styles.exerciceCard,
                         padding: isMobile ? '8px' : '32px'
                     }} onClick={async () => {
+                        // Vérifier si les mots sont déjà en localStorage (depuis chargerGroupesSens)
+                        const motsStockes = localStorage.getItem('construis-phrases-mots')
+                        const texteIdsStockes = localStorage.getItem('construis-phrases-texte-ids')
+
+                        if (motsStockes && texteIdsStockes) {
+                            // Les mots sont déjà là, on peut y aller directement
+                            router.push(`/lire/construis-phrases?texte_ids=${texteIdsStockes}`)
+                            return
+                        }
+
+                        // Sinon, on vérifie qu'il y a des textes sélectionnés
                         if (textesSelectionnes.length === 0) {
                             alert('Veuillez d\'abord sélectionner des textes et démarrer les exercices')
                             return
@@ -1755,6 +1782,7 @@ export default function ReconnaitreLesMotsPage() {
 
                             localStorage.setItem('construis-phrases-mots', JSON.stringify(motsUniques))
                             const texteIds = textesSelectionnes.join(',')
+                            localStorage.setItem('construis-phrases-texte-ids', texteIds)
                             router.push(`/lire/construis-phrases?texte_ids=${texteIds}`)
                         } catch (error) {
                             console.error('Erreur récupération mots:', error)

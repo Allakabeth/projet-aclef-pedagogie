@@ -389,7 +389,14 @@ export default function ConstruisPhrasesTranquille() {
                             🔄 Recommencer
                         </button>
                         <button
-                            onClick={() => router.push('/lire/reconnaitre-les-mots?etape=exercices')}
+                            onClick={() => {
+                                const texteIds = localStorage.getItem('construis-phrases-texte-ids')
+                                if (texteIds) {
+                                    router.push(`/lire/reconnaitre-les-mots?etape=exercices&texte_ids=${texteIds}`)
+                                } else {
+                                    router.push('/lire/reconnaitre-les-mots?etape=exercices')
+                                }
+                            }}
                             style={{
                                 backgroundColor: '#6b7280',
                                 color: 'white',

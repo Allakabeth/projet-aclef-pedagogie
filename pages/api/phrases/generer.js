@@ -4,6 +4,48 @@ import { supabaseAdmin } from '../../../lib/supabaseAdmin'
 
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY)
 
+// ====================================================================
+// VALIDATION STRICTE : Vérifier que TOUS les mots sont dans la liste
+// ====================================================================
+
+/**
+ * Normalise un mot pour comparaison (minuscules, sans accents, sans ponctuation)
+ */
+function normalizeWord(word) {
+    return word
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "") // Supprime accents
+        .replace(/[^a-z0-9]/g, "")       // Garde seulement lettres/chiffres
+}
+
+/**
+ * Valide qu'une phrase contient UNIQUEMENT des mots autorisés
+ * @param {Object} phrase - { texte: "...", mots: [...] }
+ * @param {Array} motsAutorisesNormalises - Liste des mots autorisés normalisés
+ * @returns {boolean} - true si valide, false sinon
+ */
+function validatePhrase(phrase, motsAutorisesNormalises) {
+    // Extraire les mots de la phrase (ignorer ponctuation)
+    const motsPhrase = phrase.texte
+        .replace(/[.!?,;:]/g, '') // Retirer ponctuation
+        .split(/\s+/)             // Séparer par espaces
+        .filter(m => m.length > 0) // Retirer vides
+
+    // Vérifier que CHAQUE mot est dans la liste autorisée
+    for (const mot of motsPhrase) {
+        const motNorm = normalizeWord(mot)
+
+        if (!motsAutorisesNormalises.includes(motNorm)) {
+            console.log(`❌ Phrase rejetée - Mot non autorisé: "${mot}" (normalisé: "${motNorm}")`)
+            console.log(`   Phrase: "${phrase.texte}"`)
+            return false
+        }
+    }
+
+    return true
+}
+
 export default async function handler(req, res) {
     if (req.method !== 'POST') {
         return res.status(405).json({ error: 'Méthode non autorisée' })
@@ -47,20 +89,23 @@ export default async function handler(req, res) {
 
         const prompt = `Tu es un expert en pédagogie de la lecture française. [Seed: ${randomSeed}-${timestamp}]
 
-CONSIGNE : Crée exactement 10 phrases SIMPLES et TRÈS VARIÉES ayant du SENS en français.
+CONSIGNE : Crée exactement 50 phrases SIMPLES et TRÈS VARIÉES ayant du SENS en français.
 
 MOTS DISPONIBLES (${motsUniques.length} mots) :
 ${motsUniques.join(', ')}
 
-RÈGLES ABSOLUES :
-1. Chaque phrase doit contenir entre 4 et 7 mots
-2. Utilise UNIQUEMENT les mots de la liste ci-dessus (PAS d'autres mots, même pas de mots de liaison)
-3. Les phrases DOIVENT avoir du SENS en français dans la mesure du possible
-4. IMPÉRATIF : Varie BEAUCOUP les structures et les thèmes (déclaratives, interrogatives, exclamatives, affirmatives, négatives)
-5. N'utilise JAMAIS deux fois les mêmes mots dans le même ordre
-6. Varie les sujets, les verbes, les compléments et les contextes
-7. Majuscule en début, ponctuation en fin (. ! ?)
-8. Si les mots disponibles ne permettent pas de faire une phrase parfaite, fais de ton mieux avec ce que tu as
+RÈGLES IMPORTANTES :
+1. Utilise UNIQUEMENT les mots de la liste ci-dessus (pas d'autres mots)
+2. Chaque phrase doit contenir entre 3 et 8 mots
+3. Les phrases doivent avoir du SENS en français
+4. Sois CRÉATIF et VARIE au maximum :
+   - Structures différentes (déclaratives, interrogatives, exclamatives)
+   - Thèmes variés (actions, descriptions, émotions, lieux)
+   - Combinaisons originales de mots
+   - Ordre des mots différent à chaque fois
+5. N'utilise JAMAIS la même phrase deux fois
+6. Majuscule en début, ponctuation en fin (. ! ?)
+7. Fais preuve d'imagination pour créer des phrases intéressantes et variées
 
 THÈMES À VARIER :
 - Actions quotidiennes
@@ -81,21 +126,21 @@ Réponds UNIQUEMENT avec le JSON suivant (pas de texte avant ou après) :
   "phrases": [
     {"texte": "phrase 1", "mots": ["mot1", "mot2", ...]},
     {"texte": "phrase 2", "mots": ["mot1", "mot2", ...]},
-    ...10 phrases au total...
+    ...50 phrases au total...
   ]
 }`
 
         let phrases = []
 
         try {
-            // Essayer Gemini avec température élevée pour plus de variété
+            // Essayer Gemini avec température équilibrée (créativité + respect des contraintes)
             console.log('🤖 Tentative avec Gemini...')
             const model = genAI.getGenerativeModel({
                 model: 'gemini-1.5-flash',
                 generationConfig: {
-                    temperature: 1.2,  // Plus de créativité et variété
+                    temperature: 0.9,  // Température équilibrée pour créativité tout en respectant les contraintes
                     topP: 0.95,
-                    topK: 64
+                    topK: 50
                 }
             })
             const result = await model.generateContent(prompt)
@@ -109,14 +154,20 @@ Réponds UNIQUEMENT avec le JSON suivant (pas de texte avant ou après) :
             const parsed = JSON.parse(cleanedText)
 
             if (parsed.phrases && Array.isArray(parsed.phrases)) {
-                phrases = parsed.phrases.filter(p =>
-                    p.texte &&
-                    p.mots &&
-                    Array.isArray(p.mots) &&
-                    p.mots.length >= 3 &&  // Moins strict : 3 mots minimum
-                    p.mots.length <= 10    // Plus tolérant : jusqu'à 10 mots
-                )
-                console.log(`✅ ${phrases.length} phrases générées par Gemini`)
+                // Normaliser la liste des mots autorisés
+                const motsAutorisesNormalises = motsUniques.map(normalizeWord)
+
+                // Filtrer : longueur ET validation stricte des mots
+                phrases = parsed.phrases.filter(p => {
+                    // Vérifications basiques
+                    if (!p.texte || !p.mots || !Array.isArray(p.mots)) return false
+                    if (p.mots.length < 3 || p.mots.length > 10) return false
+
+                    // ⚠️ VALIDATION STRICTE : Tous les mots doivent être autorisés
+                    return validatePhrase(p, motsAutorisesNormalises)
+                })
+
+                console.log(`✅ ${phrases.length} phrases VALIDES générées par Gemini (après validation stricte)`)
             }
         } catch (aiError) {
             console.error('❌ Erreur Gemini:', aiError)
@@ -137,7 +188,7 @@ Réponds UNIQUEMENT avec le JSON suivant (pas de texte avant ou après) :
                             role: 'user',
                             content: prompt
                         }],
-                        temperature: 1.2  // Plus de variété
+                        temperature: 0.9  // Température équilibrée pour créativité tout en respectant les contraintes
                     })
                 })
 
@@ -150,14 +201,20 @@ Réponds UNIQUEMENT avec le JSON suivant (pas de texte avant ou après) :
                     const parsed = JSON.parse(cleanedText)
 
                     if (parsed.phrases && Array.isArray(parsed.phrases)) {
-                        phrases = parsed.phrases.filter(p =>
-                            p.texte &&
-                            p.mots &&
-                            Array.isArray(p.mots) &&
-                            p.mots.length >= 3 &&
-                            p.mots.length <= 10
-                        )
-                        console.log(`✅ ${phrases.length} phrases générées par Groq`)
+                        // Normaliser la liste des mots autorisés
+                        const motsAutorisesNormalises = motsUniques.map(normalizeWord)
+
+                        // Filtrer : longueur ET validation stricte des mots
+                        phrases = parsed.phrases.filter(p => {
+                            // Vérifications basiques
+                            if (!p.texte || !p.mots || !Array.isArray(p.mots)) return false
+                            if (p.mots.length < 3 || p.mots.length > 10) return false
+
+                            // ⚠️ VALIDATION STRICTE : Tous les mots doivent être autorisés
+                            return validatePhrase(p, motsAutorisesNormalises)
+                        })
+
+                        console.log(`✅ ${phrases.length} phrases VALIDES générées par Groq (après validation stricte)`)
                     }
                 } else {
                     console.error('❌ Groq a aussi échoué')
@@ -178,18 +235,24 @@ Réponds UNIQUEMENT avec le JSON suivant (pas de texte avant ou après) :
             })
         }
 
-        // Mélanger aléatoirement les phrases pour plus de variété (Fisher-Yates shuffle)
-        const shuffledPhrases = [...phrases].slice(0, 10)
+        console.log(`📊 ${phrases.length} phrases valides générées au total`)
+
+        // Mélanger TOUTES les phrases valides (Fisher-Yates shuffle)
+        const shuffledPhrases = [...phrases]
         for (let i = shuffledPhrases.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
             [shuffledPhrases[i], shuffledPhrases[j]] = [shuffledPhrases[j], shuffledPhrases[i]]
         }
 
-        // Retourner les phrases générées et mélangées
+        // Sélectionner 10 phrases au hasard parmi les phrases mélangées
+        const selectedPhrases = shuffledPhrases.slice(0, 10)
+        console.log(`✅ ${selectedPhrases.length} phrases sélectionnées pour l'apprenant`)
+
+        // Retourner les phrases sélectionnées
         const source = phrases.length > 0 && phrases[0].source ? phrases[0].source : 'ai'
         return res.status(200).json({
             success: true,
-            phrases: shuffledPhrases, // Phrases mélangées
+            phrases: selectedPhrases,
             total_mots: motsUniques.length,
             source: source
         })
