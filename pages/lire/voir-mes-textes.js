@@ -198,27 +198,92 @@ export default function VoirMesTextes() {
                 maxWidth: '800px',
                 margin: '0 auto'
             }}>
-                {/* Titre */}
-                <h1 style={{
-                    fontSize: 'clamp(22px, 5vw, 28px)',
-                    fontWeight: 'bold',
-                    marginBottom: '10px',
-                    background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                    WebkitBackgroundClip: 'text',
-                    WebkitTextFillColor: 'transparent',
-                    textAlign: 'center'
-                }}>
-                    📖 Mes textes références
-                    <span style={{
+                {/* Titre sur 3 lignes */}
+                <div style={{ marginBottom: '20px' }}>
+                    {/* Ligne 1 : Titre */}
+                    <h1 style={{
+                        fontSize: 'clamp(22px, 5vw, 28px)',
+                        fontWeight: 'bold',
+                        margin: 0,
+                        marginBottom: '8px',
+                        textAlign: 'center'
+                    }}>
+                        <span style={{ marginRight: '8px' }}>📚</span>
+                        <span style={{
+                            background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                            WebkitBackgroundClip: 'text',
+                            WebkitTextFillColor: 'transparent'
+                        }}>
+                            Mes textes références
+                        </span>
+                    </h1>
+
+                    {/* Ligne 2 : Stats */}
+                    <div style={{
                         fontSize: 'clamp(14px, 3vw, 16px)',
                         color: '#666',
-                        fontWeight: 'normal',
-                        display: 'block',
-                        marginTop: '5px'
+                        textAlign: 'center',
+                        marginBottom: '12px'
                     }}>
                         {stats.nombre_mots_differents} mots différents au total
-                    </span>
-                </h1>
+                    </div>
+
+                    {/* Ligne 3 : Navigation */}
+                    <div style={{
+                        display: 'flex',
+                        justifyContent: 'center',
+                        gap: '12px'
+                    }}>
+                        <button
+                            onClick={() => router.push('/lire/mes-textes-references')}
+                            style={{
+                                padding: '8px 12px',
+                                backgroundColor: 'white',
+                                border: '2px solid #64748b',
+                                borderRadius: '8px',
+                                cursor: 'pointer',
+                                fontSize: '20px',
+                                display: 'flex',
+                                alignItems: 'center'
+                            }}
+                            title="Retour aux textes références"
+                        >
+                            ←
+                        </button>
+                        <button
+                            onClick={() => router.push('/lire')}
+                            style={{
+                                padding: '8px 12px',
+                                backgroundColor: 'white',
+                                border: '2px solid #10b981',
+                                borderRadius: '8px',
+                                cursor: 'pointer',
+                                fontSize: '20px',
+                                display: 'flex',
+                                alignItems: 'center'
+                            }}
+                            title="Module Lire"
+                        >
+                            📖
+                        </button>
+                        <button
+                            onClick={() => router.push('/dashboard')}
+                            style={{
+                                padding: '8px 12px',
+                                backgroundColor: 'white',
+                                border: '2px solid #8b5cf6',
+                                borderRadius: '8px',
+                                cursor: 'pointer',
+                                fontSize: '20px',
+                                display: 'flex',
+                                alignItems: 'center'
+                            }}
+                            title="Accueil"
+                        >
+                            🏠
+                        </button>
+                    </div>
+                </div>
 
 
                 {/* Liste des textes */}
@@ -270,7 +335,7 @@ export default function VoirMesTextes() {
                                 background: couleur.bg,
                                 border: 'none',
                                 borderRadius: '20px',
-                                padding: '25px',
+                                padding: '15px',
                                 boxShadow: `0 8px 25px ${couleur.shadow}`,
                                 color: 'white',
                                 position: 'relative',
@@ -287,38 +352,42 @@ export default function VoirMesTextes() {
                                 e.currentTarget.style.boxShadow = `0 8px 25px ${couleur.shadow}`
                             }}>
                                 <div style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '15px',
+                                    flexWrap: 'wrap',
                                     marginBottom: '10px'
                                 }}>
                                     <h3 style={{
                                         margin: 0,
-                                        fontSize: 'clamp(18px, 4vw, 24px)',
+                                        fontSize: 'clamp(16px, 4vw, 20px)',
                                         color: 'white',
                                         fontWeight: 'bold',
                                         textShadow: '0 2px 4px rgba(0,0,0,0.3)'
                                     }}>
                                         {texte.titre}
                                     </h3>
-                                </div>
-                                
-                                <div style={{
-                                    display: 'flex',
-                                    gap: '20px',
-                                    flexWrap: 'wrap',
-                                    fontSize: '14px',
-                                    color: 'rgba(255,255,255,0.9)',
-                                    marginBottom: '10px',
-                                    textShadow: '0 1px 2px rgba(0,0,0,0.2)'
-                                }}>
-                                    <span>📊 {texte.nombre_groupes || 0} groupes</span>
-                                    <span>📝 {texte.nombre_mots_total || 0} mots</span>
-                                </div>
-                                
-                                <div style={{
-                                    fontSize: '12px',
-                                    color: 'rgba(255,255,255,0.8)',
-                                    textShadow: '0 1px 2px rgba(0,0,0,0.2)'
-                                }}>
-                                    Créé le {new Date(texte.created_at).toLocaleDateString('fr-FR')}
+                                    <span style={{
+                                        fontSize: '12px',
+                                        color: 'rgba(255,255,255,0.9)',
+                                        textShadow: '0 1px 2px rgba(0,0,0,0.2)'
+                                    }}>
+                                        📊 {texte.nombre_groupes || 0} groupes
+                                    </span>
+                                    <span style={{
+                                        fontSize: '12px',
+                                        color: 'rgba(255,255,255,0.9)',
+                                        textShadow: '0 1px 2px rgba(0,0,0,0.2)'
+                                    }}>
+                                        📝 {texte.nombre_mots_total || 0} mots
+                                    </span>
+                                    <span style={{
+                                        fontSize: '11px',
+                                        color: 'rgba(255,255,255,0.8)',
+                                        textShadow: '0 1px 2px rgba(0,0,0,0.2)'
+                                    }}>
+                                        Créé le {new Date(texte.created_at).toLocaleDateString('fr-FR')}
+                                    </span>
                                 </div>
                                 
                                 {/* Boutons d'actions */}
@@ -713,76 +782,6 @@ export default function VoirMesTextes() {
                     </div>
                 )}
 
-                {/* Bouton retour */}
-                <div style={{
-                    textAlign: 'center',
-                    marginTop: '30px'
-                }}>
-                    <div style={{ position: 'relative', display: 'inline-block' }}>
-                        <button
-                            onClick={() => {
-                                lireTexte('Retour aux textes références')
-                            }}
-                            style={{
-                                background: 'linear-gradient(135deg, #6b7280 0%, #4b5563 100%)',
-                                color: 'white',
-                                padding: '12px 30px',
-                                border: 'none',
-                                borderRadius: '25px',
-                                fontSize: '14px',
-                                fontWeight: 'bold',
-                                cursor: 'pointer',
-                                boxShadow: '0 4px 15px rgba(107, 114, 128, 0.4)',
-                                transition: 'all 0.3s ease',
-                                paddingRight: '50px'
-                            }}
-                            onMouseEnter={(e) => {
-                                e.target.style.transform = 'translateY(-3px)'
-                                e.target.style.boxShadow = '0 8px 25px rgba(107, 114, 128, 0.5)'
-                            }}
-                            onMouseLeave={(e) => {
-                                e.target.style.transform = 'translateY(0)'
-                                e.target.style.boxShadow = '0 4px 15px rgba(107, 114, 128, 0.4)'
-                            }}
-                            title="Cliquez pour écouter, puis sur → pour retourner"
-                        >
-                            ← Retour aux textes références
-                        </button>
-                        <button
-                            onClick={() => {
-                                router.push('/lire/mes-textes-references')
-                            }}
-                            style={{
-                                position: 'absolute',
-                                top: '50%',
-                                right: '8px',
-                                transform: 'translateY(-50%)',
-                                backgroundColor: 'rgba(255,255,255,0.3)',
-                                border: 'none',
-                                borderRadius: '50%',
-                                width: '30px',
-                                height: '30px',
-                                cursor: 'pointer',
-                                fontSize: '14px',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                transition: 'all 0.2s ease'
-                            }}
-                            onMouseEnter={(e) => {
-                                e.target.style.backgroundColor = 'rgba(255,255,255,0.5)'
-                                e.target.style.transform = 'translateY(-50%) scale(1.1)'
-                            }}
-                            onMouseLeave={(e) => {
-                                e.target.style.backgroundColor = 'rgba(255,255,255,0.3)'
-                                e.target.style.transform = 'translateY(-50%) scale(1)'
-                            }}
-                            title="Retourner aux textes références"
-                        >
-                            →
-                        </button>
-                    </div>
-                </div>
             </div>
         </div>
     )

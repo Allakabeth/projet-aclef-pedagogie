@@ -142,21 +142,21 @@ export default function MesTextesReferences() {
                 <div style={{
                     display: 'flex',
                     justifyContent: 'center',
-                    gap: '20px',
+                    gap: '12px',
                     marginBottom: '20px'
                 }}>
                     <button
                         onClick={() => router.push('/lire')}
                         style={{
-                            background: 'none',
-                            border: 'none',
-                            fontSize: '32px',
+                            padding: '8px 12px',
+                            backgroundColor: 'white',
+                            border: '2px solid #10b981',
+                            borderRadius: '8px',
                             cursor: 'pointer',
-                            padding: '0',
-                            transition: 'transform 0.2s ease'
+                            fontSize: '20px',
+                            display: 'flex',
+                            alignItems: 'center'
                         }}
-                        onMouseOver={(e) => e.target.style.transform = 'scale(1.2)'}
-                        onMouseOut={(e) => e.target.style.transform = 'scale(1)'}
                         title="Retour à Lire"
                     >
                         📖
@@ -164,15 +164,15 @@ export default function MesTextesReferences() {
                     <button
                         onClick={() => router.push('/dashboard')}
                         style={{
-                            background: 'none',
-                            border: 'none',
-                            fontSize: '32px',
+                            padding: '8px 12px',
+                            backgroundColor: 'white',
+                            border: '2px solid #8b5cf6',
+                            borderRadius: '8px',
                             cursor: 'pointer',
-                            padding: '0',
-                            transition: 'transform 0.2s ease'
+                            fontSize: '20px',
+                            display: 'flex',
+                            alignItems: 'center'
                         }}
-                        onMouseOver={(e) => e.target.style.transform = 'scale(1.2)'}
-                        onMouseOut={(e) => e.target.style.transform = 'scale(1)'}
                         title="Accueil"
                     >
                         🏠
