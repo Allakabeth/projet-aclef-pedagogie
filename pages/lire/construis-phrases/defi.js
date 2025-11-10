@@ -761,8 +761,8 @@ export default function ConstruisPhrasesDefi() {
                         )}
                         <div style={{
                             display: 'grid',
-                            gridTemplateColumns: 'repeat(2, 1fr)',
-                            gap: isMobile ? '10px' : '15px'
+                            gridTemplateColumns: isMobile ? 'repeat(4, 1fr)' : 'repeat(2, 1fr)',
+                            gap: isMobile ? '8px' : '15px'
                         }}>
                             {motsDisponibles.map((mot, index) => {
                                 const dejaUtilise = motsSelectionnes.includes(mot)
@@ -774,14 +774,16 @@ export default function ConstruisPhrasesDefi() {
                                         style={{
                                             background: dejaUtilise ? '#f3f4f6' : 'white',
                                             color: dejaUtilise ? '#9ca3af' : '#333',
-                                            padding: isMobile ? '12px' : '15px',
+                                            padding: isMobile ? '10px 8px' : '15px',
                                             border: dejaUtilise ? '2px dashed #d1d5db' : '2px solid #8b5cf6',
                                             borderRadius: '10px',
                                             fontSize: isMobile ? '14px' : '16px',
                                             fontWeight: 'bold',
                                             cursor: (dejaUtilise || visualFeedback.correct || visualFeedback.incorrect) ? 'not-allowed' : 'pointer',
                                             opacity: dejaUtilise ? 0.5 : 1,
-                                            transition: 'all 0.2s'
+                                            transition: 'all 0.2s',
+                                            width: '100%',
+                                            textAlign: 'center'
                                         }}
                                     >
                                         {mot}
