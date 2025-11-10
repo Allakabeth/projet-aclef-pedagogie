@@ -80,9 +80,14 @@ export default function ImporterTexte() {
     const [textFont, setTextFont] = useState('Comic Sans MS')
     const [textSize, setTextSize] = useState('22')
     const [selectedGroups, setSelectedGroups] = useState(new Set())
+    const [isMobile, setIsMobile] = useState(false)
     const router = useRouter()
 
     useEffect(() => {
+        // Détection mobile
+        setIsMobile(window.innerWidth <= 768)
+
+
         // Configurer PDF.js avec CDN seulement côté client
         if (typeof window !== 'undefined' && pdfjsLib) {
             pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@5.4.149/build/pdf.worker.min.js'
@@ -454,70 +459,185 @@ export default function ImporterTexte() {
                         fontSize: 'clamp(22px, 5vw, 28px)',
                         fontWeight: 'bold',
                         marginBottom: '10px',
-                        background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
-                        WebkitBackgroundClip: 'text',
-                        WebkitTextFillColor: 'transparent',
                         textAlign: 'center'
                     }}>
-                        📂 Importer un Texte
+                        <span style={{ marginRight: '8px' }}>📂</span>
+                        <span style={{
+                            background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
+                            WebkitBackgroundClip: 'text',
+                            WebkitTextFillColor: 'transparent'
+                        }}>
+                            Importer un Texte
+                        </span>
                     </h1>
 
-                    <p style={{
-                        textAlign: 'center',
-                        fontSize: 'clamp(14px, 3vw, 16px)',
-                        color: '#666',
+                    {/* Navigation avec icônes */}
+                    <div style={{
+                        display: 'flex',
+                        justifyContent: 'center',
+                        gap: '12px',
                         marginBottom: '20px'
                     }}>
-                        Sélectionnez un fichier : chaque ligne deviendra un groupe de sens.
-                    </p>
-
-                    {/* Zone d'import */}
-                    <div style={{
-                        background: '#e0f2fe',
-                        padding: '30px',
-                        borderRadius: '8px',
-                        marginBottom: '20px',
-                        textAlign: 'center'
-                    }}>
-                        <h3 style={{ marginBottom: '20px', fontSize: '20px', color: '#0284c7' }}>
-                            📎 Choisir un fichier
-                        </h3>
-                        
-                        <input
-                            type="file"
-                            accept=".txt,.pdf,.docx,.odt"
-                            onChange={handleFileImport}
-                            disabled={isProcessingFile}
-                            lang="fr"
-                            title="Parcourir les fichiers"
-                            placeholder="Aucun fichier sélectionné"
+                        <button
+                            onClick={() => router.push('/lire/mes-textes-references')}
                             style={{
-                                marginBottom: '20px',
-                                padding: '15px',
-                                border: '3px solid #0284c7',
-                                borderRadius: '8px',
+                                width: '55px',
+                                height: '55px',
                                 backgroundColor: 'white',
-                                width: '100%',
-                                maxWidth: '400px',
-                                fontSize: '16px',
-                                cursor: isProcessingFile ? 'not-allowed' : 'pointer'
+                                color: '#64748b',
+                                border: '2px solid #64748b',
+                                borderRadius: '12px',
+                                fontSize: '24px',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
                             }}
-                        />
-                        
-                        {isProcessingFile && (
-                            <p style={{ color: '#0284c7', fontSize: '18px', fontWeight: 'bold' }}>
-                                ⏳ Lecture du fichier en cours...
-                            </p>
+                        >
+                            ←
+                        </button>
+                        <button
+                            onClick={() => router.push('/lire')}
+                            style={{
+                                width: '55px',
+                                height: '55px',
+                                backgroundColor: 'white',
+                                color: '#10b981',
+                                border: '2px solid #10b981',
+                                borderRadius: '12px',
+                                fontSize: '24px',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                            }}
+                        >
+                            📖
+                        </button>
+                        <button
+                            onClick={() => router.push('/dashboard')}
+                            style={{
+                                width: '55px',
+                                height: '55px',
+                                backgroundColor: 'white',
+                                color: '#8b5cf6',
+                                border: '2px solid #8b5cf6',
+                                borderRadius: '12px',
+                                fontSize: '24px',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                            }}
+                        >
+                            🏠
+                        </button>
+                        {isMobile && (
+                            <button
+                                onClick={() => document.getElementById('file-input')?.click()}
+                                disabled={isProcessingFile}
+                                style={{
+                                    width: '55px',
+                                    height: '55px',
+                                    backgroundColor: 'white',
+                                    color: '#0284c7',
+                                    border: '2px solid #0284c7',
+                                    borderRadius: '12px',
+                                    fontSize: '24px',
+                                    cursor: isProcessingFile ? 'not-allowed' : 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    opacity: isProcessingFile ? 0.5 : 1
+                                }}
+                            >
+                                📂
+                            </button>
                         )}
-                        
-                        <p style={{ 
-                            fontSize: '14px', 
-                            color: '#64748b', 
-                            marginTop: '15px'
-                        }}>
-                            <strong>Formats supportés :</strong> .txt, .pdf, .docx, .odt
-                        </p>
                     </div>
+
+                    {/* Input file caché */}
+                    <input
+                        id="file-input"
+                        type="file"
+                        accept=".txt,.pdf,.docx,.odt"
+                        onChange={handleFileImport}
+                        disabled={isProcessingFile}
+                        lang="fr"
+                        title="Parcourir les fichiers"
+                        placeholder="Aucun fichier sélectionné"
+                        style={{ display: 'none' }}
+                    />
+
+                    {/* Zone d'import - PC uniquement */}
+                    {!isMobile && (
+                        <>
+                            <p style={{
+                                textAlign: 'center',
+                                fontSize: 'clamp(14px, 3vw, 16px)',
+                                color: '#666',
+                                marginBottom: '20px'
+                            }}>
+                                Sélectionnez un fichier : chaque ligne deviendra un groupe de sens.
+                            </p>
+
+                            <div style={{
+                                background: '#e0f2fe',
+                                padding: '30px',
+                                borderRadius: '8px',
+                                marginBottom: '20px',
+                                textAlign: 'center'
+                            }}>
+                                <h3 style={{ marginBottom: '20px', fontSize: '20px', color: '#0284c7' }}>
+                                    📎 Choisir un fichier
+                                </h3>
+
+                                <label
+                                    htmlFor="file-input"
+                                    style={{
+                                        display: 'inline-block',
+                                        marginBottom: '20px',
+                                        padding: '15px',
+                                        border: '3px solid #0284c7',
+                                        borderRadius: '8px',
+                                        backgroundColor: 'white',
+                                        maxWidth: '400px',
+                                        fontSize: '16px',
+                                        cursor: isProcessingFile ? 'not-allowed' : 'pointer'
+                                    }}
+                                >
+                                    Parcourir les fichiers
+                                </label>
+
+                                {isProcessingFile && (
+                                    <p style={{ color: '#0284c7', fontSize: '18px', fontWeight: 'bold' }}>
+                                        ⏳ Lecture du fichier en cours...
+                                    </p>
+                                )}
+
+                                <p style={{
+                                    fontSize: '14px',
+                                    color: '#64748b',
+                                    marginTop: '15px'
+                                }}>
+                                    <strong>Formats supportés :</strong> .txt, .pdf, .docx, .odt
+                                </p>
+                            </div>
+                        </>
+                    )}
+
+                    {/* Message traitement - Mobile uniquement */}
+                    {isMobile && isProcessingFile && (
+                        <p style={{
+                            color: '#0284c7',
+                            fontSize: '18px',
+                            fontWeight: 'bold',
+                            textAlign: 'center',
+                            marginBottom: '20px'
+                        }}>
+                            ⏳ Lecture du fichier en cours...
+                        </p>
+                    )}
 
                     {/* Aperçu et modification des groupes */}
                     {textGroups.length > 0 && (
@@ -793,25 +913,6 @@ export default function ImporterTexte() {
                             </div>
                         </>
                     )}
-
-                    {/* Bouton retour */}
-                    <div style={{ textAlign: 'center', marginTop: '30px' }}>
-                        <button
-                            onClick={() => router.push('/lire/mes-textes-references')}
-                            style={{
-                                backgroundColor: '#6b7280',
-                                color: 'white',
-                                padding: '12px 30px',
-                                border: 'none',
-                                borderRadius: '8px',
-                                fontSize: '14px',
-                                fontWeight: 'bold',
-                                cursor: 'pointer'
-                            }}
-                        >
-                            ← Retour aux textes références
-                        </button>
-                    </div>
                 </div>
             </div>
         </>

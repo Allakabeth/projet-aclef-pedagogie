@@ -79,9 +79,15 @@ export default function EnregistrerTexte() {
     const [selectedGroups, setSelectedGroups] = useState(new Set())
     const [textFont, setTextFont] = useState('Comic Sans MS')
     const [textSize, setTextSize] = useState('22')
+    const [isMobile, setIsMobile] = useState(false)
+    const [mediaRecorder, setMediaRecorder] = useState(null)
+    const [isTranscribing, setIsTranscribing] = useState(false)
     const router = useRouter()
 
     useEffect(() => {
+        // Détection mobile
+        setIsMobile(window.innerWidth <= 768)
+
         // Vérifier le support de la reconnaissance vocale
         if (typeof window !== 'undefined') {
             const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
@@ -164,21 +170,100 @@ export default function EnregistrerTexte() {
         return recognition
     }
 
-    // Démarrer l'enregistrement vocal
+    // Démarrer l'enregistrement vocal (SpeechRecognition OU MediaRecorder+Whisper)
     const startVoiceRecording = () => {
-        const speechRecognition = initSpeechRecognition()
-        if (!speechRecognition) return
-        
-        setRecognition(speechRecognition)
-        setRecordedText('')
-        setIsRecording(true)
-        
+        if (speechSupported) {
+            // Navigateur compatible (Chrome/Edge/Safari) → SpeechRecognition
+            const speechRecognition = initSpeechRecognition()
+            if (!speechRecognition) return
+
+            setRecognition(speechRecognition)
+            setRecordedText('')
+            setIsRecording(true)
+
+            try {
+                speechRecognition.start()
+            } catch (error) {
+                console.error('Erreur démarrage reconnaissance:', error)
+                alert('Erreur lors du démarrage de la reconnaissance vocale')
+                setIsRecording(false)
+            }
+        } else {
+            // Navigateur incompatible (Firefox) → MediaRecorder + Whisper
+            startMediaRecording()
+        }
+    }
+
+    // Enregistrement avec MediaRecorder (pour Firefox)
+    const startMediaRecording = async () => {
         try {
-            speechRecognition.start()
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+            const audioChunks = []
+
+            const recorder = new MediaRecorder(stream, {
+                mimeType: 'audio/webm;codecs=opus'
+            })
+
+            recorder.ondataavailable = (event) => {
+                if (event.data.size > 0) {
+                    audioChunks.push(event.data)
+                }
+            }
+
+            recorder.onstop = async () => {
+                setIsRecording(false)
+                setIsTranscribing(true)
+
+                const audioBlob = new Blob(audioChunks, { type: 'audio/webm' })
+
+                // Arrêter le stream audio
+                stream.getTracks().forEach(track => track.stop())
+
+                // Envoyer à l'API Whisper pour transcription
+                await transcribeAudio(audioBlob)
+            }
+
+            recorder.start()
+            setMediaRecorder(recorder)
+            setIsRecording(true)
+            setRecordedText('')
         } catch (error) {
-            console.error('Erreur démarrage reconnaissance:', error)
-            alert('Erreur lors du démarrage de la reconnaissance vocale')
-            setIsRecording(false)
+            console.error('Erreur accès microphone:', error)
+            alert('Impossible d\'accéder au microphone. Veuillez autoriser l\'accès.')
+        }
+    }
+
+    // Transcription via Whisper
+    const transcribeAudio = async (audioBlob) => {
+        try {
+            const formData = new FormData()
+            formData.append('audio', audioBlob, 'recording.webm')
+
+            const response = await fetch('/api/speech/groq-whisper', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                },
+                body: formData
+            })
+
+            if (response.ok) {
+                const data = await response.json()
+                console.log('Transcription Whisper:', data.text)
+
+                // Appliquer conversions (ponctuation, nombres, capitalisation)
+                const processedText = convertPunctuation(data.text)
+                setRecordedText(processedText)
+            } else {
+                const error = await response.json()
+                console.error('Erreur transcription:', error)
+                alert('Erreur lors de la transcription. Réessayez.')
+            }
+        } catch (error) {
+            console.error('Erreur transcription:', error)
+            alert('Erreur lors de la transcription.')
+        } finally {
+            setIsTranscribing(false)
         }
     }
 
@@ -212,14 +297,18 @@ export default function EnregistrerTexte() {
     }
 
     const stopVoiceRecording = () => {
-        if (recognition) {
+        if (speechSupported && recognition) {
+            // Chrome/Edge/Safari → arrêter SpeechRecognition
             recognition.stop()
+            setIsRecording(false)
+            // Convertir la ponctuation après l'arrêt
+            setTimeout(() => {
+                setRecordedText(prevText => convertPunctuation(prevText))
+            }, 500) // Petit délai pour laisser le temps à la reconnaissance de finir
+        } else if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+            // Firefox → arrêter MediaRecorder (déclenchera transcription)
+            mediaRecorder.stop()
         }
-        setIsRecording(false)
-        // Convertir la ponctuation après l'arrêt
-        setTimeout(() => {
-            setRecordedText(prevText => convertPunctuation(prevText))
-        }, 500) // Petit délai pour laisser le temps à la reconnaissance de finir
     }
 
     // Créer des groupes automatiquement depuis l'enregistrement
@@ -505,13 +594,80 @@ export default function EnregistrerTexte() {
                         fontSize: 'clamp(22px, 5vw, 28px)',
                         fontWeight: 'bold',
                         marginBottom: '10px',
-                        background: 'linear-gradient(135deg, #059669 0%, #047857 100%)',
-                        WebkitBackgroundClip: 'text',
-                        WebkitTextFillColor: 'transparent',
                         textAlign: 'center'
                     }}>
-                        🎤 Enregistrer un Texte
+                        <span style={{ marginRight: '8px' }}>🎤</span>
+                        <span style={{
+                            background: 'linear-gradient(135deg, #059669 0%, #047857 100%)',
+                            WebkitBackgroundClip: 'text',
+                            WebkitTextFillColor: 'transparent'
+                        }}>
+                            Enregistrer un Texte
+                        </span>
                     </h1>
+
+                    {/* Navigation avec icônes */}
+                    <div style={{
+                        display: 'flex',
+                        justifyContent: 'center',
+                        gap: '12px',
+                        marginBottom: '20px'
+                    }}>
+                        <button
+                            onClick={() => router.push('/lire/mes-textes-references')}
+                            style={{
+                                width: '55px',
+                                height: '55px',
+                                backgroundColor: 'white',
+                                color: '#64748b',
+                                border: '2px solid #64748b',
+                                borderRadius: '12px',
+                                fontSize: '24px',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                            }}
+                        >
+                            ←
+                        </button>
+                        <button
+                            onClick={() => router.push('/lire')}
+                            style={{
+                                width: '55px',
+                                height: '55px',
+                                backgroundColor: 'white',
+                                color: '#10b981',
+                                border: '2px solid #10b981',
+                                borderRadius: '12px',
+                                fontSize: '24px',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                            }}
+                        >
+                            📖
+                        </button>
+                        <button
+                            onClick={() => router.push('/dashboard')}
+                            style={{
+                                width: '55px',
+                                height: '55px',
+                                backgroundColor: 'white',
+                                color: '#8b5cf6',
+                                border: '2px solid #8b5cf6',
+                                borderRadius: '12px',
+                                fontSize: '24px',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                            }}
+                        >
+                            🏠
+                        </button>
+                    </div>
 
                     <p style={{
                         textAlign: 'center',
@@ -522,36 +678,53 @@ export default function EnregistrerTexte() {
                         Parlez clairement et votre voix sera transformée en texte automatiquement.
                     </p>
 
-                    {speechSupported ? (
-                        <div style={{
-                            background: '#f0fff4',
-                            padding: '30px',
-                            borderRadius: '12px',
-                            marginBottom: '20px',
-                            textAlign: 'center'
-                        }}>
-                            {/* Bouton d'enregistrement principal */}
-                            <div style={{ marginBottom: '20px' }}>
-                                {!isRecording ? (
-                                    <button
-                                        onClick={startVoiceRecording}
-                                        disabled={!!recordedText.trim()}
-                                        style={{
-                                            backgroundColor: recordedText.trim() ? '#9ca3af' : '#ef4444',
-                                            color: 'white',
-                                            padding: '20px 40px',
-                                            border: 'none',
-                                            borderRadius: '50px',
-                                            fontSize: '20px',
-                                            fontWeight: 'bold',
-                                            cursor: recordedText.trim() ? 'not-allowed' : 'pointer',
-                                            boxShadow: '0 6px 20px rgba(239, 68, 68, 0.3)',
-                                            opacity: recordedText.trim() ? 0.6 : 1
-                                        }}
-                                    >
-                                        🎤 {recordedText.trim() ? 'Enregistrement terminé' : 'Commencer l\'enregistrement'}
-                                    </button>
-                                ) : (
+                    {/* Zone d'enregistrement - fonctionne sur tous les navigateurs */}
+                    <div style={{
+                        background: '#f0fff4',
+                        padding: '30px',
+                        borderRadius: '12px',
+                        marginBottom: '20px',
+                        textAlign: 'center'
+                    }}>
+                        {/* Bouton d'enregistrement principal */}
+                        <div style={{ marginBottom: '20px' }}>
+                            {!isRecording && !isTranscribing ? (
+                                <button
+                                    onClick={startVoiceRecording}
+                                    disabled={!!recordedText.trim()}
+                                    style={{
+                                        backgroundColor: recordedText.trim() ? '#9ca3af' : '#059669',
+                                        color: 'white',
+                                        padding: '20px 40px',
+                                        border: 'none',
+                                        borderRadius: '50px',
+                                        fontSize: '20px',
+                                        fontWeight: 'bold',
+                                        cursor: recordedText.trim() ? 'not-allowed' : 'pointer',
+                                        boxShadow: '0 6px 20px rgba(5, 150, 105, 0.3)',
+                                        opacity: recordedText.trim() ? 0.6 : 1
+                                    }}
+                                >
+                                    🎤 {recordedText.trim() ? 'Enregistrement terminé' : 'Commencer l\'enregistrement'}
+                                </button>
+                            ) : isTranscribing ? (
+                                <button
+                                    disabled
+                                    style={{
+                                        backgroundColor: '#f59e0b',
+                                        color: 'white',
+                                        padding: '20px 40px',
+                                        border: 'none',
+                                        borderRadius: '50px',
+                                        fontSize: '20px',
+                                        fontWeight: 'bold',
+                                        cursor: 'not-allowed',
+                                        boxShadow: '0 6px 20px rgba(245, 158, 11, 0.3)'
+                                    }}
+                                >
+                                    ⏳ Transcription en cours...
+                                </button>
+                            ) : (
                                     <button
                                         onClick={stopVoiceRecording}
                                         className="recording"
@@ -656,30 +829,7 @@ export default function EnregistrerTexte() {
                                     </button>
                                 </div>
                             )}
-                        </div>
-                    ) : (
-                        <div style={{
-                            background: '#f3f4f6',
-                            padding: '30px',
-                            borderRadius: '12px',
-                            marginBottom: '20px',
-                            textAlign: 'center'
-                        }}>
-                            <h3 style={{ marginBottom: '15px', fontSize: '18px', color: '#6b7280' }}>
-                                🎤 Enregistrement vocal non disponible
-                            </h3>
-                            <p style={{ color: '#6b7280', marginBottom: '15px', fontSize: '16px' }}>
-                                Votre navigateur ne supporte pas la reconnaissance vocale
-                            </p>
-                            <p style={{ 
-                                fontSize: '14px', 
-                                color: '#6b7280',
-                                fontStyle: 'italic'
-                            }}>
-                                Utilisez <strong>Chrome</strong>, <strong>Edge</strong> ou <strong>Safari</strong> pour accéder à cette fonctionnalité
-                            </p>
-                        </div>
-                    )}
+                    </div>
 
                     {/* Éditeur de découpage manuel */}
                     {showTextEditor && (

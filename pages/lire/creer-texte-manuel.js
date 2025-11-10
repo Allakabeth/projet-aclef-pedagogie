@@ -768,24 +768,6 @@ export default function CreerTexteManuel() {
                                 ✗
                             </button>
                             <button
-                                onClick={() => setSoundEnabled(!soundEnabled)}
-                                style={{
-                                    width: '45px',
-                                    height: '45px',
-                                    backgroundColor: soundEnabled ? '#8b5cf6' : '#6c757d',
-                                    color: 'white',
-                                    border: 'none',
-                                    borderRadius: '8px',
-                                    fontSize: '20px',
-                                    cursor: 'pointer',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center'
-                                }}
-                            >
-                                {soundEnabled ? '🎧' : '🔇'}
-                            </button>
-                            <button
                                 onClick={addGroup}
                                 style={{
                                     width: '45px',
