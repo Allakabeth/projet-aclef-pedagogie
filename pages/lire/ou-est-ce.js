@@ -1105,28 +1105,20 @@ export default function OuEstCe() {
                             onClick={startGame}
                             disabled={selectedTextes.length === 0}
                             style={{
-                                background: selectedTextes.length > 0
-                                    ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
-                                    : '#ccc',
-                                color: 'white',
+                                background: 'white',
+                                color: selectedTextes.length > 0 ? '#10b981' : '#ccc',
                                 padding: '15px 30px',
-                                border: 'none',
+                                border: selectedTextes.length > 0 ? '2px solid #10b981' : '2px solid #ccc',
                                 borderRadius: '20px',
                                 fontSize: '18px',
-                                fontWeight: 'bold',
+                                fontWeight: 'normal',
                                 cursor: selectedTextes.length > 0 ? 'pointer' : 'not-allowed',
                                 marginTop: '20px',
                                 width: '100%',
-                                boxShadow: selectedTextes.length > 0
-                                    ? '0 6px 20px rgba(16, 185, 129, 0.4)'
-                                    : 'none',
-                                textShadow: selectedTextes.length > 0
-                                    ? '0 2px 4px rgba(0,0,0,0.2)'
-                                    : 'none',
                                 transition: 'all 0.3s ease'
                             }}
                         >
-                            Commencer l'exercice
+                            Commencer
                         </button>
                     </>
                 ) : (
