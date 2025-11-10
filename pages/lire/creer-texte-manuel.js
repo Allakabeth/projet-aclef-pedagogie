@@ -75,6 +75,9 @@ export default function CreerTexteManuel() {
     const [isSaving, setIsSaving] = useState(false)
     const [textFont, setTextFont] = useState('Comic Sans MS')
     const [textSize, setTextSize] = useState('22')
+    const [selectedGroups, setSelectedGroups] = useState(new Set())
+    const [isMobile, setIsMobile] = useState(false)
+    const [soundEnabled, setSoundEnabled] = useState(true)
     const router = useRouter()
 
     // Fonction pour lire le texte avec une voix masculine
@@ -124,6 +127,9 @@ export default function CreerTexteManuel() {
     }
 
     useEffect(() => {
+        // Détection mobile
+        setIsMobile(window.innerWidth <= 768)
+
         // Vérifier l'authentification
         const token = localStorage.getItem('token')
         const userData = localStorage.getItem('user')
@@ -135,13 +141,13 @@ export default function CreerTexteManuel() {
 
         try {
             setUser(JSON.parse(userData))
-            
+
             // Charger les préférences de police/taille
             const savedFont = localStorage.getItem('textFont')
             const savedSize = localStorage.getItem('textSize')
             if (savedFont) setTextFont(savedFont)
             if (savedSize) setTextSize(savedSize)
-            
+
             // Ajouter le premier groupe
             addGroup()
         } catch (error) {
@@ -156,26 +162,62 @@ export default function CreerTexteManuel() {
     const addGroup = () => {
         const newCounter = groupCounter + 1
         setGroupCounter(newCounter)
-        setTextGroups([...textGroups, { 
-            id: newCounter, 
-            type: 'text', 
-            content: '' 
-        }])
+        const newGroup = {
+            id: `new_${newCounter}`,
+            type: 'text',
+            content: ''
+        }
+
+        // Si exactement UNE case cochée, ajouter APRÈS elle
+        if (selectedGroups.size === 1) {
+            const selectedId = Array.from(selectedGroups)[0]
+            const index = textGroups.findIndex(g => g.id === selectedId)
+            if (index !== -1) {
+                const newGroups = [...textGroups]
+                newGroups.splice(index + 1, 0, newGroup)
+                setTextGroups(newGroups)
+                return
+            }
+        }
+
+        // Sinon ajouter à la fin
+        setTextGroups([...textGroups, newGroup])
     }
 
     const addLineBreak = () => {
-        setTextGroups([...textGroups, { 
-            id: Date.now(), 
-            type: 'linebreak' 
+        setTextGroups([...textGroups, {
+            id: Date.now(),
+            type: 'linebreak'
         }])
     }
 
-    const removeLastGroup = () => {
-        if (textGroups.length <= 1) {
-            alert('Vous devez garder au moins un groupe !')
-            return
+    const selectAllGroups = () => {
+        const textGroupIds = textGroups.filter(g => g.type === 'text').map(g => g.id)
+        setSelectedGroups(new Set(textGroupIds))
+    }
+
+    const deselectAllGroups = () => {
+        setSelectedGroups(new Set())
+    }
+
+    const removeSelectedGroups = () => {
+        if (selectedGroups.size > 0) {
+            // Supprimer les groupes sélectionnés
+            const remainingGroups = textGroups.filter(g => !selectedGroups.has(g.id))
+            if (remainingGroups.length === 0) {
+                alert('Vous devez garder au moins un groupe !')
+                return
+            }
+            setTextGroups(remainingGroups)
+            setSelectedGroups(new Set()) // Désélectionner tout
+        } else {
+            // Comportement classique : supprimer le dernier
+            if (textGroups.length <= 1) {
+                alert('Vous devez garder au moins un groupe !')
+                return
+            }
+            setTextGroups(textGroups.slice(0, -1))
         }
-        setTextGroups(textGroups.slice(0, -1))
     }
 
     const updateGroupContent = (groupId, content) => {
@@ -308,42 +350,127 @@ export default function CreerTexteManuel() {
                 }}>
                     {/* Titre */}
                     <h1 style={{
-                        fontSize: 'clamp(22px, 5vw, 28px)',
+                        fontSize: isMobile ? 'clamp(14px, 4vw, 18px)' : 'clamp(22px, 5vw, 28px)',
                         fontWeight: 'bold',
                         marginBottom: '10px',
-                        background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                        WebkitBackgroundClip: 'text',
-                        WebkitTextFillColor: 'transparent',
                         textAlign: 'center'
                     }}>
-                        ✍️ Créer un Texte Manuellement
+                        <span style={{ marginRight: '8px' }}>✍️</span>
+                        <span style={{
+                            background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                            WebkitBackgroundClip: 'text',
+                            WebkitTextFillColor: 'transparent'
+                        }}>
+                            Créer un Texte Manuellement
+                        </span>
                     </h1>
 
-                    <p style={{
-                        textAlign: 'center',
-                        fontSize: 'clamp(14px, 3vw, 16px)',
-                        color: '#666',
-                        marginBottom: '20px'
-                    }}>
-                        Saisissez vos groupes de mots dans les cases ci-dessous.
-                    </p>
+                    {!isMobile && (
+                        <p style={{
+                            textAlign: 'center',
+                            fontSize: 'clamp(14px, 3vw, 16px)',
+                            color: '#666',
+                            marginBottom: '20px'
+                        }}>
+                            Saisissez vos groupes de mots dans les cases ci-dessous.
+                        </p>
+                    )}
 
-                    {/* Contrôles de style */}
+                    {/* Navigation icônes */}
                     <div style={{
-                        background: '#f8f9fa',
-                        padding: '20px',
-                        borderRadius: '8px',
+                        display: 'flex',
+                        justifyContent: 'center',
+                        gap: '12px',
                         marginBottom: '20px'
                     }}>
-                        <h3 style={{ marginBottom: '15px', fontSize: '18px', color: '#333' }}>Style du texte</h3>
+                        <button
+                            onClick={() => router.push('/lire/mes-textes-references')}
+                            style={{
+                                width: '55px',
+                                height: '55px',
+                                backgroundColor: 'white',
+                                border: '2px solid #64748b',
+                                borderRadius: '12px',
+                                fontSize: '24px',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                            }}
+                        >
+                            ←
+                        </button>
+                        <button
+                            onClick={() => router.push('/lire')}
+                            style={{
+                                width: '55px',
+                                height: '55px',
+                                backgroundColor: 'white',
+                                border: '2px solid #10b981',
+                                borderRadius: '12px',
+                                fontSize: '24px',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                            }}
+                        >
+                            📖
+                        </button>
+                        <button
+                            onClick={() => router.push('/dashboard')}
+                            style={{
+                                width: '55px',
+                                height: '55px',
+                                backgroundColor: 'white',
+                                border: '2px solid #8b5cf6',
+                                borderRadius: '12px',
+                                fontSize: '24px',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                            }}
+                        >
+                            🏠
+                        </button>
+                        <button
+                            onClick={() => {
+                                if (!isSaving) {
+                                    lireTexte('Enregistrer le texte')
+                                    setTimeout(() => saveText(), 1000)
+                                }
+                            }}
+                            disabled={isSaving}
+                            style={{
+                                width: '55px',
+                                height: '55px',
+                                backgroundColor: 'white',
+                                border: `2px solid ${isSaving ? '#9ca3af' : '#3b82f6'}`,
+                                borderRadius: '12px',
+                                fontSize: '24px',
+                                cursor: isSaving ? 'not-allowed' : 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                opacity: isSaving ? 0.5 : 1
+                            }}
+                        >
+                            💾
+                        </button>
+                    </div>
+
+                    {/* Contrôles de style - Version Mobile */}
+                    {isMobile && (
                         <div style={{
                             display: 'flex',
-                            gap: '20px',
-                            flexWrap: 'wrap',
-                            alignItems: 'center'
+                            gap: '15px',
+                            marginBottom: '20px',
+                            alignItems: 'center',
+                            justifyContent: 'center'
                         }}>
                             <div>
-                                <label style={{ marginRight: '10px', fontSize: '14px', fontWeight: '500' }}>
+                                <label style={{ marginRight: '8px', fontSize: '12px', fontWeight: '500' }}>
                                     Police :
                                 </label>
                                 <select
@@ -353,22 +480,22 @@ export default function CreerTexteManuel() {
                                         localStorage.setItem('textFont', e.target.value)
                                     }}
                                     style={{
-                                        padding: '8px',
+                                        padding: '6px',
                                         borderRadius: '4px',
                                         border: '1px solid #ddd',
-                                        fontSize: '14px'
+                                        fontSize: '12px'
                                     }}
                                 >
                                     <option value="Arial">Arial</option>
-                                    <option value="Times New Roman">Times New Roman</option>
+                                    <option value="Times New Roman">Times</option>
                                     <option value="Georgia">Georgia</option>
-                                    <option value="Comic Sans MS">Comic Sans MS</option>
+                                    <option value="Comic Sans MS">Comic</option>
                                     <option value="Verdana">Verdana</option>
                                     <option value="Helvetica">Helvetica</option>
                                 </select>
                             </div>
                             <div>
-                                <label style={{ marginRight: '10px', fontSize: '14px', fontWeight: '500' }}>
+                                <label style={{ marginRight: '8px', fontSize: '12px', fontWeight: '500' }}>
                                     Taille :
                                 </label>
                                 <select
@@ -378,10 +505,10 @@ export default function CreerTexteManuel() {
                                         localStorage.setItem('textSize', e.target.value)
                                     }}
                                     style={{
-                                        padding: '8px',
+                                        padding: '6px',
                                         borderRadius: '4px',
                                         border: '1px solid #ddd',
-                                        fontSize: '14px'
+                                        fontSize: '12px'
                                     }}
                                 >
                                     <option value="14">14px</option>
@@ -394,48 +521,187 @@ export default function CreerTexteManuel() {
                                 </select>
                             </div>
                         </div>
-                    </div>
+                    )}
+
+                    {/* Contrôles de style - Version PC */}
+                    {!isMobile && (
+                        <div style={{
+                            background: '#f8f9fa',
+                            padding: '20px',
+                            borderRadius: '8px',
+                            marginBottom: '20px'
+                        }}>
+                            <h3 style={{ marginBottom: '15px', fontSize: '18px', color: '#333' }}>Style du texte</h3>
+                            <div style={{
+                                display: 'flex',
+                                gap: '20px',
+                                flexWrap: 'wrap',
+                                alignItems: 'center'
+                            }}>
+                                <button
+                                    onClick={selectAllGroups}
+                                    style={{
+                                        padding: '8px 15px',
+                                        backgroundColor: '#10b981',
+                                        color: 'white',
+                                        border: 'none',
+                                        borderRadius: '4px',
+                                        fontSize: '14px',
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    ✓ Sélectionner tous
+                                </button>
+                                <button
+                                    onClick={deselectAllGroups}
+                                    style={{
+                                        padding: '8px 15px',
+                                        backgroundColor: '#6c757d',
+                                        color: 'white',
+                                        border: 'none',
+                                        borderRadius: '4px',
+                                        fontSize: '14px',
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    ✗ Désélectionner tous
+                                </button>
+                                <div>
+                                    <label style={{ marginRight: '10px', fontSize: '14px', fontWeight: '500' }}>
+                                        Police :
+                                    </label>
+                                    <select
+                                        value={textFont}
+                                        onChange={(e) => {
+                                            setTextFont(e.target.value)
+                                            localStorage.setItem('textFont', e.target.value)
+                                        }}
+                                        style={{
+                                            padding: '8px',
+                                            borderRadius: '4px',
+                                            border: '1px solid #ddd',
+                                            fontSize: '14px'
+                                        }}
+                                    >
+                                        <option value="Arial">Arial</option>
+                                        <option value="Times New Roman">Times New Roman</option>
+                                        <option value="Georgia">Georgia</option>
+                                        <option value="Comic Sans MS">Comic Sans MS</option>
+                                        <option value="Verdana">Verdana</option>
+                                        <option value="Helvetica">Helvetica</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label style={{ marginRight: '10px', fontSize: '14px', fontWeight: '500' }}>
+                                        Taille :
+                                    </label>
+                                    <select
+                                        value={textSize}
+                                        onChange={(e) => {
+                                            setTextSize(e.target.value)
+                                            localStorage.setItem('textSize', e.target.value)
+                                        }}
+                                        style={{
+                                            padding: '8px',
+                                            borderRadius: '4px',
+                                            border: '1px solid #ddd',
+                                            fontSize: '14px'
+                                        }}
+                                    >
+                                        <option value="14">14px</option>
+                                        <option value="16">16px</option>
+                                        <option value="18">18px</option>
+                                        <option value="20">20px</option>
+                                        <option value="22">22px</option>
+                                        <option value="24">24px</option>
+                                        <option value="28">28px</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
                     {/* Groupes de texte */}
                     <div style={{ marginBottom: '20px' }}>
                         {textGroups.map((group, index) => (
-                            <div key={group.id} style={{ marginBottom: '15px' }}>
+                            <div key={group.id} style={{ marginBottom: isMobile ? '2px' : '15px' }}>
                                 {group.type === 'text' ? (
-                                    <div style={{
-                                        background: '#f8f9fa',
-                                        border: '2px solid #dee2e6',
-                                        borderRadius: '8px',
-                                        padding: '10px',
-                                        position: 'relative'
-                                    }}>
-                                        <div style={{
-                                            position: 'absolute',
-                                            top: '-12px',
-                                            left: '12px',
-                                            background: '#10b981',
-                                            color: 'white',
-                                            padding: '2px 8px',
-                                            borderRadius: '4px',
-                                            fontSize: '12px'
-                                        }}>
-                                            {index + 1}
-                                        </div>
-                                        <textarea
-                                            placeholder="Saisissez votre groupe de mots..."
-                                            value={group.content || ''}
-                                            onChange={(e) => updateGroupContent(group.id, e.target.value)}
+                                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                                        {/* Case à cocher (PC uniquement) */}
+                                        {!isMobile && (
+                                            <input
+                                                type="checkbox"
+                                                checked={selectedGroups.has(group.id)}
+                                                onChange={() => {
+                                                    const newSelected = new Set(selectedGroups)
+                                                    if (newSelected.has(group.id)) {
+                                                        newSelected.delete(group.id)
+                                                    } else {
+                                                        newSelected.add(group.id)
+                                                    }
+                                                    setSelectedGroups(newSelected)
+                                                }}
+                                                style={{
+                                                    marginTop: '20px',
+                                                    transform: 'scale(1.2)',
+                                                    cursor: 'pointer'
+                                                }}
+                                            />
+                                        )}
+
+                                        <div
+                                            onClick={isMobile ? () => {
+                                                const newSelected = new Set(selectedGroups)
+                                                if (newSelected.has(group.id)) {
+                                                    newSelected.delete(group.id)
+                                                } else {
+                                                    newSelected.add(group.id)
+                                                }
+                                                setSelectedGroups(newSelected)
+                                            } : undefined}
                                             style={{
-                                                width: '100%',
-                                                minHeight: '80px',
-                                                padding: '10px',
-                                                border: 'none',
-                                                outline: 'none',
-                                                resize: 'vertical',
-                                                fontSize: textSize + 'px',
-                                                background: 'transparent',
-                                                fontFamily: textFont
-                                            }}
-                                        />
+                                                flex: 1,
+                                                background: selectedGroups.has(group.id) ? '#e8f5e8' : '#f8f9fa',
+                                                border: selectedGroups.has(group.id) ? '2px solid #10b981' : '2px solid #dee2e6',
+                                                borderRadius: isMobile ? '4px' : '8px',
+                                                padding: isMobile ? '0px' : '10px',
+                                                position: 'relative',
+                                                cursor: isMobile ? 'pointer' : 'default'
+                                            }}>
+                                            {!isMobile && (
+                                                <div style={{
+                                                    position: 'absolute',
+                                                    top: '-12px',
+                                                    left: '12px',
+                                                    background: '#10b981',
+                                                    color: 'white',
+                                                    padding: '2px 8px',
+                                                    borderRadius: '3px',
+                                                    fontSize: '12px'
+                                                }}>
+                                                    {index + 1}
+                                                </div>
+                                            )}
+                                            <textarea
+                                                placeholder="Saisissez votre groupe de mots..."
+                                                value={group.content || ''}
+                                                onChange={(e) => updateGroupContent(group.id, e.target.value)}
+                                                style={{
+                                                    width: '100%',
+                                                    minHeight: isMobile ? 'auto' : '60px',
+                                                    height: isMobile ? 'auto' : 'auto',
+                                                    padding: isMobile ? '0px' : '10px',
+                                                    border: 'none',
+                                                    outline: 'none',
+                                                    resize: 'none',
+                                                    fontSize: textSize + 'px',
+                                                    fontFamily: textFont,
+                                                    background: 'transparent',
+                                                    lineHeight: isMobile ? '1.2' : 'normal',
+                                                    overflow: 'hidden'
+                                                }}
+                                            />
+                                        </div>
                                     </div>
                                 ) : (
                                     <div style={{
@@ -457,97 +723,248 @@ export default function CreerTexteManuel() {
                         ))}
                     </div>
 
-                    {/* Boutons d'actions */}
-                    <div style={{
-                        display: 'flex',
-                        gap: '10px',
-                        flexWrap: 'wrap',
-                        marginBottom: '20px',
-                        justifyContent: 'center'
-                    }}>
-                        <button
-                            onClick={() => {
-                                lireTexte('Ajouter groupe')
-                                setTimeout(() => addGroup(), 800)
-                            }}
-                            style={{
-                                padding: '10px 15px',
-                                backgroundColor: '#10b981',
-                                color: 'white',
-                                border: 'none',
-                                borderRadius: '5px',
-                                fontSize: '14px',
-                                cursor: 'pointer'
-                            }}
-                        >
-                            ➕ Ajouter groupe
-                        </button>
-                        <button
-                            onClick={() => {
-                                lireTexte('Saut de ligne')
-                                setTimeout(() => addLineBreak(), 800)
-                            }}
-                            style={{
-                                padding: '10px 15px',
-                                backgroundColor: '#6c757d',
-                                color: 'white',
-                                border: 'none',
-                                borderRadius: '5px',
-                                fontSize: '14px',
-                                cursor: 'pointer'
-                            }}
-                        >
-                            ↵ Saut de ligne
-                        </button>
-                        <button
-                            onClick={() => {
-                                lireTexte('Supprimer dernier')
-                                setTimeout(() => removeLastGroup(), 800)
-                            }}
-                            style={{
-                                padding: '10px 15px',
-                                backgroundColor: '#ef4444',
-                                color: 'white',
-                                border: 'none',
-                                borderRadius: '5px',
-                                fontSize: '14px',
-                                cursor: 'pointer'
-                            }}
-                        >
-                            ❌ Supprimer dernier
-                        </button>
-                    </div>
+                    {/* Boutons actions mobile - Une seule ligne */}
+                    {isMobile && (
+                        <div style={{
+                            display: 'flex',
+                            gap: '8px',
+                            justifyContent: 'center',
+                            marginBottom: '20px'
+                        }}>
+                            <button
+                                onClick={selectAllGroups}
+                                style={{
+                                    width: '45px',
+                                    height: '45px',
+                                    backgroundColor: '#10b981',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    fontSize: '20px',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center'
+                                }}
+                            >
+                                ✓
+                            </button>
+                            <button
+                                onClick={deselectAllGroups}
+                                style={{
+                                    width: '45px',
+                                    height: '45px',
+                                    backgroundColor: '#6c757d',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    fontSize: '20px',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center'
+                                }}
+                            >
+                                ✗
+                            </button>
+                            <button
+                                onClick={() => setSoundEnabled(!soundEnabled)}
+                                style={{
+                                    width: '45px',
+                                    height: '45px',
+                                    backgroundColor: soundEnabled ? '#8b5cf6' : '#6c757d',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    fontSize: '20px',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center'
+                                }}
+                            >
+                                {soundEnabled ? '🎧' : '🔇'}
+                            </button>
+                            <button
+                                onClick={addGroup}
+                                style={{
+                                    width: '45px',
+                                    height: '45px',
+                                    backgroundColor: '#10b981',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    fontSize: '20px',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center'
+                                }}
+                            >
+                                ➕
+                            </button>
+                            <button
+                                onClick={addLineBreak}
+                                style={{
+                                    width: '45px',
+                                    height: '45px',
+                                    backgroundColor: '#3b82f6',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    fontSize: '20px',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center'
+                                }}
+                            >
+                                ↵
+                            </button>
+                            <button
+                                onClick={removeSelectedGroups}
+                                style={{
+                                    width: '45px',
+                                    height: '45px',
+                                    backgroundColor: '#ef4444',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    fontSize: '20px',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center'
+                                }}
+                            >
+                                ✕
+                            </button>
+                            <button
+                                onClick={saveText}
+                                disabled={isSaving}
+                                style={{
+                                    width: '45px',
+                                    height: '45px',
+                                    backgroundColor: 'white',
+                                    color: '#3b82f6',
+                                    border: '2px solid #3b82f6',
+                                    borderRadius: '8px',
+                                    fontSize: '20px',
+                                    cursor: isSaving ? 'not-allowed' : 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    opacity: isSaving ? 0.5 : 1
+                                }}
+                            >
+                                💾
+                            </button>
+                        </div>
+                    )}
 
-                    {/* Boutons principaux */}
-                    <div style={{
-                        display: 'flex',
-                        gap: '10px',
-                        justifyContent: 'center',
-                        marginBottom: '20px',
-                        flexWrap: 'wrap'
-                    }}>
-                        <button
-                            onClick={() => {
-                                if (!isSaving) {
-                                    lireTexte('Enregistrer le texte')
-                                    setTimeout(() => saveText(), 1000)
-                                }
-                            }}
-                            disabled={isSaving}
-                            style={{
-                                padding: '15px 25px',
-                                backgroundColor: isSaving ? '#9ca3af' : '#10b981',
-                                color: 'white',
-                                border: 'none',
-                                borderRadius: '8px',
-                                fontSize: '16px',
-                                fontWeight: 'bold',
-                                cursor: isSaving ? 'not-allowed' : 'pointer'
-                            }}
-                        >
-                            {isSaving ? 'Sauvegarde...' : '💾 Enregistrer le Texte'}
-                        </button>
-                    </div>
+                    {/* Boutons d'actions PC */}
+                    {!isMobile && (
+                        <div style={{
+                            display: 'flex',
+                            gap: '10px',
+                            flexWrap: 'wrap',
+                            marginBottom: '20px',
+                            justifyContent: 'center'
+                        }}>
+                            <button
+                                onClick={() => setSoundEnabled(!soundEnabled)}
+                                style={{
+                                    padding: '10px 15px',
+                                    backgroundColor: soundEnabled ? '#8b5cf6' : '#6c757d',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '5px',
+                                    fontSize: '14px',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                {soundEnabled ? '🎧 Son activé' : '🔇 Son coupé'}
+                            </button>
+                            <button
+                                onClick={() => {
+                                    if (soundEnabled) lireTexte('Ajouter groupe')
+                                    setTimeout(() => addGroup(), 800)
+                                }}
+                                style={{
+                                    padding: '10px 15px',
+                                    backgroundColor: '#10b981',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '5px',
+                                    fontSize: '14px',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                ➕ Ajouter groupe
+                            </button>
+                            <button
+                                onClick={() => {
+                                    if (soundEnabled) lireTexte('Saut de ligne')
+                                    setTimeout(() => addLineBreak(), 800)
+                                }}
+                                style={{
+                                    padding: '10px 15px',
+                                    backgroundColor: '#3b82f6',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '5px',
+                                    fontSize: '14px',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                ↵ Saut de ligne
+                            </button>
+                            <button
+                                onClick={() => {
+                                    if (soundEnabled) {
+                                        const message = selectedGroups.size > 0
+                                            ? `Supprimer ${selectedGroups.size} groupe${selectedGroups.size > 1 ? 's' : ''}`
+                                            : 'Supprimer dernier'
+                                        lireTexte(message)
+                                    }
+                                    setTimeout(() => removeSelectedGroups(), 800)
+                                }}
+                                style={{
+                                    padding: '10px 15px',
+                                    backgroundColor: '#ef4444',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '5px',
+                                    fontSize: '14px',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                {selectedGroups.size > 0
+                                    ? `❌ Supprimer (${selectedGroups.size})`
+                                    : '❌ Supprimer dernier'}
+                            </button>
+                            <button
+                                onClick={() => {
+                                    if (!isSaving) {
+                                        if (soundEnabled) lireTexte('Enregistrer le texte')
+                                        setTimeout(() => saveText(), 1000)
+                                    }
+                                }}
+                                disabled={isSaving}
+                                style={{
+                                    padding: '10px 15px',
+                                    backgroundColor: isSaving ? '#9ca3af' : '#10b981',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '5px',
+                                    fontSize: '14px',
+                                    cursor: isSaving ? 'not-allowed' : 'pointer'
+                                }}
+                            >
+                                {isSaving ? '💾 Sauvegarde...' : '💾 Enregistrer'}
+                            </button>
+                        </div>
+                    )}
 
 
                     {/* Stats */}
@@ -565,28 +982,6 @@ export default function CreerTexteManuel() {
                             <p><strong>{stats.multiSyllableWords}</strong> mots multi-syllabes ajoutés à l'entraînement</p>
                         </div>
                     )}
-
-                    {/* Bouton retour */}
-                    <div style={{ textAlign: 'center', marginTop: '30px' }}>
-                        <button
-                            onClick={() => {
-                                lireTexte('Retour aux textes références')
-                                setTimeout(() => router.push('/lire/mes-textes-references'), 1200)
-                            }}
-                            style={{
-                                backgroundColor: '#6b7280',
-                                color: 'white',
-                                padding: '12px 30px',
-                                border: 'none',
-                                borderRadius: '8px',
-                                fontSize: '14px',
-                                fontWeight: 'bold',
-                                cursor: 'pointer'
-                            }}
-                        >
-                            ← Retour aux textes références
-                        </button>
-                    </div>
                 </div>
             </div>
         </>
