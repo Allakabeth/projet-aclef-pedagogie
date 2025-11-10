@@ -10,6 +10,14 @@ export default function DicteesRechercheAutoEvaluation() {
     const [isGenerating, setIsGenerating] = useState(false)
     const [currentTextIndex, setCurrentTextIndex] = useState(0)
     const [hasSucceeded, setHasSucceeded] = useState(false)
+    const [showWordHelp, setShowWordHelp] = useState(true)
+    const [isPlayingAudio, setIsPlayingAudio] = useState(false)
+    const [currentPlayingGroup, setCurrentPlayingGroup] = useState(null)
+    const [hasListened, setHasListened] = useState(false)
+    const [enregistrements, setEnregistrements] = useState({})
+    const [tokenStatus, setTokenStatus] = useState('available')
+    const [groupesComplets, setGroupesComplets] = useState([])
+    const [isMobile, setIsMobile] = useState(false)
     const router = useRouter()
 
     useEffect(() => {
@@ -37,6 +45,9 @@ export default function DicteesRechercheAutoEvaluation() {
             return
         }
 
+        // Détection mobile
+        setIsMobile(window.innerWidth <= 768)
+
         setIsLoading(false)
     }, [router])
 
@@ -58,16 +69,38 @@ export default function DicteesRechercheAutoEvaluation() {
         }
     }
 
+    const loadEnregistrements = async () => {
+        try {
+            const token = localStorage.getItem('token')
+            const response = await fetch('/api/enregistrements-groupes/list', {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            })
+
+            if (response.ok) {
+                const data = await response.json()
+                const enregMap = {}
+                data.enregistrements.forEach(e => {
+                    enregMap[e.groupe_sens_id] = e.audio_url
+                })
+                setEnregistrements(enregMap)
+            }
+        } catch (error) {
+            console.error('Erreur chargement enregistrements:', error)
+        }
+    }
+
     const genererPhrase = async () => {
         if (selectedTexteIds.length === 0) return
 
         setIsGenerating(true)
         setHasSucceeded(false)
-        
+
         try {
             const token = localStorage.getItem('token')
             const allGroupes = []
-            
+
             // Charger les groupes de chaque texte sélectionné
             for (const texteId of selectedTexteIds) {
                 const response = await fetch(`/api/textes/get/${texteId}`, {
@@ -80,7 +113,7 @@ export default function DicteesRechercheAutoEvaluation() {
                     const data = await response.json()
                     const groupesFiltered = (data.groupes_sens || [])
                         .filter(g => g.type_groupe === 'text' && g.contenu && g.contenu.trim())
-                    
+
                     allGroupes.push(...groupesFiltered)
                 } else {
                     console.error(`Erreur chargement texte ${texteId}`)
@@ -135,6 +168,18 @@ export default function DicteesRechercheAutoEvaluation() {
             }
 
             const data = await response.json()
+
+            // Récupérer les groupes complets avec IDs à partir de allGroupes
+            const groupesUtilisesComplets = []
+            if (data.groupes_utilises) {
+                data.groupes_utilises.forEach(contenu => {
+                    const groupeComplet = allGroupes.find(g => g.contenu === contenu)
+                    if (groupeComplet) {
+                        groupesUtilisesComplets.push(groupeComplet)
+                    }
+                })
+            }
+            setGroupesComplets(groupesUtilisesComplets)
             setPhraseGeneree(data)
             
         } catch (error) {
@@ -147,14 +192,23 @@ export default function DicteesRechercheAutoEvaluation() {
 
     useEffect(() => {
         if (textes.length > 0 && selectedTexteIds.length > 0) {
+            loadEnregistrements()
             genererPhrase()
         }
     }, [textes, selectedTexteIds])
 
-    const playAudio = async (text) => {
-        if (!text.trim()) return
+    const playEnregistrement = async (audioUrl) => {
+        return new Promise((resolve, reject) => {
+            const audio = new Audio(audioUrl)
+            audio.onended = () => resolve(true)
+            audio.onerror = () => reject(false)
+            audio.play().catch(() => reject(false))
+        })
+    }
 
-        // Essayer d'abord ElevenLabs
+    const playAudioElevenLabs = async (text) => {
+        if (tokenStatus === 'exhausted') return false
+
         try {
             const response = await fetch('/api/speech/elevenlabs', {
                 method: 'POST',
@@ -162,7 +216,7 @@ export default function DicteesRechercheAutoEvaluation() {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${localStorage.getItem('token')}`
                 },
-                body: JSON.stringify({ 
+                body: JSON.stringify({
                     text,
                     voice_id: 'AfbuxQ9DVtS4azaxN1W7' // Paul (ElevenLabs)
                 })
@@ -172,19 +226,89 @@ export default function DicteesRechercheAutoEvaluation() {
                 const data = await response.json()
                 const audio = new Audio(data.audio)
                 await audio.play()
-                return
+                return true
+            } else if (response.status === 429) {
+                setTokenStatus('exhausted')
+                return false
             }
         } catch (error) {
-            console.log('ElevenLabs non disponible, fallback vers Web Speech API')
+            console.log('ElevenLabs non disponible')
         }
+        return false
+    }
 
-        // Utiliser Web Speech API en fallback
-        if ('speechSynthesis' in window) {
+    const fallbackToWebSpeech = (text) => {
+        return new Promise((resolve) => {
+            if (!('speechSynthesis' in window)) {
+                resolve()
+                return
+            }
+
+            const voices = window.speechSynthesis.getVoices()
+
+            // Chercher voix masculine française (JAMAIS Hortense)
+            const voixMasculine = voices.find(voice =>
+                voice.lang.includes('fr') &&
+                !voice.name.toLowerCase().includes('hortense') &&
+                (voice.name.toLowerCase().includes('male') ||
+                 voice.name.toLowerCase().includes('homme') ||
+                 voice.name.toLowerCase().includes('thomas') ||
+                 voice.name.toLowerCase().includes('paul'))
+            )
+
             const utterance = new SpeechSynthesisUtterance(text)
             utterance.lang = 'fr-FR'
             utterance.rate = 0.8
+            utterance.voice = voixMasculine || voices.find(v => v.lang.includes('fr'))
+
+            utterance.onend = () => resolve()
             window.speechSynthesis.speak(utterance)
+        })
+    }
+
+    const playAudio = async (text, groupeId = null) => {
+        if (!text.trim()) return
+
+        // 1. PRIORITÉ : Enregistrement utilisateur
+        if (groupeId && enregistrements[groupeId]) {
+            try {
+                await playEnregistrement(enregistrements[groupeId])
+                return
+            } catch (error) {
+                console.log('Enregistrement non disponible, fallback')
+            }
         }
+
+        // 2. ElevenLabs (si tokens disponibles)
+        const elevenLabsSuccess = await playAudioElevenLabs(text)
+        if (elevenLabsSuccess) return
+
+        // 3. Web Speech API (jamais Hortense)
+        await fallbackToWebSpeech(text)
+    }
+
+    const playPhraseWithHighlight = async () => {
+        if (!phraseGeneree || !phraseGeneree.groupes_utilises) return
+
+        setIsPlayingAudio(true)
+
+        // Lire chaque groupe de sens avec illumination et enregistrements personnalisés
+        for (let i = 0; i < phraseGeneree.groupes_utilises.length; i++) {
+            const contenu = phraseGeneree.groupes_utilises[i]
+            const groupeComplet = groupesComplets[i]
+
+            setCurrentPlayingGroup(i)
+
+            // Passer le contenu ET l'ID du groupe pour utiliser l'enregistrement
+            await playAudio(contenu, groupeComplet?.id)
+
+            // Pause entre les groupes
+            await new Promise(resolve => setTimeout(resolve, 300))
+        }
+
+        setCurrentPlayingGroup(null)
+        setIsPlayingAudio(false)
+        setHasListened(true)
     }
 
     const handleSuccess = () => {
@@ -197,23 +321,31 @@ export default function DicteesRechercheAutoEvaluation() {
 
     const nextPhrase = () => {
         setHasSucceeded(false)
+        setHasListened(false)
+        setShowWordHelp(false) // Masquer l'aide à chaque nouvelle phrase
         setPhraseGeneree(null)
         setIsGenerating(true)
-        
+
         // Cycle à travers les textes ou juste régénérer avec tous les groupes
         setTimeout(() => {
             genererPhrase()
         }, 500)
     }
 
-    const getWordGroupColor = (word) => {
+    const getWordGroupColor = (word, isPlaying = false) => {
         if (!phraseGeneree || !phraseGeneree.groupes_utilises) return '#e5e7eb'
-        
-        const groupIndex = phraseGeneree.groupes_utilises.findIndex(groupe => 
+
+        const groupIndex = phraseGeneree.groupes_utilises.findIndex(groupe =>
             groupe.toLowerCase().includes(word.toLowerCase())
         )
-        
-        const colors = ['#fef3c7', '#dbeafe', '#e0e7ff', '#f3e8ff', '#fce7f3', '#ecfdf5']
+
+        const colors = ['#fef3c7', '#dbeafe', '#fce7f3', '#f3e8ff', '#fed7aa', '#ecfdf5']
+        const highlightColors = ['#fde047', '#60a5fa', '#f9a8d4', '#c084fc', '#fb923c', '#34d399']
+
+        if (isPlaying && groupIndex === currentPlayingGroup) {
+            return highlightColors[groupIndex % highlightColors.length]
+        }
+
         return groupIndex !== -1 ? colors[groupIndex % colors.length] : '#e5e7eb'
     }
 
@@ -248,16 +380,128 @@ export default function DicteesRechercheAutoEvaluation() {
                 margin: '0 auto'
             }}>
                 <h1 style={{
-                    fontSize: 'clamp(22px, 5vw, 28px)',
+                    fontSize: 'clamp(18px, 4vw, 22px)',
                     fontWeight: 'bold',
-                    marginBottom: '20px',
-                    background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                    WebkitBackgroundClip: 'text',
-                    WebkitTextFillColor: 'transparent',
-                    textAlign: 'center'
+                    marginBottom: '10px',
+                    textAlign: 'center',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px'
                 }}>
-                    😌 Mode Tranquille - Dictée Recherche
+                    <span style={{ color: '#10b981', fontSize: 'clamp(24px, 5vw, 28px)' }}>😌</span>
+                    <span style={{
+                        background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                        WebkitBackgroundClip: 'text',
+                        WebkitTextFillColor: 'transparent',
+                        whiteSpace: 'nowrap'
+                    }}>
+                        Dictée Recherche - Mode Tranquille
+                    </span>
                 </h1>
+
+                {/* Navigation */}
+                <div style={{
+                    display: 'flex',
+                    justifyContent: 'center',
+                    gap: '12px',
+                    marginBottom: '10px'
+                }}>
+                    <button
+                        onClick={() => router.push('/lire/dictees-recherche')}
+                        style={{
+                            width: '55px',
+                            height: '55px',
+                            backgroundColor: 'white',
+                            color: '#64748b',
+                            border: '2px solid #64748b',
+                            borderRadius: '12px',
+                            fontSize: '24px',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                        }}
+                    >
+                        ←
+                    </button>
+                    <button
+                        onClick={() => router.push('/lire')}
+                        style={{
+                            width: '55px',
+                            height: '55px',
+                            backgroundColor: 'white',
+                            color: '#10b981',
+                            border: '2px solid #10b981',
+                            borderRadius: '12px',
+                            fontSize: '24px',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                        }}
+                    >
+                        📖
+                    </button>
+                    <button
+                        onClick={() => router.push('/dashboard')}
+                        style={{
+                            width: '55px',
+                            height: '55px',
+                            backgroundColor: 'white',
+                            color: '#8b5cf6',
+                            border: '2px solid #8b5cf6',
+                            borderRadius: '12px',
+                            fontSize: '24px',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                        }}
+                    >
+                        🏠
+                    </button>
+                    <button
+                        onClick={() => setShowWordHelp(!showWordHelp)}
+                        disabled={!phraseGeneree}
+                        style={{
+                            width: '55px',
+                            height: '55px',
+                            backgroundColor: 'white',
+                            color: phraseGeneree ? '#f59e0b' : '#ccc',
+                            border: phraseGeneree ? '2px solid #f59e0b' : '2px solid #ccc',
+                            borderRadius: '12px',
+                            fontSize: '24px',
+                            cursor: phraseGeneree ? 'pointer' : 'not-allowed',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            opacity: phraseGeneree ? 1 : 0.5
+                        }}
+                    >
+                        💡
+                    </button>
+                    <button
+                        onClick={nextPhrase}
+                        disabled={!phraseGeneree}
+                        style={{
+                            width: '55px',
+                            height: '55px',
+                            backgroundColor: 'white',
+                            color: phraseGeneree ? '#10b981' : '#ccc',
+                            border: phraseGeneree ? '2px solid #10b981' : '2px solid #ccc',
+                            borderRadius: '12px',
+                            fontSize: '24px',
+                            cursor: phraseGeneree ? 'pointer' : 'not-allowed',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            opacity: phraseGeneree ? 1 : 0.5
+                        }}
+                    >
+                        ➡️
+                    </button>
+                </div>
 
                 {isGenerating ? (
                     <div style={{
@@ -274,31 +518,46 @@ export default function DicteesRechercheAutoEvaluation() {
                 ) : phraseGeneree ? (
                     <div>
                         <div style={{
-                            background: '#f8f9fa',
-                            padding: '40px',
-                            borderRadius: '12px',
                             marginBottom: '30px',
                             textAlign: 'center'
                         }}>
-                            <h2 style={{ 
-                                marginBottom: '30px', 
-                                color: '#333',
-                                fontSize: '20px'
-                            }}>
-                                📖 Voici votre phrase à lire
-                            </h2>
-                            
                             <div style={{
-                                fontSize: '28px',
+                                fontSize: '22px',
                                 fontWeight: 'bold',
-                                marginBottom: '30px',
+                                margin: '0 15px 10px 15px',
                                 padding: '25px',
                                 background: 'white',
                                 borderRadius: '12px',
-                                border: '3px solid #10b981',
-                                lineHeight: '1.4'
+                                lineHeight: '1.4',
+                                display: 'flex',
+                                flexWrap: 'wrap',
+                                gap: '8px',
+                                justifyContent: 'center'
                             }}>
-                                {phraseGeneree.phrase_generee}
+                                {phraseGeneree.groupes_utilises && phraseGeneree.groupes_utilises.map((groupe, index) => {
+                                    const colors = ['#fef3c7', '#dbeafe', '#fce7f3', '#f3e8ff', '#fed7aa', '#ecfdf5']
+                                    const highlightColors = ['#fde047', '#60a5fa', '#f9a8d4', '#c084fc', '#fb923c', '#34d399']
+                                    const isHighlighted = isPlayingAudio && currentPlayingGroup === index
+
+                                    return (
+                                        <span
+                                            key={index}
+                                            style={{
+                                                backgroundColor: isHighlighted
+                                                    ? highlightColors[index % highlightColors.length]
+                                                    : colors[index % colors.length],
+                                                padding: '12px 20px',
+                                                borderRadius: '10px',
+                                                transition: 'background-color 0.3s ease',
+                                                border: isHighlighted ? '2px solid #333' : '2px solid transparent',
+                                                display: 'inline-block',
+                                                whiteSpace: 'nowrap'
+                                            }}
+                                        >
+                                            {groupe}
+                                        </span>
+                                    )
+                                })}
                             </div>
 
                             <div style={{
@@ -307,37 +566,60 @@ export default function DicteesRechercheAutoEvaluation() {
                                 justifyContent: 'center',
                                 flexWrap: 'wrap'
                             }}>
-                                <button
-                                    onClick={() => playAudio(phraseGeneree.phrase_generee)}
-                                    style={{
-                                        backgroundColor: '#3b82f6',
-                                        color: 'white',
-                                        padding: '15px 25px',
-                                        border: 'none',
-                                        borderRadius: '12px',
-                                        fontSize: '18px',
-                                        fontWeight: 'bold',
-                                        cursor: 'pointer'
-                                    }}
-                                >
-                                    🔊 Écouter la phrase
-                                </button>
-
                                 {!hasSucceeded && (
                                     <button
                                         onClick={handleSuccess}
                                         style={{
-                                            backgroundColor: '#10b981',
-                                            color: 'white',
+                                            backgroundColor: 'white',
+                                            color: '#10b981',
                                             padding: '15px 25px',
-                                            border: 'none',
+                                            border: '2px solid #10b981',
                                             borderRadius: '12px',
                                             fontSize: '18px',
-                                            fontWeight: 'bold',
-                                            cursor: 'pointer'
+                                            fontWeight: 'normal',
+                                            cursor: 'pointer',
+                                            minWidth: '250px'
                                         }}
                                     >
                                         ✅ J'ai réussi à lire !
+                                    </button>
+                                )}
+
+                                {!hasListened ? (
+                                    <button
+                                        onClick={playPhraseWithHighlight}
+                                        disabled={isPlayingAudio}
+                                        style={{
+                                            backgroundColor: 'white',
+                                            color: isPlayingAudio ? '#f59e0b' : '#f97316',
+                                            padding: '15px 25px',
+                                            border: isPlayingAudio ? '2px solid #f59e0b' : '2px solid #f97316',
+                                            borderRadius: '12px',
+                                            fontSize: '18px',
+                                            fontWeight: 'normal',
+                                            cursor: isPlayingAudio ? 'not-allowed' : 'pointer',
+                                            opacity: isPlayingAudio ? 0.7 : 1,
+                                            minWidth: '250px'
+                                        }}
+                                    >
+                                        {isPlayingAudio ? '⏸️ En cours...' : '✖️ C\'est pas facile!'}
+                                    </button>
+                                ) : (
+                                    <button
+                                        onClick={nextPhrase}
+                                        style={{
+                                            backgroundColor: 'white',
+                                            color: '#3b82f6',
+                                            padding: '15px 25px',
+                                            border: '2px solid #3b82f6',
+                                            borderRadius: '12px',
+                                            fontSize: '18px',
+                                            fontWeight: 'normal',
+                                            cursor: 'pointer',
+                                            minWidth: '250px'
+                                        }}
+                                    >
+                                        Phrase suivante ➡️
                                     </button>
                                 )}
                             </div>
@@ -368,11 +650,8 @@ export default function DicteesRechercheAutoEvaluation() {
                             )}
                         </div>
 
-                        {phraseGeneree.groupes_utilises && (
+                        {phraseGeneree.groupes_utilises && showWordHelp && (
                             <div style={{
-                                background: '#fafafa',
-                                padding: '25px',
-                                borderRadius: '12px',
                                 marginBottom: '30px'
                             }}>
                                 <h3 style={{
@@ -404,9 +683,9 @@ export default function DicteesRechercheAutoEvaluation() {
                                                 cursor: 'pointer',
                                                 fontSize: '16px',
                                                 fontWeight: 'bold',
-                                                backgroundColor: getWordGroupColor(word),
+                                                backgroundColor: getWordGroupColor(word, isPlayingAudio),
                                                 border: '2px solid #ddd',
-                                                transition: 'transform 0.2s ease'
+                                                transition: 'background-color 0.3s ease, transform 0.2s ease'
                                             }}
                                             onMouseOver={(e) => e.target.style.transform = 'scale(1.05)'}
                                             onMouseOut={(e) => e.target.style.transform = 'scale(1)'}
@@ -426,47 +705,8 @@ export default function DicteesRechercheAutoEvaluation() {
                                 </div>
                             </div>
                         )}
-
-                        <div style={{ 
-                            textAlign: 'center',
-                            marginBottom: '30px'
-                        }}>
-                            <button
-                                onClick={nextPhrase}
-                                style={{
-                                    backgroundColor: '#f59e0b',
-                                    color: 'white',
-                                    padding: '12px 25px',
-                                    border: 'none',
-                                    borderRadius: '8px',
-                                    fontSize: '16px',
-                                    fontWeight: 'bold',
-                                    cursor: 'pointer'
-                                }}
-                            >
-                                ➡️ Phrase suivante (sans attendre)
-                            </button>
-                        </div>
                     </div>
                 ) : null}
-
-                <div style={{ textAlign: 'center' }}>
-                    <button
-                        onClick={() => router.push('/lire/dictees-recherche')}
-                        style={{
-                            backgroundColor: '#6b7280',
-                            color: 'white',
-                            padding: '12px 30px',
-                            border: 'none',
-                            borderRadius: '8px',
-                            fontSize: '14px',
-                            fontWeight: 'bold',
-                            cursor: 'pointer'
-                        }}
-                    >
-                        ← Retour au choix
-                    </button>
-                </div>
             </div>
         </div>
     )
