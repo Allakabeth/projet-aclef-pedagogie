@@ -35,6 +35,11 @@ export default function OuEstCe() {
     const [finalScore, setFinalScore] = useState({ correct: 0, total: 0, percentage: 0 })
     const [tokenStatus, setTokenStatus] = useState('unknown') // 'available', 'exhausted', 'unknown'
     const [enregistrements, setEnregistrements] = useState({}) // Enregistrements par groupe_sens_id
+    const [wrongGroupeId, setWrongGroupeId] = useState(null) // Groupe cliqué en erreur
+    const [showNextButton, setShowNextButton] = useState(false) // Afficher bouton Suivant
+    const [showConfetti, setShowConfetti] = useState(false) // Confettis de célébration
+    const [successGroupes, setSuccessGroupes] = useState([]) // Groupes réussis
+    const [failedGroupes, setFailedGroupes] = useState([]) // Groupes ratés
     const router = useRouter()
     const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768
 
@@ -416,16 +421,20 @@ export default function OuEstCe() {
     }
 
     const handleGroupeClick = (groupe) => {
+        if (showNextButton || isPlaying) return // Bloquer les clics si bouton Suivant affiché ou audio en cours
+
         setAttempts(attempts + 1)
-        
+
         if (groupe.id === currentGroupe.id) {
             // Bonne réponse
             setScore(score + 1)
             setFeedback('✅ Correct !')
             setCompletedGroupes([...completedGroupes, groupe.id])
-            
-            // Passer au groupe suivant après un délai
+            setSuccessGroupes([...successGroupes, currentGroupe])
+
+            // Passer au groupe suivant après 2 secondes
             setTimeout(() => {
+                setCompletedGroupes([]) // Retirer le vert
                 const currentIndex = shuffledGroupes.findIndex(g => g.id === currentGroupe.id)
                 if (currentIndex < shuffledGroupes.length - 1) {
                     const nextGroupe = shuffledGroupes[currentIndex + 1]
@@ -437,21 +446,72 @@ export default function OuEstCe() {
                     const finalCorrect = score + 1
                     const finalTotal = shuffledGroupes.length
                     const percentage = Math.round((finalCorrect / finalTotal) * 100)
-                    
-                    setFinalScore({ 
-                        correct: finalCorrect, 
-                        total: finalTotal, 
-                        percentage: percentage 
+
+                    setFinalScore({
+                        correct: finalCorrect,
+                        total: finalTotal,
+                        percentage: percentage
                     })
                     setGameStarted(false)
                     setGameFinished(true)
                     setFeedback('')
+
+                    // Confettis si score parfait (100%)
+                    if (percentage === 100) {
+                        setShowConfetti(true)
+                        setTimeout(() => setShowConfetti(false), 5000)
+                    }
                 }
-            }, 1500)
+            }, 2000)
         } else {
             // Mauvaise réponse
-            setFeedback('❌ Essayez encore')
-            setTimeout(() => setFeedback(''), 2000)
+            setWrongGroupeId(groupe.id) // Marquer en rouge
+
+            // Ajouter aux groupes ratés (seulement si pas déjà présent)
+            if (!failedGroupes.find(g => g.id === currentGroupe.id)) {
+                setFailedGroupes([...failedGroupes, currentGroupe])
+            }
+
+            if (isMobile) {
+                // Mobile : passage automatique après 5 secondes
+                setTimeout(() => {
+                    handleNext()
+                }, 5000)
+            } else {
+                // Desktop : afficher bouton Suivant
+                setShowNextButton(true)
+            }
+        }
+    }
+
+    const handleNext = () => {
+        setWrongGroupeId(null)
+        setShowNextButton(false)
+        setFeedback('')
+
+        const currentIndex = shuffledGroupes.findIndex(g => g.id === currentGroupe.id)
+        if (currentIndex < shuffledGroupes.length - 1) {
+            const nextGroupe = shuffledGroupes[currentIndex + 1]
+            setCurrentGroupe(nextGroupe)
+            playAudio(nextGroupe.contenu, nextGroupe)
+        } else {
+            // Fin du jeu
+            const finalTotal = shuffledGroupes.length
+            const percentage = Math.round((score / finalTotal) * 100)
+
+            setFinalScore({
+                correct: score,
+                total: finalTotal,
+                percentage: percentage
+            })
+            setGameStarted(false)
+            setGameFinished(true)
+
+            // Confettis si score parfait (100%)
+            if (percentage === 100) {
+                setShowConfetti(true)
+                setTimeout(() => setShowConfetti(false), 5000)
+            }
         }
     }
 
@@ -466,6 +526,12 @@ export default function OuEstCe() {
         setAttempts(0)
         setFeedback('')
         setCompletedGroupes([])
+        setSuccessGroupes([])
+        setFailedGroupes([])
+        setWrongGroupeId(null)
+        setShowNextButton(false)
+        setShowConfetti(false)
+        setGameFinished(false)
         if (currentAudio) {
             currentAudio.pause()
             setCurrentAudio(null)
@@ -489,6 +555,239 @@ export default function OuEstCe() {
 
     if (!user) return null
 
+    // ÉCRAN DE RÉSULTATS (page séparée)
+    if (gameFinished) {
+        return (
+            <div style={{
+                minHeight: '100vh',
+                background: 'white',
+                padding: '15px'
+            }}>
+                <style dangerouslySetInnerHTML={{ __html: mobileStyles }} />
+                <div style={{
+                    maxWidth: '1000px',
+                    margin: '0 auto'
+                }}>
+                    {/* Titre */}
+                    <h1 style={{
+                        fontSize: 'clamp(22px, 5vw, 28px)',
+                        fontWeight: 'bold',
+                        marginBottom: '10px',
+                        textAlign: 'center'
+                    }}>
+                        <span style={{ marginRight: '8px' }}>
+                            {finalScore.percentage === 100 ? '🎉' :
+                             finalScore.percentage >= 80 ? '😊' :
+                             finalScore.percentage >= 60 ? '👏' : '💪'}
+                        </span>
+                        <span style={{
+                            background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                            WebkitBackgroundClip: 'text',
+                            WebkitTextFillColor: 'transparent'
+                        }}>
+                            Résultats
+                        </span>
+                    </h1>
+
+                    {/* Navigation icônes */}
+                    <div style={{
+                        display: 'flex',
+                        justifyContent: 'center',
+                        gap: '12px',
+                        marginBottom: '20px'
+                    }}>
+                        <button
+                            onClick={() => router.push('/lire')}
+                            style={{
+                                width: '55px',
+                                height: '55px',
+                                backgroundColor: 'white',
+                                color: '#10b981',
+                                border: '2px solid #10b981',
+                                borderRadius: '12px',
+                                fontSize: '24px',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                            }}
+                        >
+                            📖
+                        </button>
+                        <button
+                            onClick={() => router.push('/dashboard')}
+                            style={{
+                                width: '55px',
+                                height: '55px',
+                                backgroundColor: 'white',
+                                color: '#8b5cf6',
+                                border: '2px solid #8b5cf6',
+                                borderRadius: '12px',
+                                fontSize: '24px',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                            }}
+                        >
+                            🏠
+                        </button>
+                        <button
+                            onClick={restartGame}
+                            style={{
+                                width: '55px',
+                                height: '55px',
+                                backgroundColor: 'white',
+                                color: '#10b981',
+                                border: '2px solid #10b981',
+                                borderRadius: '12px',
+                                fontSize: '24px',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                            }}
+                        >
+                            🔄
+                        </button>
+                    </div>
+
+                    {/* Score */}
+                    <div style={{
+                        textAlign: 'center',
+                        marginBottom: '30px'
+                    }}>
+                        <div style={{ fontSize: '48px', fontWeight: 'bold', color: '#10b981', marginBottom: '10px' }}>
+                            {finalScore.correct}/{finalScore.total}
+                        </div>
+                    </div>
+
+                    {/* Groupes réussis */}
+                    {successGroupes.length > 0 && (
+                        <div style={{ marginBottom: '30px' }}>
+                            <div style={{
+                                display: 'grid',
+                                gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+                                gap: '15px'
+                            }}>
+                                {successGroupes.map((groupe, index) => (
+                                    <div
+                                        key={index}
+                                        style={{
+                                            padding: '12px 20px',
+                                            background: '#d1fae5',
+                                            border: '2px solid #10b981',
+                                            borderRadius: '12px',
+                                            color: '#10b981',
+                                            fontSize: '16px',
+                                            fontWeight: '500',
+                                            textAlign: 'center'
+                                        }}
+                                    >
+                                        {groupe.contenu}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Groupes ratés */}
+                    {failedGroupes.length > 0 && (
+                        <div style={{ marginBottom: '30px' }}>
+                            <h3 style={{
+                                fontSize: '20px',
+                                fontWeight: 'bold',
+                                color: '#ef4444',
+                                marginBottom: '15px',
+                                textAlign: 'center'
+                            }}>
+                                Groupes à revoir ({failedGroupes.length})
+                            </h3>
+                            <div style={{
+                                display: 'grid',
+                                gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+                                gap: '15px'
+                            }}>
+                                {failedGroupes.map((groupe, index) => (
+                                    <div
+                                        key={index}
+                                        style={{
+                                            padding: '12px 20px',
+                                            background: '#fee2e2',
+                                            border: '2px solid #ef4444',
+                                            borderRadius: '12px',
+                                            color: '#ef4444',
+                                            fontSize: '16px',
+                                            fontWeight: '500',
+                                            textAlign: 'center'
+                                        }}
+                                    >
+                                        {groupe.contenu}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Confettis de célébration */}
+                    {showConfetti && (
+                        <>
+                            <style dangerouslySetInnerHTML={{
+                                __html: `
+                                    @keyframes confetti-fall {
+                                        0% {
+                                            transform: translateY(0) rotate(0deg);
+                                            opacity: 1;
+                                        }
+                                        100% {
+                                            transform: translateY(100vh) rotate(720deg);
+                                            opacity: 0;
+                                        }
+                                    }
+                                `
+                            }} />
+                            <div style={{
+                                position: 'fixed',
+                                top: 0,
+                                left: 0,
+                                width: '100%',
+                                height: '100%',
+                                pointerEvents: 'none',
+                                zIndex: 9999,
+                                overflow: 'hidden'
+                            }}>
+                                {[...Array(50)].map((_, i) => {
+                                    const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8', '#F7DC6F']
+                                    const duration = 3 + Math.random() * 2
+                                    const delay = Math.random() * 0.5
+                                    return (
+                                        <div
+                                            key={i}
+                                            style={{
+                                                position: 'absolute',
+                                                top: '-20px',
+                                                left: `${Math.random() * 100}%`,
+                                                width: '15px',
+                                                height: '15px',
+                                                backgroundColor: colors[Math.floor(Math.random() * 6)],
+                                                opacity: 1,
+                                                borderRadius: '50%',
+                                                animation: `confetti-fall ${duration}s linear forwards`,
+                                                animationDelay: `${delay}s`,
+                                                zIndex: 10000
+                                            }}
+                                        />
+                                    )
+                                })}
+                            </div>
+                        </>
+                    )}
+                </div>
+            </div>
+        )
+    }
+
+    // PAGE PRINCIPALE (sélection textes ou jeu)
     return (
         <div style={{
             minHeight: '100vh',
@@ -524,6 +823,30 @@ export default function OuEstCe() {
                     gap: '12px',
                     marginBottom: '20px'
                 }}>
+                    {gameStarted && (
+                        <button
+                            onClick={() => {
+                                setSelectedTexte(null)
+                                setGameStarted(false)
+                                setGameFinished(false)
+                            }}
+                            style={{
+                                width: '55px',
+                                height: '55px',
+                                backgroundColor: 'white',
+                                color: '#64748b',
+                                border: '2px solid #64748b',
+                                borderRadius: '12px',
+                                fontSize: '24px',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                            }}
+                        >
+                            ←
+                        </button>
+                    )}
                     <button
                         onClick={() => router.push('/lire')}
                         style={{
@@ -560,6 +883,28 @@ export default function OuEstCe() {
                     >
                         🏠
                     </button>
+                    {gameStarted && currentGroupe && (
+                        <button
+                            onClick={() => playAudio(currentGroupe.contenu, currentGroupe)}
+                            disabled={isPlaying}
+                            style={{
+                                width: '55px',
+                                height: '55px',
+                                backgroundColor: 'white',
+                                color: isPlaying ? '#f59e0b' : '#3b82f6',
+                                border: `2px solid ${isPlaying ? '#f59e0b' : '#3b82f6'}`,
+                                borderRadius: '12px',
+                                fontSize: '24px',
+                                cursor: isPlaying ? 'not-allowed' : 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                opacity: isPlaying ? 0.7 : 1
+                            }}
+                        >
+                            🔊
+                        </button>
+                    )}
                 </div>
 
                 {!gameStarted ? (
@@ -788,9 +1133,6 @@ export default function OuEstCe() {
                     <>
                         {/* Zone de jeu */}
                         <div style={{
-                            background: '#f8f9fa',
-                            padding: '20px',
-                            borderRadius: '8px',
                             marginBottom: '20px'
                         }}>
                             {/* Score et progression - masqué sur mobile */}
@@ -804,70 +1146,6 @@ export default function OuEstCe() {
                                 <span>📝 Progression: {completedGroupes.length}/{shuffledGroupes.length}</span>
                             </div>
 
-                            {/* Boutons d'action - optimisés pour mobile */}
-                            <div style={{
-                                display: 'flex',
-                                justifyContent: 'center',
-                                alignItems: 'center',
-                                gap: window.innerWidth <= 768 ? '10px' : '20px',
-                                marginBottom: '30px',
-                                flexWrap: 'wrap'
-                            }}>
-                                <button
-                                    onClick={() => playAudio(currentGroupe.contenu, currentGroupe)}
-                                    disabled={isPlaying}
-                                    style={{
-                                        backgroundColor: isPlaying ? '#f59e0b' : '#3b82f6',
-                                        color: 'white',
-                                        padding: window.innerWidth <= 768 ? '10px 15px' : '15px 30px',
-                                        border: 'none',
-                                        borderRadius: '8px',
-                                        fontSize: window.innerWidth <= 768 ? '14px' : '18px',
-                                        fontWeight: 'bold',
-                                        cursor: 'pointer'
-                                    }}
-                                >
-                                    {isPlaying ? '⏸️ Pause' : '🔊 Écouter'}
-                                </button>
-
-                                {/* Bouton arrêter - version mobile avec icône uniquement */}
-                                <button
-                                    onClick={resetGame}
-                                    style={{
-                                        backgroundColor: '#ef4444',
-                                        color: 'white',
-                                        padding: window.innerWidth <= 768 ? '10px' : '10px 20px',
-                                        border: 'none',
-                                        borderRadius: '8px',
-                                        fontSize: window.innerWidth <= 768 ? '16px' : '14px',
-                                        cursor: 'pointer',
-                                        minWidth: window.innerWidth <= 768 ? '40px' : 'auto'
-                                    }}
-                                    title="Arrêter l'exercice"
-                                >
-                                    {window.innerWidth <= 768 ? '⏹️' : '⏹️ Arrêter l\'exercice'}
-                                </button>
-
-                                {/* Bouton retour - version mobile avec icône uniquement */}
-                                <button
-                                    onClick={() => router.push('/lire')}
-                                    style={{
-                                        backgroundColor: '#6b7280',
-                                        color: 'white',
-                                        padding: window.innerWidth <= 768 ? '10px' : '12px 30px',
-                                        border: 'none',
-                                        borderRadius: '8px',
-                                        fontSize: window.innerWidth <= 768 ? '16px' : '14px',
-                                        fontWeight: 'bold',
-                                        cursor: 'pointer',
-                                        minWidth: window.innerWidth <= 768 ? '40px' : 'auto'
-                                    }}
-                                    title="Retour au menu Lire"
-                                >
-                                    {window.innerWidth <= 768 ? '←' : '← Retour au menu Lire'}
-                                </button>
-                            </div>
-
                             {/* Feedback */}
                             {feedback && (
                                 <div style={{
@@ -875,7 +1153,7 @@ export default function OuEstCe() {
                                     fontSize: '20px',
                                     fontWeight: 'bold',
                                     marginBottom: '20px',
-                                    color: feedback.includes('✅') ? '#10b981' : 
+                                    color: feedback.includes('✅') ? '#10b981' :
                                            feedback.includes('🎉') ? '#8b5cf6' : '#ef4444'
                                 }}>
                                     {feedback}
@@ -893,23 +1171,26 @@ export default function OuEstCe() {
                                     <button
                                         key={groupe.id}
                                         onClick={() => handleGroupeClick(groupe)}
-                                        disabled={completedGroupes.includes(groupe.id)}
+                                        disabled={completedGroupes.includes(groupe.id) || isPlaying}
                                         style={{
                                             padding: '12px 20px',
-                                            background: completedGroupes.includes(groupe.id) ? '#d1fae5' : 'white',
+                                            background: wrongGroupeId === groupe.id ? '#fee2e2' :
+                                                        (completedGroupes.includes(groupe.id) || (wrongGroupeId && groupe.id === currentGroupe.id)) ? '#d1fae5' : 'white',
                                             border: '2px solid',
-                                            borderColor: completedGroupes.includes(groupe.id) ? '#10b981' : '#06b6d4',
+                                            borderColor: wrongGroupeId === groupe.id ? '#ef4444' :
+                                                         (completedGroupes.includes(groupe.id) || (wrongGroupeId && groupe.id === currentGroupe.id)) ? '#10b981' : '#06b6d4',
                                             borderRadius: '12px',
-                                            color: completedGroupes.includes(groupe.id) ? '#10b981' : '#06b6d4',
+                                            color: wrongGroupeId === groupe.id ? '#ef4444' :
+                                                   (completedGroupes.includes(groupe.id) || (wrongGroupeId && groupe.id === currentGroupe.id)) ? '#10b981' : '#06b6d4',
                                             fontSize: '16px',
                                             fontWeight: '500',
-                                            cursor: completedGroupes.includes(groupe.id) ? 'not-allowed' : 'pointer',
+                                            cursor: completedGroupes.includes(groupe.id) || showNextButton || isPlaying ? 'not-allowed' : 'pointer',
                                             transition: 'all 0.3s',
-                                            opacity: completedGroupes.includes(groupe.id) ? 0.6 : 1,
+                                            opacity: completedGroupes.includes(groupe.id) || isPlaying ? 0.6 : 1,
                                             textAlign: 'center'
                                         }}
                                         onMouseEnter={(e) => {
-                                            if (!completedGroupes.includes(groupe.id)) {
+                                            if (!completedGroupes.includes(groupe.id) && !showNextButton && !isPlaying) {
                                                 e.target.style.transform = 'scale(1.05)'
                                                 e.target.style.boxShadow = '0 4px 6px rgba(6, 182, 212, 0.3)'
                                             }
@@ -923,92 +1204,85 @@ export default function OuEstCe() {
                                     </button>
                                 ))}
                             </div>
+
+                            {/* Bouton Suivant en dessous des groupes (Desktop uniquement) */}
+                            {!isMobile && showNextButton && (
+                                <div style={{ textAlign: 'center', marginTop: '20px' }}>
+                                    <button
+                                        onClick={handleNext}
+                                        style={{
+                                            backgroundColor: 'white',
+                                            color: '#3b82f6',
+                                            padding: '12px 30px',
+                                            border: '2px solid #3b82f6',
+                                            borderRadius: '12px',
+                                            fontSize: '16px',
+                                            fontWeight: 'bold',
+                                            cursor: 'pointer',
+                                            boxShadow: '0 4px 12px rgba(59, 130, 246, 0.2)'
+                                        }}
+                                    >
+                                        Suivant →
+                                    </button>
+                                </div>
+                            )}
                         </div>
 
                     </>
                 )}
 
-                {/* Écran de fin avec score */}
-                {gameFinished && (
-                    <div style={{
-                        backgroundColor: 'white',
-                        padding: '40px',
-                        borderRadius: '12px',
-                        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
-                        textAlign: 'center',
-                        margin: '20px 0'
-                    }}>
-                        <div style={{ fontSize: '48px', marginBottom: '20px' }}>
-                            {finalScore.percentage >= 80 ? '🎉' : 
-                             finalScore.percentage >= 60 ? '👏' : '💪'}
-                        </div>
-                        
-                        <h2 style={{ 
-                            color: '#1f2937', 
-                            marginBottom: '20px',
-                            fontSize: '24px'
-                        }}>
-                            Exercice terminé !
-                        </h2>
-
+                {/* Confettis de célébration */}
+                {showConfetti && (
+                    <>
+                        <style dangerouslySetInnerHTML={{
+                            __html: `
+                                @keyframes confetti-fall {
+                                    0% {
+                                        transform: translateY(0) rotate(0deg);
+                                        opacity: 1;
+                                    }
+                                    100% {
+                                        transform: translateY(100vh) rotate(720deg);
+                                        opacity: 0;
+                                    }
+                                }
+                            `
+                        }} />
                         <div style={{
-                            backgroundColor: '#f3f4f6',
-                            padding: '20px',
-                            borderRadius: '8px',
-                            marginBottom: '25px'
+                            position: 'fixed',
+                            top: 0,
+                            left: 0,
+                            width: '100%',
+                            height: '100%',
+                            pointerEvents: 'none',
+                            zIndex: 9999,
+                            overflow: 'hidden'
                         }}>
-                            <div style={{ fontSize: '36px', fontWeight: 'bold', color: '#10b981', marginBottom: '10px' }}>
-                                {finalScore.correct}/{finalScore.total}
-                            </div>
-                            <div style={{ fontSize: '18px', color: '#6b7280', marginBottom: '5px' }}>
-                                Score : {finalScore.percentage}%
-                            </div>
-                            <div style={{ fontSize: '14px', color: '#9ca3af' }}>
-                                {finalScore.percentage >= 80 ? 'Excellent travail !' : 
-                                 finalScore.percentage >= 60 ? 'Bon travail !' : 
-                                 'Continue tes efforts !'}
-                            </div>
+                            {[...Array(50)].map((_, i) => {
+                                const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8', '#F7DC6F']
+                                const duration = 3 + Math.random() * 2
+                                const delay = Math.random() * 0.5
+                                return (
+                                    <div
+                                        key={i}
+                                        style={{
+                                            position: 'absolute',
+                                            top: '-20px',
+                                            left: `${Math.random() * 100}%`,
+                                            width: '15px',
+                                            height: '15px',
+                                            backgroundColor: colors[Math.floor(Math.random() * 6)],
+                                            opacity: 1,
+                                            borderRadius: '50%',
+                                            animation: `confetti-fall ${duration}s linear forwards`,
+                                            animationDelay: `${delay}s`,
+                                            zIndex: 10000
+                                        }}
+                                    />
+                                )
+                            })}
                         </div>
-
-                        <div style={{ 
-                            display: 'flex', 
-                            gap: '15px', 
-                            justifyContent: 'center',
-                            flexWrap: 'wrap'
-                        }}>
-                            <button
-                                onClick={restartGame}
-                                style={{
-                                    backgroundColor: '#10b981',
-                                    color: 'white',
-                                    padding: '12px 24px',
-                                    border: 'none',
-                                    borderRadius: '8px',
-                                    fontSize: '16px',
-                                    fontWeight: 'bold',
-                                    cursor: 'pointer'
-                                }}
-                            >
-                                🔄 Recommencer
-                            </button>
-                            
-                            <button
-                                onClick={() => router.push('/lire')}
-                                style={{
-                                    backgroundColor: '#3b82f6',
-                                    color: 'white',
-                                    padding: '12px 24px',
-                                    border: 'none',
-                                    borderRadius: '8px',
-                                    fontSize: '16px',
-                                    fontWeight: 'bold',
-                                    cursor: 'pointer'
-                                }}
-                            >
-                                🏠 Autres exercices
-                            </button>
-                        </div>
-                    </div>
+                    </>
                 )}
 
             </div>
