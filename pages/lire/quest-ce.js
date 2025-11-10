@@ -33,8 +33,15 @@ export default function QuestCe() {
     const [availableVoices, setAvailableVoices] = useState([])
     const [gameFinished, setGameFinished] = useState(false)
     const [finalScore, setFinalScore] = useState({ correct: 0, total: 0, percentage: 0 })
+    const [tokenStatus, setTokenStatus] = useState('unknown') // 'available', 'exhausted', 'unknown'
     const [enregistrements, setEnregistrements] = useState({}) // Enregistrements par groupe_sens_id
+    const [wrongGroupeId, setWrongGroupeId] = useState(null) // Groupe cliqué en erreur
+    const [showNextButton, setShowNextButton] = useState(false) // Afficher bouton Suivant
+    const [showConfetti, setShowConfetti] = useState(false) // Confettis de célébration
+    const [successGroupes, setSuccessGroupes] = useState([]) // Groupes réussis
+    const [failedGroupes, setFailedGroupes] = useState([]) // Groupes ratés
     const router = useRouter()
+    const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768
 
     useEffect(() => {
         // Charger les voix disponibles
@@ -209,6 +216,55 @@ export default function QuestCe() {
         setFinalScore({ correct: 0, total: 0, percentage: 0 })
     }
 
+    // Fonctions de cache optimisées
+    const getCachedAudio = (text, voiceId) => {
+        // Normaliser le texte pour éviter les doublons dus aux espaces/ponctuation
+        const normalizedText = text.trim().toLowerCase().replace(/[^\w\s]/g, '')
+        const key = `elevenlabs_${voiceId}_${btoa(normalizedText).substring(0, 50)}`
+        return localStorage.getItem(key)
+    }
+
+    const setCachedAudio = (text, voiceId, audioData) => {
+        try {
+            const normalizedText = text.trim().toLowerCase().replace(/[^\w\s]/g, '')
+            const key = `elevenlabs_${voiceId}_${btoa(normalizedText).substring(0, 50)}`
+            localStorage.setItem(key, audioData)
+            // Mise en cache silencieuse
+        } catch (error) {
+            // Erreur cache silencieuse - tenter de libérer de l'espace
+            cleanOldCache()
+        }
+    }
+
+    // Nettoyer le cache ancien pour libérer de l'espace
+    const cleanOldCache = () => {
+        try {
+            const keys = Object.keys(localStorage)
+            const elevenLabsKeys = keys.filter(key => key.startsWith('elevenlabs_'))
+
+            // Supprimer les plus anciens si trop nombreux
+            if (elevenLabsKeys.length > 100) {
+                elevenLabsKeys.slice(0, 20).forEach(key => {
+                    localStorage.removeItem(key)
+                })
+                // Cache nettoyé silencieusement
+            }
+        } catch (error) {
+            // Erreur nettoyage silencieuse
+        }
+    }
+
+    // Compter les audios en cache (pour debug silencieux)
+    const getCacheCount = () => {
+        try {
+            const keys = Object.keys(localStorage)
+            return keys.filter(key => key.startsWith('elevenlabs_')).length
+        } catch (error) {
+            return 0
+        }
+    }
+
+    // Jouer un enregistrement personnel
     const playEnregistrement = async (enregistrement) => {
         if (!enregistrement || !enregistrement.audio_url) {
             console.warn('⚠️ Enregistrement invalide')
@@ -257,117 +313,24 @@ export default function QuestCe() {
 
         setIsPlaying(groupe.id)
 
-        // Si mode voix personnalisée, essayer de lire l'enregistrement
-        if (selectedVoice === 'VOIX_PERSONNALISEE') {
-            const enregToUse = enregistrementsData || enregistrements
-            if (enregToUse[groupe.id]) {
-                console.log('🎵 Enregistrement trouvé pour groupe', groupe.id)
-                const success = await playEnregistrement(enregToUse[groupe.id])
-                if (success) return
-                console.log('⚠️ Échec lecture enregistrement, fallback vers Paul')
-            } else {
-                console.log('⚠️ Aucun enregistrement pour ce groupe, fallback vers Paul')
-            }
-            // Pas d'enregistrement ou erreur → fallback vers Paul (AfbuxQ9DVtS4azaxN1W7)
-            const fallbackVoice = 'AfbuxQ9DVtS4azaxN1W7' // Paul
-
-            // Essayer d'abord avec le cache
-            const getCachedAudio = (text, voiceId) => {
-                const key = `elevenlabs_${voiceId}_${btoa(text).substring(0, 50)}`
-                return localStorage.getItem(key)
-            }
-
-            const setCachedAudio = (text, voiceId, audioData) => {
-                try {
-                    const key = `elevenlabs_${voiceId}_${btoa(text).substring(0, 50)}`
-                    localStorage.setItem(key, audioData)
-                } catch (error) {
-                    console.error('Erreur cache:', error)
-                }
-            }
-
-            try {
-                const cachedAudio = getCachedAudio(groupe.contenu, fallbackVoice)
-                let audioData = null
-
-                if (cachedAudio) {
-                    audioData = cachedAudio
-                } else {
-                    const token = localStorage.getItem('token')
-                    const response = await fetch('/api/speech/elevenlabs', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${token}`
-                        },
-                        body: JSON.stringify({
-                            text: groupe.contenu,
-                            voice_id: fallbackVoice
-                        })
-                    })
-
-                    if (!response.ok) {
-                        // Fallback vers Web Speech API
-                        const utterance = new SpeechSynthesisUtterance(groupe.contenu)
-                        utterance.lang = 'fr-FR'
-                        utterance.rate = 0.8
-                        utterance.onend = () => {
-                            setIsPlaying(null)
-                        }
-                        window.speechSynthesis.speak(utterance)
-                        return
-                    }
-
-                    const data = await response.json()
-                    audioData = data.audio
-                    setCachedAudio(groupe.contenu, fallbackVoice, audioData)
-                }
-
-                const audio = new Audio(audioData)
-                setCurrentAudio(audio)
-
-                audio.onended = () => {
-                    setIsPlaying(null)
-                    setCurrentAudio(null)
-                }
-
-                audio.onerror = () => {
-                    setIsPlaying(null)
-                    setCurrentAudio(null)
-                }
-
-                await audio.play()
-            } catch (error) {
-                console.error('Erreur lecture audio fallback:', error)
-                setIsPlaying(null)
-            }
-            return
+        // 1. PRIORITÉ : Enregistrement utilisateur
+        const enregToUse = enregistrementsData || enregistrements
+        if (enregToUse[groupe.id]) {
+            console.log('🎵 Lecture enregistrement personnel pour groupe', groupe.id)
+            const success = await playEnregistrement(enregToUse[groupe.id])
+            if (success) return
         }
 
-        // Mode voix ElevenLabs normale
-        const getCachedAudio = (text, voiceId) => {
-            const key = `elevenlabs_${voiceId}_${btoa(text).substring(0, 50)}`
-            return localStorage.getItem(key)
-        }
-
-        const setCachedAudio = (text, voiceId, audioData) => {
-            try {
-                const key = `elevenlabs_${voiceId}_${btoa(text).substring(0, 50)}`
-                localStorage.setItem(key, audioData)
-            } catch (error) {
-                console.error('Erreur cache:', error)
-            }
-        }
+        // 2. ElevenLabs (si token disponible)
+        const paulVoiceId = 'AfbuxQ9DVtS4azaxN1W7'
 
         try {
-            // Vérifier le cache
-            const cachedAudio = getCachedAudio(groupe.contenu, selectedVoice)
+            const cachedAudio = getCachedAudio(groupe.contenu, paulVoiceId)
             let audioData = null
 
             if (cachedAudio) {
                 audioData = cachedAudio
-            } else {
-                // Générer via ElevenLabs
+            } else if (tokenStatus !== 'exhausted') {
                 const token = localStorage.getItem('token')
                 const response = await fetch('/api/speech/elevenlabs', {
                     method: 'POST',
@@ -377,25 +340,23 @@ export default function QuestCe() {
                     },
                     body: JSON.stringify({
                         text: groupe.contenu,
-                        voice_id: selectedVoice
+                        voice_id: paulVoiceId
                     })
                 })
 
-                if (!response.ok) {
-                    // Fallback vers Web Speech API
-                    const utterance = new SpeechSynthesisUtterance(groupe.contenu)
-                    utterance.lang = 'fr-FR'
-                    utterance.rate = 0.8
-                    utterance.onend = () => {
-                        setIsPlaying(null)
-                    }
-                    window.speechSynthesis.speak(utterance)
+                if (response.ok) {
+                    const data = await response.json()
+                    audioData = data.audio
+                    setCachedAudio(groupe.contenu, paulVoiceId, audioData)
+                    setTokenStatus('available')
+                } else {
+                    setTokenStatus('exhausted')
+                    fallbackToWebSpeech(groupe.contenu)
                     return
                 }
-
-                const data = await response.json()
-                audioData = data.audio
-                setCachedAudio(groupe.contenu, selectedVoice, audioData)
+            } else {
+                fallbackToWebSpeech(groupe.contenu)
+                return
             }
 
             const audio = new Audio(audioData)
@@ -409,48 +370,93 @@ export default function QuestCe() {
             audio.onerror = () => {
                 setIsPlaying(null)
                 setCurrentAudio(null)
+                fallbackToWebSpeech(groupe.contenu)
             }
 
             await audio.play()
-
+            return
         } catch (error) {
-            console.error('Erreur lecture audio:', error)
+            fallbackToWebSpeech(groupe.contenu)
+            return
+        }
+    }
+
+    // Fonction fallback Web Speech optimisée
+    const fallbackToWebSpeech = (texte) => {
+        try {
+            const utterance = new SpeechSynthesisUtterance(texte)
+            utterance.lang = 'fr-FR'
+            utterance.rate = 0.8
+            utterance.pitch = 0.6 // Plus grave pour ressembler aux voix masculines
+
+            // Chercher une voix masculine française (JAMAIS Hortense)
+            const voices = window.speechSynthesis.getVoices()
+            const voixMasculine = voices.find(voice =>
+                voice.lang.includes('fr') &&
+                !voice.name.toLowerCase().includes('hortense') &&
+                (voice.name.toLowerCase().includes('male') ||
+                 voice.name.toLowerCase().includes('homme') ||
+                 voice.name.toLowerCase().includes('thomas') ||
+                 voice.name.toLowerCase().includes('paul') ||
+                 voice.name.toLowerCase().includes('pierre'))
+            ) || voices.find(voice => voice.lang.includes('fr') && !voice.name.toLowerCase().includes('hortense'))
+
+            if (voixMasculine) {
+                utterance.voice = voixMasculine
+            }
+
+            utterance.onend = () => {
+                setIsPlaying(null)
+            }
+
+            utterance.onerror = () => {
+                setIsPlaying(null)
+            }
+
+            window.speechSynthesis.speak(utterance)
+        } catch (error) {
+            // Erreur Web Speech silencieuse - juste arrêter
             setIsPlaying(null)
         }
     }
 
     const handleValidation = (groupe) => {
         setAttempts(attempts + 1)
-        
+
         if (groupe.id === currentGroupe.id) {
             // Bonne réponse
             setScore(score + 1)
             setFeedback('✅ Correct !')
             setCompletedGroupes([...completedGroupes, groupe.id])
-            
+            setSuccessGroupes([...successGroupes, currentGroupe])
+
             // Passer au groupe suivant après un délai
             setTimeout(() => {
                 const currentIndex = shuffledGroupes.findIndex(g => g.id === currentGroupe.id)
                 if (currentIndex < shuffledGroupes.length - 1) {
                     const nextGroupe = shuffledGroupes[currentIndex + 1]
                     setCurrentGroupe(nextGroupe)
-                    
-                    // Les groupes audio restent dans la même position
-                    // Ne pas remélanger les displayedGroupes pour garder la cohérence
-                    
                     setFeedback('')
                     setIsPlaying(null)
+                    setWrongGroupeId(null)
                 } else {
                     // Fin du jeu
                     const finalCorrect = score + 1
                     const finalTotal = shuffledGroupes.length
                     const percentage = Math.round((finalCorrect / finalTotal) * 100)
-                    
-                    setFinalScore({ 
-                        correct: finalCorrect, 
-                        total: finalTotal, 
-                        percentage: percentage 
+
+                    setFinalScore({
+                        correct: finalCorrect,
+                        total: finalTotal,
+                        percentage: percentage
                     })
+
+                    // Confettis si score parfait
+                    if (percentage === 100) {
+                        setShowConfetti(true)
+                        setTimeout(() => setShowConfetti(false), 5000)
+                    }
+
                     setGameStarted(false)
                     setGameFinished(true)
                     setFeedback('')
@@ -458,8 +464,18 @@ export default function QuestCe() {
             }, 1500)
         } else {
             // Mauvaise réponse
+            setWrongGroupeId(groupe.id)
             setFeedback('❌ Essayez encore')
-            setTimeout(() => setFeedback(''), 2000)
+
+            // Ajouter aux groupes ratés (éviter doublons)
+            if (!failedGroupes.find(g => g.id === currentGroupe.id)) {
+                setFailedGroupes([...failedGroupes, currentGroupe])
+            }
+
+            setTimeout(() => {
+                setFeedback('')
+                setWrongGroupeId(null)
+            }, 2000)
         }
     }
 
@@ -474,6 +490,12 @@ export default function QuestCe() {
         setAttempts(0)
         setFeedback('')
         setCompletedGroupes([])
+        setSuccessGroupes([])
+        setFailedGroupes([])
+        setWrongGroupeId(null)
+        setShowNextButton(false)
+        setShowConfetti(false)
+        setGameFinished(false)
         if (currentAudio) {
             currentAudio.pause()
             setCurrentAudio(null)
@@ -497,6 +519,239 @@ export default function QuestCe() {
 
     if (!user) return null
 
+    // ÉCRAN DE RÉSULTATS (page séparée)
+    if (gameFinished) {
+        return (
+            <div style={{
+                minHeight: '100vh',
+                background: 'white',
+                padding: '15px'
+            }}>
+                <style dangerouslySetInnerHTML={{ __html: mobileStyles }} />
+                <div style={{
+                    maxWidth: '1000px',
+                    margin: '0 auto'
+                }}>
+                    {/* Titre */}
+                    <h1 style={{
+                        fontSize: 'clamp(22px, 5vw, 28px)',
+                        fontWeight: 'bold',
+                        marginBottom: '10px',
+                        textAlign: 'center'
+                    }}>
+                        <span style={{ marginRight: '8px' }}>
+                            {finalScore.percentage === 100 ? '🎉' :
+                             finalScore.percentage >= 80 ? '😊' :
+                             finalScore.percentage >= 60 ? '👏' : '💪'}
+                        </span>
+                        <span style={{
+                            background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                            WebkitBackgroundClip: 'text',
+                            WebkitTextFillColor: 'transparent'
+                        }}>
+                            Résultats
+                        </span>
+                    </h1>
+
+                    {/* Navigation icônes */}
+                    <div style={{
+                        display: 'flex',
+                        justifyContent: 'center',
+                        gap: '12px',
+                        marginBottom: '20px'
+                    }}>
+                        <button
+                            onClick={() => router.push('/lire')}
+                            style={{
+                                width: '55px',
+                                height: '55px',
+                                backgroundColor: 'white',
+                                color: '#10b981',
+                                border: '2px solid #10b981',
+                                borderRadius: '12px',
+                                fontSize: '24px',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                            }}
+                        >
+                            📖
+                        </button>
+                        <button
+                            onClick={() => router.push('/dashboard')}
+                            style={{
+                                width: '55px',
+                                height: '55px',
+                                backgroundColor: 'white',
+                                color: '#8b5cf6',
+                                border: '2px solid #8b5cf6',
+                                borderRadius: '12px',
+                                fontSize: '24px',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                            }}
+                        >
+                            🏠
+                        </button>
+                        <button
+                            onClick={restartGame}
+                            style={{
+                                width: '55px',
+                                height: '55px',
+                                backgroundColor: 'white',
+                                color: '#10b981',
+                                border: '2px solid #10b981',
+                                borderRadius: '12px',
+                                fontSize: '24px',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                            }}
+                        >
+                            🔄
+                        </button>
+                    </div>
+
+                    {/* Score */}
+                    <div style={{
+                        textAlign: 'center',
+                        marginBottom: '30px'
+                    }}>
+                        <div style={{ fontSize: '48px', fontWeight: 'bold', color: '#10b981', marginBottom: '10px' }}>
+                            {finalScore.correct}/{finalScore.total}
+                        </div>
+                    </div>
+
+                    {/* Groupes réussis */}
+                    {successGroupes.length > 0 && (
+                        <div style={{ marginBottom: '30px' }}>
+                            <div style={{
+                                display: 'grid',
+                                gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+                                gap: '15px'
+                            }}>
+                                {successGroupes.map((groupe, index) => (
+                                    <div
+                                        key={index}
+                                        style={{
+                                            padding: '12px 20px',
+                                            background: '#d1fae5',
+                                            border: '2px solid #10b981',
+                                            borderRadius: '12px',
+                                            color: '#10b981',
+                                            fontSize: '16px',
+                                            fontWeight: '500',
+                                            textAlign: 'center'
+                                        }}
+                                    >
+                                        {groupe.contenu}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Groupes ratés */}
+                    {failedGroupes.length > 0 && (
+                        <div style={{ marginBottom: '30px' }}>
+                            <h3 style={{
+                                fontSize: '20px',
+                                fontWeight: 'bold',
+                                color: '#ef4444',
+                                marginBottom: '15px',
+                                textAlign: 'center'
+                            }}>
+                                Groupes à revoir ({failedGroupes.length})
+                            </h3>
+                            <div style={{
+                                display: 'grid',
+                                gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+                                gap: '15px'
+                            }}>
+                                {failedGroupes.map((groupe, index) => (
+                                    <div
+                                        key={index}
+                                        style={{
+                                            padding: '12px 20px',
+                                            background: '#fee2e2',
+                                            border: '2px solid #ef4444',
+                                            borderRadius: '12px',
+                                            color: '#ef4444',
+                                            fontSize: '16px',
+                                            fontWeight: '500',
+                                            textAlign: 'center'
+                                        }}
+                                    >
+                                        {groupe.contenu}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Confettis de célébration */}
+                    {showConfetti && (
+                        <>
+                            <style dangerouslySetInnerHTML={{
+                                __html: `
+                                    @keyframes confetti-fall {
+                                        0% {
+                                            transform: translateY(0) rotate(0deg);
+                                            opacity: 1;
+                                        }
+                                        100% {
+                                            transform: translateY(100vh) rotate(720deg);
+                                            opacity: 0;
+                                        }
+                                    }
+                                `
+                            }} />
+                            <div style={{
+                                position: 'fixed',
+                                top: 0,
+                                left: 0,
+                                width: '100%',
+                                height: '100%',
+                                pointerEvents: 'none',
+                                zIndex: 9999,
+                                overflow: 'hidden'
+                            }}>
+                                {[...Array(50)].map((_, i) => {
+                                    const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8', '#F7DC6F']
+                                    const duration = 3 + Math.random() * 2
+                                    const delay = Math.random() * 0.5
+                                    return (
+                                        <div
+                                            key={i}
+                                            style={{
+                                                position: 'absolute',
+                                                top: '-20px',
+                                                left: `${Math.random() * 100}%`,
+                                                width: '15px',
+                                                height: '15px',
+                                                backgroundColor: colors[Math.floor(Math.random() * 6)],
+                                                opacity: 1,
+                                                borderRadius: '50%',
+                                                animation: `confetti-fall ${duration}s linear forwards`,
+                                                animationDelay: `${delay}s`,
+                                                zIndex: 10000
+                                            }}
+                                        />
+                                    )
+                                })}
+                            </div>
+                        </>
+                    )}
+                </div>
+            </div>
+        )
+    }
+
+    // PAGE PRINCIPALE (sélection textes ou jeu)
     return (
         <div style={{
             minHeight: '100vh',
@@ -509,222 +764,303 @@ export default function QuestCe() {
                 margin: '0 auto'
             }}>
                 {/* Titre */}
-                {!gameStarted ? (
-                    <h1 style={{
-                        fontSize: 'clamp(22px, 5vw, 28px)',
-                        fontWeight: 'bold',
-                        marginBottom: '20px',
+                <h1 style={{
+                    fontSize: 'clamp(22px, 5vw, 28px)',
+                    fontWeight: 'bold',
+                    marginBottom: '10px',
+                    textAlign: 'center'
+                }}>
+                    <span style={{ marginRight: '8px' }}>🔊</span>
+                    <span style={{
                         background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
                         WebkitBackgroundClip: 'text',
-                        WebkitTextFillColor: 'transparent',
-                        textAlign: 'center'
+                        WebkitTextFillColor: 'transparent'
                     }}>
-                        🔊 Qu'est-ce ?<span className="desktop-only"> - Reconnaissance audio</span>
-                    </h1>
-                ) : (
-                    /* Titre avec boutons de navigation pendant le jeu */
-                    <div style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        marginBottom: '20px',
-                        flexWrap: 'wrap',
-                        gap: '10px'
-                    }}>
-                        {/* Bouton arrêter à gauche */}
-                        <button
-                            onClick={resetGame}
-                            style={{
-                                backgroundColor: '#ef4444',
-                                color: 'white',
-                                padding: window.innerWidth <= 768 ? '8px' : '10px 20px',
-                                border: 'none',
-                                borderRadius: '8px',
-                                fontSize: window.innerWidth <= 768 ? '16px' : '14px',
-                                cursor: 'pointer',
-                                minWidth: window.innerWidth <= 768 ? '36px' : 'auto',
-                                flexShrink: 0
-                            }}
-                            title="Arrêter l'exercice"
-                        >
-                            {window.innerWidth <= 768 ? '⏹️' : '⏹️ Arrêter l\'exercice'}
-                        </button>
+                        Qu'est-ce ?
+                    </span>
+                </h1>
 
-                        {/* Titre au centre */}
-                        <h1 style={{
-                            fontSize: 'clamp(18px, 4vw, 24px)',
-                            fontWeight: 'bold',
-                            background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                            WebkitBackgroundClip: 'text',
-                            WebkitTextFillColor: 'transparent',
-                            textAlign: 'center',
-                            margin: 0,
-                            flex: 1
-                        }}>
-                            🔊 Qu'est-ce ?<span className="desktop-only"> - Reconnaissance audio</span>
-                        </h1>
-
-                        {/* Bouton retour à droite */}
+                {/* Navigation icônes */}
+                <div style={{
+                    display: 'flex',
+                    justifyContent: 'center',
+                    gap: '12px',
+                    marginBottom: '20px'
+                }}>
+                    {gameStarted && (
                         <button
-                            onClick={() => router.push('/lire')}
-                            style={{
-                                backgroundColor: '#6b7280',
-                                color: 'white',
-                                padding: window.innerWidth <= 768 ? '8px' : '12px 30px',
-                                border: 'none',
-                                borderRadius: '8px',
-                                fontSize: window.innerWidth <= 768 ? '16px' : '14px',
-                                fontWeight: 'bold',
-                                cursor: 'pointer',
-                                minWidth: window.innerWidth <= 768 ? '36px' : 'auto',
-                                flexShrink: 0
+                            onClick={() => {
+                                setGameStarted(false)
+                                setGameFinished(false)
                             }}
-                            title="Retour au menu Lire"
+                            style={{
+                                width: '55px',
+                                height: '55px',
+                                backgroundColor: 'white',
+                                color: '#64748b',
+                                border: '2px solid #64748b',
+                                borderRadius: '12px',
+                                fontSize: '24px',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                            }}
                         >
-                            {window.innerWidth <= 768 ? '←' : '← Retour au menu Lire'}
+                            ←
                         </button>
-                    </div>
-                )}
+                    )}
+                    <button
+                        onClick={() => router.push('/lire')}
+                        style={{
+                            width: '55px',
+                            height: '55px',
+                            backgroundColor: 'white',
+                            color: '#10b981',
+                            border: '2px solid #10b981',
+                            borderRadius: '12px',
+                            fontSize: '24px',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                        }}
+                    >
+                        📖
+                    </button>
+                    <button
+                        onClick={() => router.push('/dashboard')}
+                        style={{
+                            width: '55px',
+                            height: '55px',
+                            backgroundColor: 'white',
+                            color: '#8b5cf6',
+                            border: '2px solid #8b5cf6',
+                            borderRadius: '12px',
+                            fontSize: '24px',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                        }}
+                    >
+                        🏠
+                    </button>
+                </div>
 
                 {!gameStarted ? (
                     <>
-                        {/* Configuration du jeu */}
-                        <div style={{
-                            background: '#f8f9fa',
-                            padding: '20px',
-                            borderRadius: '8px',
-                            marginBottom: '20px'
-                        }}>
-                            <h3 className="desktop-only" style={{ marginBottom: '15px' }}>⚙️ Configuration</h3>
-                            
-                            {/* Options de jeu */}
-                            <div style={{ marginBottom: '20px' }}>
-                                <div className="desktop-only" style={{ marginBottom: '15px' }}>
-                                    <label style={{ fontWeight: 'bold', marginRight: '10px' }}>
-                                        Ordre de progression:
-                                    </label>
-                                    <select
-                                        value={orderMode}
-                                        onChange={(e) => setOrderMode(e.target.value)}
-                                        style={{
-                                            padding: '5px 10px',
-                                            borderRadius: '4px',
-                                            border: '1px solid #ddd'
-                                        }}
-                                    >
-                                        <option value="random">Aléatoire</option>
-                                        <option value="sequential">Séquentiel</option>
-                                    </select>
-                                </div>
-                                
-                                <div className="desktop-only" style={{ marginBottom: '15px' }}>
-                                    <label style={{ fontWeight: 'bold', marginRight: '10px' }}>
-                                        Disposition des boutons:
-                                    </label>
-                                    <select
-                                        value={displayMode}
-                                        onChange={(e) => setDisplayMode(e.target.value)}
-                                        style={{
-                                            padding: '5px 10px',
-                                            borderRadius: '4px',
-                                            border: '1px solid #ddd'
-                                        }}
-                                    >
-                                        <option value="random">Mélangé</option>
-                                        <option value="sequential">Fixe</option>
-                                    </select>
-                                </div>
-
-                                <div>
-                                    <label style={{ fontWeight: 'bold', marginRight: '10px' }}>
-                                        Voix:
-                                    </label>
-                                    <select
-                                        value={selectedVoice}
-                                        onChange={(e) => setSelectedVoice(e.target.value)}
-                                        style={{
-                                            padding: '5px 10px',
-                                            borderRadius: '4px',
-                                            border: '1px solid #ddd'
-                                        }}
-                                    >
-                                        <option value="VOIX_PERSONNALISEE">🎵 Voix personnalisée ⭐</option>
-                                        {availableVoices.map(voice => (
-                                            <option key={voice.voice_id} value={voice.voice_id}>
-                                                {voice.name} {voice.recommended ? '⭐' : ''}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
+                        {/* Options de jeu - masquées mais fonctionnelles */}
+                        <div style={{ display: 'none' }}>
+                            <div style={{ marginBottom: '15px' }}>
+                                <label style={{ fontWeight: 'bold', marginRight: '10px' }}>
+                                    Ordre de lecture:
+                                </label>
+                                <select
+                                    value={orderMode}
+                                    onChange={(e) => setOrderMode(e.target.value)}
+                                    style={{
+                                        padding: '5px 10px',
+                                        borderRadius: '4px',
+                                        border: '1px solid #ddd'
+                                    }}
+                                >
+                                    <option value="random">Aléatoire</option>
+                                    <option value="sequential">Séquentiel</option>
+                                </select>
                             </div>
 
-                            {/* Sélection des textes */}
-                            <h3 style={{ marginBottom: '15px' }}>📚 Sélectionner les textes</h3>
-                            
-                            {isLoadingTextes ? (
-                                <div>Chargement des textes...</div>
-                            ) : textes.length === 0 ? (
-                                <div>Aucun texte disponible</div>
-                            ) : (
-                                <div style={{
-                                    display: 'grid',
-                                    gap: '10px',
-                                    maxHeight: '300px',
-                                    overflowY: 'auto'
-                                }}>
-                                    {textes.map(texte => (
-                                        <label key={texte.id} style={{
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            padding: '10px',
-                                            background: selectedTextes.includes(texte.id) ? '#e0f2fe' : '#fff',
-                                            border: '1px solid #ddd',
-                                            borderRadius: '4px',
-                                            cursor: 'pointer'
-                                        }}>
-                                            <input
-                                                type="checkbox"
-                                                checked={selectedTextes.includes(texte.id)}
-                                                onChange={(e) => {
-                                                    if (e.target.checked) {
-                                                        setSelectedTextes([...selectedTextes, texte.id])
-                                                    } else {
-                                                        setSelectedTextes(selectedTextes.filter(id => id !== texte.id))
-                                                    }
-                                                }}
-                                                style={{ marginRight: '10px' }}
-                                            />
-                                            <div>
-                                                <div style={{ fontWeight: 'bold' }}>{texte.titre}</div>
-                                                <div style={{ fontSize: '12px', color: '#666' }}>
-                                                    {texte.nombre_groupes} groupes de sens
-                                                </div>
-                                            </div>
-                                        </label>
-                                    ))}
-                                </div>
-                            )}
+                            <div style={{ marginBottom: '15px' }}>
+                                <label style={{ fontWeight: 'bold', marginRight: '10px' }}>
+                                    Affichage étiquettes:
+                                </label>
+                                <select
+                                    value={displayMode}
+                                    onChange={(e) => setDisplayMode(e.target.value)}
+                                    style={{
+                                        padding: '5px 10px',
+                                        borderRadius: '4px',
+                                        border: '1px solid #ddd'
+                                    }}
+                                >
+                                    <option value="random">Mélangé</option>
+                                    <option value="sequential">Dans l'ordre</option>
+                                </select>
+                            </div>
 
-                            {/* Bouton démarrer */}
-                            <button
-                                onClick={startGame}
-                                disabled={selectedTextes.length === 0}
-                                style={{
-                                    backgroundColor: selectedTextes.length > 0 ? '#10b981' : '#ccc',
-                                    color: 'white',
-                                    padding: '12px 30px',
-                                    border: 'none',
-                                    borderRadius: '8px',
-                                    fontSize: '16px',
-                                    fontWeight: 'bold',
-                                    cursor: selectedTextes.length > 0 ? 'pointer' : 'not-allowed',
-                                    marginTop: '20px',
-                                    width: '100%'
-                                }}
-                            >
-                                🚀 Commencer l'exercice
-                            </button>
+                            <div>
+                                <label style={{ fontWeight: 'bold', marginRight: '10px' }}>
+                                    Voix:
+                                </label>
+                                <select
+                                    value={selectedVoice}
+                                    onChange={(e) => setSelectedVoice(e.target.value)}
+                                    style={{
+                                        padding: '5px 10px',
+                                        borderRadius: '4px',
+                                        border: '1px solid #ddd'
+                                    }}
+                                >
+                                    <option value="VOIX_PERSONNALISEE">🎵 Voix personnalisée ⭐</option>
+                                    {availableVoices.map(voice => (
+                                        <option key={voice.voice_id} value={voice.voice_id}>
+                                            {voice.name} {voice.recommended ? '⭐' : ''}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
                         </div>
+
+                        {/* Sélection des textes */}
+                        {!isMobile && <h3 style={{ marginBottom: '15px', textAlign: 'center' }}>📚 Sélectionner les textes</h3>}
+
+                        {isLoadingTextes ? (
+                            <div style={{
+                                textAlign: 'center',
+                                padding: '40px',
+                                fontSize: '16px',
+                                color: '#666'
+                            }}>
+                                Chargement des textes...
+                            </div>
+                        ) : textes.length === 0 ? (
+                            <div style={{
+                                textAlign: 'center',
+                                padding: '40px',
+                                background: 'linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%)',
+                                borderRadius: '20px',
+                                border: '2px dashed #0ea5e9',
+                                boxShadow: '0 4px 15px rgba(14, 165, 233, 0.1)'
+                            }}>
+                                <p style={{ fontSize: '18px', color: '#666', marginBottom: '20px' }}>
+                                    Aucun texte disponible
+                                </p>
+                            </div>
+                        ) : (
+                            <div style={{
+                                display: 'grid',
+                                gap: '15px',
+                                marginBottom: '20px'
+                            }}>
+                                {textes.map((texte, index) => {
+                                    const couleurs = [
+                                        { bg: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', shadow: 'rgba(102, 126, 234, 0.3)' },
+                                        { bg: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)', shadow: 'rgba(240, 147, 251, 0.3)' },
+                                        { bg: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)', shadow: 'rgba(79, 172, 254, 0.3)' },
+                                        { bg: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)', shadow: 'rgba(67, 233, 123, 0.3)' },
+                                        { bg: 'linear-gradient(135deg, #fa709a 0%, #fee140 100%)', shadow: 'rgba(250, 112, 154, 0.3)' },
+                                        { bg: 'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)', shadow: 'rgba(168, 237, 234, 0.3)' },
+                                        { bg: 'linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%)', shadow: 'rgba(255, 154, 158, 0.3)' },
+                                        { bg: 'linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%)', shadow: 'rgba(255, 236, 210, 0.3)' }
+                                    ]
+                                    const couleur = couleurs[index % couleurs.length]
+
+                                    return (
+                                        <div
+                                            key={texte.id}
+                                            onClick={() => {
+                                                if (selectedTextes.includes(texte.id)) {
+                                                    setSelectedTextes(selectedTextes.filter(id => id !== texte.id))
+                                                } else {
+                                                    setSelectedTextes([...selectedTextes, texte.id])
+                                                }
+                                            }}
+                                            style={{
+                                                background: couleur.bg,
+                                                border: selectedTextes.includes(texte.id) ? '3px solid #10b981' : 'none',
+                                                borderRadius: '20px',
+                                                padding: isMobile ? '10px 15px' : '15px',
+                                                boxShadow: selectedTextes.includes(texte.id)
+                                                    ? `0 8px 25px ${couleur.shadow}, 0 0 0 3px #10b981`
+                                                    : `0 4px 15px ${couleur.shadow}`,
+                                                cursor: 'pointer',
+                                                transition: 'all 0.3s ease',
+                                                transform: selectedTextes.includes(texte.id) ? 'scale(1.02)' : 'scale(1)',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '10px'
+                                            }}
+                                        >
+                                            {/* Checkbox PC uniquement */}
+                                            {!isMobile && (
+                                                <input
+                                                    type="checkbox"
+                                                    checked={selectedTextes.includes(texte.id)}
+                                                    onChange={(e) => {
+                                                        e.stopPropagation()
+                                                        if (e.target.checked) {
+                                                            setSelectedTextes([...selectedTextes, texte.id])
+                                                        } else {
+                                                            setSelectedTextes(selectedTextes.filter(id => id !== texte.id))
+                                                        }
+                                                    }}
+                                                    style={{
+                                                        width: '20px',
+                                                        height: '20px',
+                                                        cursor: 'pointer',
+                                                        accentColor: '#10b981'
+                                                    }}
+                                                />
+                                            )}
+
+                                            {/* Contenu : titre + stats (PC) ou titre seul (mobile) */}
+                                            <div style={{
+                                                display: 'flex',
+                                                justifyContent: isMobile ? 'center' : 'space-between',
+                                                alignItems: 'center',
+                                                width: '100%',
+                                                gap: '10px'
+                                            }}>
+                                                <div style={{
+                                                    color: 'white',
+                                                    fontWeight: 'bold',
+                                                    fontSize: '16px',
+                                                    textShadow: '0 2px 4px rgba(0,0,0,0.2)',
+                                                    flex: '1',
+                                                    textAlign: isMobile ? 'center' : 'left',
+                                                    whiteSpace: isMobile ? 'nowrap' : 'normal',
+                                                    overflow: isMobile ? 'hidden' : 'visible',
+                                                    textOverflow: isMobile ? 'ellipsis' : 'clip'
+                                                }}>
+                                                    {texte.titre}
+                                                </div>
+                                                {!isMobile && (
+                                                    <div style={{
+                                                        color: 'rgba(255,255,255,0.9)',
+                                                        fontSize: '12px',
+                                                        textShadow: '0 1px 2px rgba(0,0,0,0.1)',
+                                                        whiteSpace: 'nowrap'
+                                                    }}>
+                                                        📊 {texte.nombre_groupes} groupes de sens
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    )
+                                })}
+                            </div>
+                        )}
+
+                        {/* Bouton démarrer */}
+                        <button
+                            onClick={startGame}
+                            disabled={selectedTextes.length === 0}
+                            style={{
+                                background: 'white',
+                                color: selectedTextes.length > 0 ? '#10b981' : '#ccc',
+                                padding: '15px 30px',
+                                border: selectedTextes.length > 0 ? '2px solid #10b981' : '2px solid #ccc',
+                                borderRadius: '20px',
+                                fontSize: '18px',
+                                fontWeight: 'normal',
+                                cursor: selectedTextes.length > 0 ? 'pointer' : 'not-allowed',
+                                marginTop: '20px',
+                                width: '100%',
+                                transition: 'all 0.3s ease'
+                            }}
+                        >
+                            Commencer
+                        </button>
                     </>
                 ) : (
                     <>
@@ -894,89 +1230,6 @@ export default function QuestCe() {
                         </div>
 
                     </>
-                )}
-
-                {/* Écran de fin avec score */}
-                {gameFinished && (
-                    <div style={{
-                        backgroundColor: 'white',
-                        padding: '40px',
-                        borderRadius: '12px',
-                        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
-                        textAlign: 'center',
-                        margin: '20px 0'
-                    }}>
-                        <div style={{ fontSize: '48px', marginBottom: '20px' }}>
-                            {finalScore.percentage >= 80 ? '🎉' : 
-                             finalScore.percentage >= 60 ? '👏' : '💪'}
-                        </div>
-                        
-                        <h2 style={{ 
-                            color: '#1f2937', 
-                            marginBottom: '20px',
-                            fontSize: '24px'
-                        }}>
-                            Exercice terminé !
-                        </h2>
-
-                        <div style={{
-                            backgroundColor: '#f3f4f6',
-                            padding: '20px',
-                            borderRadius: '8px',
-                            marginBottom: '25px'
-                        }}>
-                            <div style={{ fontSize: '36px', fontWeight: 'bold', color: '#10b981', marginBottom: '10px' }}>
-                                {finalScore.correct}/{finalScore.total}
-                            </div>
-                            <div style={{ fontSize: '18px', color: '#6b7280', marginBottom: '5px' }}>
-                                Score : {finalScore.percentage}%
-                            </div>
-                            <div style={{ fontSize: '14px', color: '#9ca3af' }}>
-                                {finalScore.percentage >= 80 ? 'Excellent travail !' : 
-                                 finalScore.percentage >= 60 ? 'Bon travail !' : 
-                                 'Continue tes efforts !'}
-                            </div>
-                        </div>
-
-                        <div style={{ 
-                            display: 'flex', 
-                            gap: '15px', 
-                            justifyContent: 'center',
-                            flexWrap: 'wrap'
-                        }}>
-                            <button
-                                onClick={restartGame}
-                                style={{
-                                    backgroundColor: '#10b981',
-                                    color: 'white',
-                                    padding: '12px 24px',
-                                    border: 'none',
-                                    borderRadius: '8px',
-                                    fontSize: '16px',
-                                    fontWeight: 'bold',
-                                    cursor: 'pointer'
-                                }}
-                            >
-                                🔄 Recommencer
-                            </button>
-                            
-                            <button
-                                onClick={() => router.push('/lire')}
-                                style={{
-                                    backgroundColor: '#3b82f6',
-                                    color: 'white',
-                                    padding: '12px 24px',
-                                    border: 'none',
-                                    borderRadius: '8px',
-                                    fontSize: '16px',
-                                    fontWeight: 'bold',
-                                    cursor: 'pointer'
-                                }}
-                            >
-                                🏠 Autres exercices
-                            </button>
-                        </div>
-                    </div>
                 )}
 
             </div>
