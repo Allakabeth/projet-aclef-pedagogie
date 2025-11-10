@@ -1473,27 +1473,88 @@ export default function ReconnaitreLesMotsPage() {
                 ) : (
                     <>
                         <div style={{ marginBottom: '24px' }}>
-                            <div style={styles.textesGrid}>
-                                {textes.map(texte => (
-                                    <div
-                                        key={texte.id}
-                                        style={{
-                                            ...styles.texteCard,
-                                            ...(textesSelectionnes.includes(texte.id) ? styles.texteCardSelected : {})
-                                        }}
-                                        onClick={() => toggleTexte(texte.id)}
-                                    >
-                                        <div style={styles.texteCardHeader}>
+                            <div style={{
+                                display: 'grid',
+                                gap: '15px',
+                                marginBottom: '20px',
+                                maxWidth: window.innerWidth > 768 ? '50%' : '100%',
+                                margin: '0 auto'
+                            }}>
+                                {textes.map((texte, index) => {
+                                    const couleurs = [
+                                        { bg: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', shadow: 'rgba(102, 126, 234, 0.3)' },
+                                        { bg: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)', shadow: 'rgba(240, 147, 251, 0.3)' },
+                                        { bg: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)', shadow: 'rgba(79, 172, 254, 0.3)' },
+                                        { bg: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)', shadow: 'rgba(67, 233, 123, 0.3)' },
+                                        { bg: 'linear-gradient(135deg, #fa709a 0%, #fee140 100%)', shadow: 'rgba(250, 112, 154, 0.3)' },
+                                        { bg: 'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)', shadow: 'rgba(168, 237, 234, 0.3)' },
+                                        { bg: 'linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%)', shadow: 'rgba(255, 154, 158, 0.3)' },
+                                        { bg: 'linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%)', shadow: 'rgba(255, 236, 210, 0.3)' }
+                                    ]
+                                    const couleur = couleurs[index % couleurs.length]
+
+                                    return (
+                                        <div
+                                            key={texte.id}
+                                            onClick={() => toggleTexte(texte.id)}
+                                            style={{
+                                                background: couleur.bg,
+                                                border: textesSelectionnes.includes(texte.id) ? '3px solid #10b981' : 'none',
+                                                borderRadius: '20px',
+                                                padding: '15px',
+                                                boxShadow: textesSelectionnes.includes(texte.id)
+                                                    ? `0 8px 25px ${couleur.shadow}, 0 0 0 3px #10b981`
+                                                    : `0 4px 15px ${couleur.shadow}`,
+                                                cursor: 'pointer',
+                                                transition: 'all 0.3s ease',
+                                                transform: textesSelectionnes.includes(texte.id) ? 'scale(1.02)' : 'scale(1)',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '10px'
+                                            }}
+                                        >
                                             <input
                                                 type="checkbox"
                                                 checked={textesSelectionnes.includes(texte.id)}
                                                 onChange={() => {}}
-                                                style={styles.checkbox}
+                                                style={{
+                                                    width: '20px',
+                                                    height: '20px',
+                                                    cursor: 'pointer',
+                                                    accentColor: '#10b981'
+                                                }}
                                             />
-                                            <span style={styles.texteCardTitle}>{texte.titre}</span>
+                                            <div style={{
+                                                display: 'flex',
+                                                justifyContent: 'space-between',
+                                                alignItems: 'center',
+                                                width: '100%',
+                                                gap: '10px'
+                                            }}>
+                                                <div style={{
+                                                    color: 'white',
+                                                    fontWeight: 'bold',
+                                                    fontSize: '16px',
+                                                    textShadow: '0 2px 4px rgba(0,0,0,0.2)',
+                                                    flex: '1',
+                                                    textAlign: 'left'
+                                                }}>
+                                                    {texte.titre}
+                                                </div>
+                                                {window.innerWidth > 768 && (
+                                                    <div style={{
+                                                        color: 'rgba(255,255,255,0.9)',
+                                                        fontSize: '12px',
+                                                        textShadow: '0 1px 2px rgba(0,0,0,0.1)',
+                                                        whiteSpace: 'nowrap'
+                                                    }}>
+                                                        📊 {texte.nombre_groupes} groupes de sens
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
-                                    </div>
-                                ))}
+                                    )
+                                })}
                             </div>
                         </div>
 
@@ -1503,7 +1564,7 @@ export default function ReconnaitreLesMotsPage() {
                                 style={styles.primaryButton}
                                 disabled={textesSelectionnes.length === 0}
                             >
-                                Commencer les exercices
+                                Commencer
                             </button>
                         </div>
                     </>
@@ -4762,14 +4823,14 @@ const styles = {
     },
     primaryButton: {
         padding: '12px 24px',
-        backgroundColor: '#06b6d4',
-        color: '#fff',
-        border: 'none',
+        backgroundColor: '#fff',
+        color: '#3b82f6',
+        border: '2px solid #3b82f6',
         borderRadius: '8px',
         fontSize: '16px',
-        fontWeight: '600',
+        fontWeight: 'normal',
         cursor: 'pointer',
-        transition: 'background-color 0.2s'
+        transition: 'all 0.2s'
     },
     secondaryButton: {
         padding: '12px 24px',
