@@ -1,5 +1,9 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
+import dynamic from 'next/dynamic'
+
+// Importer le composant sans SSR
+const ExerciceClassement = dynamic(() => import('../../components/exercices-syllabes-mots/ExerciceClassement'), { ssr: false })
 
 // Styles personnalisés
 const customStyles = `
@@ -46,6 +50,7 @@ export default function MesSyllabesMotsNew() {
     const [textes, setTextes] = useState([])
     const [selectedTextes, setSelectedTextes] = useState(new Set())
     const [textesDetails, setTextesDetails] = useState({})
+    const [activeExercice, setActiveExercice] = useState(null) // null, 'classement', 'ou-est', 'quest-ce'
 
     useEffect(() => {
         const initPage = async () => {
@@ -120,8 +125,28 @@ export default function MesSyllabesMotsNew() {
         setSelectedTextes(newSelected)
     }
 
+    const startClassement = () => {
+        if (selectedTextes.size === 0) {
+            alert('Sélectionnez au moins un texte avant de commencer')
+            return
+        }
+        setActiveExercice('classement')
+    }
+
+    const retourSelection = () => {
+        setActiveExercice(null)
+    }
+
     if (isLoading) {
         return null
+    }
+
+    // Si l'exercice Classement est actif, afficher le composant
+    if (activeExercice === 'classement') {
+        return <ExerciceClassement
+            selectedTextes={Array.from(selectedTextes)}
+            retourSelection={retourSelection}
+        />
     }
 
     return (
@@ -356,6 +381,7 @@ export default function MesSyllabesMotsNew() {
                                 </p>
 
                                 <button
+                                    onClick={startClassement}
                                     disabled={selectedTextes.size === 0}
                                     style={{
                                         backgroundColor: selectedTextes.size > 0 ? '#ef4444' : '#ccc',
