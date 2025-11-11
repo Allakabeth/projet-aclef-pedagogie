@@ -758,6 +758,73 @@ export default function MonosyllabesMultisyllabes() {
                 maxWidth: '800px',
                 margin: '0 auto'
             }}>
+                {/* Titre + Navigation (UNIQUEMENT sur page sélection textes) */}
+                {!gameStarted && (
+                    <>
+                        <h1 style={{
+                            fontSize: 'clamp(22px, 5vw, 28px)',
+                            fontWeight: 'bold',
+                            marginBottom: '10px',
+                            textAlign: 'center'
+                        }}>
+                            <span style={{ marginRight: '8px' }}>🔤</span>
+                            <span style={{
+                                background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                                WebkitBackgroundClip: 'text',
+                                WebkitTextFillColor: 'transparent'
+                            }}>
+                                Trouver mes syllabes-mot
+                            </span>
+                        </h1>
+
+                        <div style={{
+                            display: 'flex',
+                            justifyContent: 'center',
+                            gap: '12px',
+                            marginBottom: '25px'
+                        }}>
+                            <button
+                                onClick={() => router.push('/lire')}
+                                style={{
+                                    width: '50px',
+                                    height: '50px',
+                                    backgroundColor: 'white',
+                                    color: '#10b981',
+                                    border: '2px solid #10b981',
+                                    borderRadius: '12px',
+                                    fontSize: '20px',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    transition: 'all 0.3s ease'
+                                }}
+                            >
+                                📖
+                            </button>
+                            <button
+                                onClick={() => router.push('/dashboard')}
+                                style={{
+                                    width: '50px',
+                                    height: '50px',
+                                    backgroundColor: 'white',
+                                    color: '#8b5cf6',
+                                    border: '2px solid #8b5cf6',
+                                    borderRadius: '12px',
+                                    fontSize: '20px',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    transition: 'all 0.3s ease'
+                                }}
+                            >
+                                🏠
+                            </button>
+                        </div>
+                    </>
+                )}
+
                 {/* Modale de gestion des nombres */}
                 {showNumbersModal && (
                     <div style={{
