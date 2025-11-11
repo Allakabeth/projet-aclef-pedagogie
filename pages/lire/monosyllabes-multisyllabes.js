@@ -30,13 +30,14 @@ export default function MonosyllabesMultisyllabes() {
     const [showResults, setShowResults] = useState(false)
     const [availableVoices, setAvailableVoices] = useState([])
     const [selectedVoice, setSelectedVoice] = useState('Paul')
-    const [autoRead, setAutoRead] = useState(false)
+    const [autoRead, setAutoRead] = useState(true)
     const [numbersDetected, setNumbersDetected] = useState([])
     const [showNumbersModal, setShowNumbersModal] = useState(false)
     const [numbersChoices, setNumbersChoices] = useState({})
     const [pendingWords, setPendingWords] = useState([])
     const [correctionsMonoMulti, setCorrectionsMonoMulti] = useState({})
     const router = useRouter()
+    const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768
 
     useEffect(() => {
         // Vérifier l'authentification
@@ -55,11 +56,6 @@ export default function MonosyllabesMultisyllabes() {
             console.error('Erreur parsing user data:', error)
             router.push('/login')
             return
-        }
-
-        // Forcer la lecture auto sur mobile
-        if (window.innerWidth <= 768) {
-            setAutoRead(true)
         }
 
         setIsLoading(false)
@@ -594,10 +590,22 @@ export default function MonosyllabesMultisyllabes() {
             const utterance = new SpeechSynthesisUtterance(text)
             utterance.lang = 'fr-FR'
             utterance.rate = 0.8
+            utterance.pitch = 0.6 // Plus grave pour ressembler aux voix masculines
 
-            // Utiliser la voix fallback appropriée
-            if (selectedVoiceObj.fallback) {
-                utterance.voice = selectedVoiceObj.fallback
+            // Chercher une voix masculine française (JAMAIS Hortense)
+            const voices = window.speechSynthesis.getVoices()
+            const voixMasculine = voices.find(voice =>
+                voice.lang.includes('fr') &&
+                !voice.name.toLowerCase().includes('hortense') &&
+                (voice.name.toLowerCase().includes('male') ||
+                 voice.name.toLowerCase().includes('homme') ||
+                 voice.name.toLowerCase().includes('thomas') ||
+                 voice.name.toLowerCase().includes('paul') ||
+                 voice.name.toLowerCase().includes('pierre'))
+            ) || voices.find(voice => voice.lang.includes('fr') && !voice.name.toLowerCase().includes('hortense'))
+
+            if (voixMasculine) {
+                utterance.voice = voixMasculine
             }
 
             window.speechSynthesis.speak(utterance)
@@ -650,14 +658,106 @@ export default function MonosyllabesMultisyllabes() {
                 <h1 style={{
                     fontSize: 'clamp(22px, 5vw, 28px)',
                     fontWeight: 'bold',
-                    marginBottom: '20px',
-                    background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                    WebkitBackgroundClip: 'text',
-                    WebkitTextFillColor: 'transparent',
+                    marginBottom: '10px',
                     textAlign: 'center'
                 }}>
-                    🔤 Trouver mes syllabes-mot
+                    <span style={{ marginRight: '8px' }}>🔤</span>
+                    <span style={{
+                        background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                        WebkitBackgroundClip: 'text',
+                        WebkitTextFillColor: 'transparent'
+                    }}>
+                        Trouver mes syllabes-mot
+                    </span>
                 </h1>
+
+                {/* Navigation icônes */}
+                <div style={{
+                    display: 'flex',
+                    justifyContent: 'center',
+                    gap: '12px',
+                    marginBottom: '20px'
+                }}>
+                    {gameStarted && (
+                        <button
+                            onClick={() => {
+                                setGameStarted(false)
+                                setGameFinished(false)
+                            }}
+                            style={{
+                                width: '55px',
+                                height: '55px',
+                                backgroundColor: 'white',
+                                color: '#64748b',
+                                border: '2px solid #64748b',
+                                borderRadius: '12px',
+                                fontSize: '24px',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                            }}
+                        >
+                            ←
+                        </button>
+                    )}
+                    <button
+                        onClick={() => router.push('/lire')}
+                        style={{
+                            width: '55px',
+                            height: '55px',
+                            backgroundColor: 'white',
+                            color: '#10b981',
+                            border: '2px solid #10b981',
+                            borderRadius: '12px',
+                            fontSize: '24px',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                        }}
+                    >
+                        📖
+                    </button>
+                    <button
+                        onClick={() => router.push('/dashboard')}
+                        style={{
+                            width: '55px',
+                            height: '55px',
+                            backgroundColor: 'white',
+                            color: '#8b5cf6',
+                            border: '2px solid #8b5cf6',
+                            borderRadius: '12px',
+                            fontSize: '24px',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                        }}
+                    >
+                        🏠
+                    </button>
+                    {gameFinished && (
+                        <button
+                            onClick={resetGame}
+                            style={{
+                                width: '55px',
+                                height: '55px',
+                                backgroundColor: 'white',
+                                color: '#10b981',
+                                border: '2px solid #10b981',
+                                borderRadius: '12px',
+                                fontSize: '24px',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                            }}
+                        >
+                            🔄
+                        </button>
+                    )}
+                </div>
 
                 {/* Modale de gestion des nombres */}
                 {showNumbersModal && (
@@ -811,172 +911,157 @@ export default function MonosyllabesMultisyllabes() {
                 {!gameStarted ? (
                     <>
                         {/* Instructions */}
-                        <div className="desktop-only" style={{
-                            background: '#e0f2fe',
-                            padding: '20px',
-                            borderRadius: '8px',
-                            marginBottom: '20px',
-                            textAlign: 'center'
-                        }}>
-                            <h3 style={{ marginBottom: '10px', color: '#0284c7' }}>
-                                📚 Comment jouer ?
-                            </h3>
-                            <p style={{ margin: 0, color: '#0369a1' }}>
-                                Pour chaque mot affiché, écoutez bien les mots et comptez les syllabes. Décidez s'il s'agit d'un mot avec une syllabe 🟢 ou d'un mot avec plusieurs syllabes 🔴
-                            </p>
-                        </div>
-
-                        {/* Paramètres audio */}
-                        <div style={{
-                            background: '#f0f9ff',
-                            padding: '20px',
-                            borderRadius: '8px',
-                            marginBottom: '20px'
-                        }}>
-                            <h3 style={{ marginBottom: '15px', color: '#0284c7' }}>🔊 Paramètres audio</h3>
-                            
-                            {/* Choix de la voix */}
-                            <div style={{ marginBottom: '15px' }}>
-                                <label style={{ 
-                                    display: 'block', 
-                                    marginBottom: '8px', 
-                                    fontSize: '14px', 
-                                    fontWeight: 'bold' 
-                                }}>
-                                    Voix de lecture :
-                                </label>
-                                <select
-                                    value={selectedVoice}
-                                    onChange={(e) => setSelectedVoice(e.target.value)}
-                                    style={{
-                                        width: '100%',
-                                        padding: '8px',
-                                        borderRadius: '4px',
-                                        border: '1px solid #ddd',
-                                        fontSize: '14px'
-                                    }}
-                                >
-                                    {availableVoices.map(voice => (
-                                        <option key={voice.name} value={voice.name}>
-                                            {voice.name}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-                            
-                            {/* Lecture automatique */}
-                            <div className="desktop-only" style={{ marginBottom: '15px' }}>
-                                <label style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '8px',
-                                    fontSize: '14px',
-                                    cursor: 'pointer'
-                                }}>
-                                    <input
-                                        type="checkbox"
-                                        checked={autoRead}
-                                        onChange={(e) => setAutoRead(e.target.checked)}
-                                        style={{ transform: 'scale(1.2)' }}
-                                    />
-                                    <span>Lire automatiquement chaque mot</span>
-                                </label>
-                                <p style={{
-                                    fontSize: '12px',
-                                    color: '#666',
-                                    marginLeft: '24px',
-                                    marginTop: '4px'
-                                }}>
-                                    Si coché, les mots seront prononcés automatiquement
-                                </p>
-                            </div>
-                            
-                            {/* Test de la voix */}
-                            <button
-                                className="desktop-only"
-                                onClick={() => speakText('Bonjour, ceci est un test de la voix sélectionnée')}
-                                disabled={availableVoices.length === 0}
-                                style={{
-                                    backgroundColor: '#0284c7',
-                                    color: 'white',
-                                    padding: '8px 16px',
-                                    border: 'none',
-                                    borderRadius: '4px',
-                                    fontSize: '14px',
-                                    cursor: availableVoices.length > 0 ? 'pointer' : 'not-allowed',
-                                    opacity: availableVoices.length > 0 ? 1 : 0.5
-                                }}
-                            >
-                                🎵 Tester la voix
-                            </button>
-                        </div>
+                        <p className="desktop-only" style={{ textAlign: 'center', fontSize: '16px', color: '#0369a1', marginBottom: '20px' }}>
+                            Pour chaque mot, décidez s'il s'agit d'un mot avec une syllabe 🟢 ou d'un mot avec plusieurs syllabes 🔴
+                        </p>
 
                         {/* Sélection du texte */}
-                        <div style={{
-                            background: '#f8f9fa',
-                            padding: '20px',
-                            borderRadius: '8px',
-                            marginBottom: '20px'
-                        }}>
-                            <h3 className="desktop-only" style={{ marginBottom: '15px' }}>📚 Choisir un texte</h3>
-                            
-                            {isLoadingTexte ? (
-                                <div>Chargement des textes...</div>
-                            ) : textes.length === 0 ? (
-                                <div style={{
-                                    textAlign: 'center',
-                                    padding: '40px',
-                                    background: '#fff3cd',
-                                    borderRadius: '8px',
-                                    border: '1px solid #ffeaa7'
-                                }}>
-                                    <p>Aucun texte disponible</p>
-                                    <p style={{ fontSize: '14px', color: '#666' }}>
-                                        Créez d'abord un texte de référence
-                                    </p>
-                                </div>
-                            ) : (
-                                <>
-                                    <select
-                                        value={selectedTexte}
-                                        onChange={(e) => setSelectedTexte(e.target.value)}
-                                        style={{
-                                            width: '100%',
-                                            padding: '10px',
-                                            borderRadius: '4px',
-                                            border: '1px solid #ddd',
-                                            fontSize: '16px',
-                                            marginBottom: '20px'
-                                        }}
-                                    >
-                                        <option value="">-- Sélectionner un texte --</option>
-                                        {textes.map(texte => (
-                                            <option key={texte.id} value={texte.id}>
-                                                {texte.titre} ({texte.nombre_mots_total} mots)
-                                            </option>
-                                        ))}
-                                    </select>
+                        {/* Sélection des textes */}
+                        {!isMobile && <h3 style={{ marginBottom: '15px', textAlign: 'center' }}>📚 Sélectionner un texte</h3>}
 
-                                    <button
-                                        onClick={startGame}
-                                        disabled={!selectedTexte}
-                                        style={{
-                                            backgroundColor: selectedTexte ? '#10b981' : '#ccc',
-                                            color: 'white',
-                                            padding: '12px 30px',
-                                            border: 'none',
-                                            borderRadius: '8px',
-                                            fontSize: '16px',
-                                            fontWeight: 'bold',
-                                            cursor: selectedTexte ? 'pointer' : 'not-allowed',
-                                            width: '100%'
-                                        }}
-                                    >
-                                        🚀 Commencer l'exercice (tous les mots uniques)
-                                    </button>
-                                </>
-                            )}
-                        </div>
+                        {isLoadingTexte ? (
+                            <div style={{
+                                textAlign: 'center',
+                                padding: '40px',
+                                fontSize: '16px',
+                                color: '#666'
+                            }}>
+                                Chargement des textes...
+                            </div>
+                        ) : textes.length === 0 ? (
+                            <div style={{
+                                textAlign: 'center',
+                                padding: '40px',
+                                background: 'linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%)',
+                                borderRadius: '20px',
+                                border: '2px dashed #0ea5e9',
+                                boxShadow: '0 4px 15px rgba(14, 165, 233, 0.1)'
+                            }}>
+                                <p style={{ fontSize: '18px', color: '#666', marginBottom: '20px' }}>
+                                    Aucun texte disponible
+                                </p>
+                            </div>
+                        ) : (
+                            <div style={{
+                                display: 'grid',
+                                gap: '15px',
+                                marginBottom: '20px'
+                            }}>
+                                {textes.map((texte, index) => {
+                                    const couleurs = [
+                                        { bg: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', shadow: 'rgba(102, 126, 234, 0.3)' },
+                                        { bg: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)', shadow: 'rgba(240, 147, 251, 0.3)' },
+                                        { bg: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)', shadow: 'rgba(79, 172, 254, 0.3)' },
+                                        { bg: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)', shadow: 'rgba(67, 233, 123, 0.3)' },
+                                        { bg: 'linear-gradient(135deg, #fa709a 0%, #fee140 100%)', shadow: 'rgba(250, 112, 154, 0.3)' },
+                                        { bg: 'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)', shadow: 'rgba(168, 237, 234, 0.3)' },
+                                        { bg: 'linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%)', shadow: 'rgba(255, 154, 158, 0.3)' },
+                                        { bg: 'linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%)', shadow: 'rgba(255, 236, 210, 0.3)' }
+                                    ]
+                                    const couleur = couleurs[index % couleurs.length]
+                                    const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768
+
+                                    return (
+                                        <div
+                                            key={texte.id}
+                                            onClick={() => {
+                                                setSelectedTexte(texte.id.toString())
+                                            }}
+                                            style={{
+                                                background: couleur.bg,
+                                                border: selectedTexte === texte.id.toString() ? '3px solid #10b981' : 'none',
+                                                borderRadius: '20px',
+                                                padding: isMobile ? '10px 15px' : '15px',
+                                                boxShadow: selectedTexte === texte.id.toString()
+                                                    ? `0 8px 25px ${couleur.shadow}, 0 0 0 3px #10b981`
+                                                    : `0 4px 15px ${couleur.shadow}`,
+                                                cursor: 'pointer',
+                                                transition: 'all 0.3s ease',
+                                                transform: selectedTexte === texte.id.toString() ? 'scale(1.02)' : 'scale(1)',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '10px'
+                                            }}
+                                        >
+                                            {/* Radio PC uniquement */}
+                                            {!isMobile && (
+                                                <input
+                                                    type="radio"
+                                                    name="texte-selection"
+                                                    checked={selectedTexte === texte.id.toString()}
+                                                    onChange={(e) => {
+                                                        e.stopPropagation()
+                                                        if (e.target.checked) {
+                                                            setSelectedTexte(texte.id.toString())
+                                                        }
+                                                    }}
+                                                    style={{
+                                                        width: '20px',
+                                                        height: '20px',
+                                                        cursor: 'pointer',
+                                                        accentColor: '#10b981'
+                                                    }}
+                                                />
+                                            )}
+
+                                            {/* Contenu : titre + stats (PC) ou titre seul (mobile) */}
+                                            <div style={{
+                                                display: 'flex',
+                                                justifyContent: isMobile ? 'center' : 'space-between',
+                                                alignItems: 'center',
+                                                width: '100%',
+                                                gap: '10px'
+                                            }}>
+                                                <div style={{
+                                                    color: 'white',
+                                                    fontWeight: 'bold',
+                                                    fontSize: '16px',
+                                                    textShadow: '0 2px 4px rgba(0,0,0,0.2)',
+                                                    flex: '1',
+                                                    textAlign: isMobile ? 'center' : 'left',
+                                                    whiteSpace: isMobile ? 'nowrap' : 'normal',
+                                                    overflow: isMobile ? 'hidden' : 'visible',
+                                                    textOverflow: isMobile ? 'ellipsis' : 'clip'
+                                                }}>
+                                                    {texte.titre}
+                                                </div>
+                                                {!isMobile && (
+                                                    <div style={{
+                                                        color: 'rgba(255,255,255,0.9)',
+                                                        fontSize: '12px',
+                                                        textShadow: '0 1px 2px rgba(0,0,0,0.1)',
+                                                        whiteSpace: 'nowrap'
+                                                    }}>
+                                                        📊 {texte.nombre_mots_total} mots
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    )
+                                })}
+                            </div>
+                        )}
+
+                        {/* Bouton démarrer */}
+                        <button
+                            onClick={startGame}
+                            disabled={!selectedTexte}
+                            style={{
+                                background: 'white',
+                                color: selectedTexte ? '#10b981' : '#ccc',
+                                padding: '15px 30px',
+                                border: selectedTexte ? '2px solid #10b981' : '2px solid #ccc',
+                                borderRadius: '20px',
+                                fontSize: '18px',
+                                fontWeight: 'normal',
+                                cursor: selectedTexte ? 'pointer' : 'not-allowed',
+                                marginTop: '20px',
+                                width: '100%',
+                                transition: 'all 0.3s ease'
+                            }}
+                        >
+                            Commencer
+                        </button>
                     </>
                 ) : gameFinished ? (
                     <>
@@ -1272,27 +1357,7 @@ export default function MonosyllabesMultisyllabes() {
                     </>
                 )}
 
-                {/* Bouton retour */}
-                <div style={{
-                    textAlign: 'center',
-                    marginTop: '30px'
-                }}>
-                    <button
-                        onClick={() => router.push('/lire')}
-                        style={{
-                            backgroundColor: '#6b7280',
-                            color: 'white',
-                            padding: '12px 30px',
-                            border: 'none',
-                            borderRadius: '8px',
-                            fontSize: '14px',
-                            fontWeight: 'bold',
-                            cursor: 'pointer'
-                        }}
-                    >
-                        ← Retour au menu
-                    </button>
-                </div>
+
             </div>
         </div>
     )
