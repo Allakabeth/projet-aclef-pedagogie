@@ -38,6 +38,7 @@ export default function MonosyllabesMultisyllabes() {
     const [correctionsMonoMulti, setCorrectionsMonoMulti] = useState({})
     const [enregistrementsMap, setEnregistrementsMap] = useState({}) // Enregistrements personnels indexés par mot
     const [isAudioPlaying, setIsAudioPlaying] = useState(false) // Bloquer boutons pendant lecture audio
+    const [showConfetti, setShowConfetti] = useState(false) // Confettis pour score parfait
     const router = useRouter()
     const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768
 
@@ -460,35 +461,50 @@ export default function MonosyllabesMultisyllabes() {
         setAttempts(newAttempts)
         setScore(newScore)
         setUserChoices(newUserChoices)
-        
+
         if (isCorrect) {
             setFeedback('✅ Correct !')
-        } else {
-            const correctType = currentMot.isMonosyllabe ? 'monosyllabe' : 'multisyllabe'
-            setFeedback(`❌ Non, "${currentMot.clean}" est ${correctType}`)
-        }
 
-        // Passer au mot suivant après un délai
-        setTimeout(() => {
-            if (currentMotIndex < allMots.length - 1) {
-                const nextIndex = currentMotIndex + 1
-                setCurrentMotIndex(nextIndex)
-                setCurrentMot(allMots[nextIndex])
-                setFeedback('')
-                
-                // Lecture automatique si activée
-                if (autoRead) {
-                    setTimeout(() => speakText(allMots[nextIndex]?.clean), 500)
-                }
+            // Si correct, passer automatiquement au mot suivant
+            setTimeout(() => {
+                goToNextWord(newScore, newAttempts, newUserChoices)
+            }, 1500)
+        } else {
+            // Message d'erreur selon le type de mot
+            if (currentMot.isMonosyllabe) {
+                setFeedback(`Le mot "${currentMot.clean}" a une syllabe`)
             } else {
-                // Fin du jeu
-                setGameFinished(true)
-                setFeedback('')
-                
-                // Sauvegarder tous les résultats en base de données
-                sauvegarderResultats()
+                setFeedback(`Le mot "${currentMot.clean}" a plusieurs syllabes`)
             }
-        }, 1500)
+            // Si incorrect, ne PAS passer automatiquement (attendre clic sur "Suivant")
+        }
+    }
+
+    const goToNextWord = (currentScore = score, currentAttempts = attempts, currentUserChoices = userChoices) => {
+        if (currentMotIndex < allMots.length - 1) {
+            const nextIndex = currentMotIndex + 1
+            setCurrentMotIndex(nextIndex)
+            setCurrentMot(allMots[nextIndex])
+            setFeedback('')
+
+            // Lecture automatique si activée
+            if (autoRead) {
+                setTimeout(() => speakText(allMots[nextIndex]?.clean), 500)
+            }
+        } else {
+            // Fin du jeu
+            setGameFinished(true)
+            setFeedback('')
+
+            // Déclencher confettis si score parfait
+            if (currentScore === allMots.length) {
+                setShowConfetti(true)
+                setTimeout(() => setShowConfetti(false), 5000) // Arrêter après 5 secondes
+            }
+
+            // Sauvegarder tous les résultats en base de données
+            sauvegarderResultats()
+        }
     }
 
     // Fonction pour sauvegarder tous les résultats en base de données
@@ -712,6 +728,7 @@ export default function MonosyllabesMultisyllabes() {
         setUserChoices([])
         setShowResults(false)
         setIsAudioPlaying(false)
+        setShowConfetti(false)
     }
 
     if (isLoading) {
@@ -1049,150 +1066,282 @@ export default function MonosyllabesMultisyllabes() {
                     <>
                         {/* Résultats finaux */}
                         <div style={{
-                            background: '#f0fdf4',
-                            padding: '30px',
-                            borderRadius: '12px',
-                            marginBottom: '20px',
-                            textAlign: 'center'
+                            padding: isMobile ? '10px' : '0'
                         }}>
-                            <h2 style={{ color: '#166534', marginBottom: '20px' }}>
+                            {/* LIGNE 1 : Titre */}
+                            <h2 style={{
+                                fontSize: isMobile ? '24px' : '32px',
+                                textAlign: 'center',
+                                marginBottom: '20px',
+                                color: '#10b981'
+                            }}>
                                 🎉 Exercice terminé !
                             </h2>
-                            <div style={{ fontSize: '24px', marginBottom: '20px' }}>
-                                Score final : <strong>{score}/{attempts}</strong>
-                            </div>
-                            <div style={{ fontSize: '18px', color: '#15803d' }}>
-                                Pourcentage de réussite : <strong>{Math.round((score / attempts) * 100)}%</strong>
-                            </div>
-                        </div>
 
-                        {/* Boutons d'actions */}
-                        <div style={{
-                            display: 'flex',
-                            gap: '10px',
-                            justifyContent: 'center',
-                            flexWrap: 'wrap',
-                            marginBottom: '20px'
-                        }}>
-                            <button
-                                onClick={() => setShowResults(!showResults)}
-                                style={{
-                                    backgroundColor: '#3b82f6',
-                                    color: 'white',
-                                    padding: '10px 20px',
-                                    border: 'none',
-                                    borderRadius: '8px',
-                                    fontSize: '16px',
-                                    cursor: 'pointer'
-                                }}
-                            >
-                                {showResults ? '📊 Masquer le détail' : '📊 Voir le détail'}
-                            </button>
-
-                            <button
-                                onClick={() => loadMotsTexte(selectedTexte)}
-                                style={{
-                                    backgroundColor: '#10b981',
-                                    color: 'white',
-                                    padding: '10px 20px',
-                                    border: 'none',
-                                    borderRadius: '8px',
-                                    fontSize: '16px',
-                                    cursor: 'pointer'
-                                }}
-                            >
-                                🔄 Recommencer
-                            </button>
-
-                            <button
-                                onClick={resetGame}
-                                style={{
-                                    backgroundColor: '#ef4444',
-                                    color: 'white',
-                                    padding: '10px 20px',
-                                    border: 'none',
-                                    borderRadius: '8px',
-                                    fontSize: '16px',
-                                    cursor: 'pointer'
-                                }}
-                            >
-                                📚 Nouveau texte
-                            </button>
-                        </div>
-
-                        {/* Détail des résultats */}
-                        {showResults && (
+                            {/* LIGNE 2 : Icônes navigation (même style que pendant le jeu) */}
                             <div style={{
-                                background: '#f8f9fa',
-                                padding: '20px',
-                                borderRadius: '8px'
+                                display: 'flex',
+                                justifyContent: 'center',
+                                gap: '15px',
+                                marginBottom: '30px'
                             }}>
-                                <h3 style={{ marginBottom: '20px' }}>📏 Détail des réponses</h3>
+                                <button
+                                    onClick={() => {
+                                        setGameStarted(false)
+                                        setGameFinished(false)
+                                    }}
+                                    style={{
+                                        width: '55px',
+                                        height: '55px',
+                                        backgroundColor: 'white',
+                                        color: '#64748b',
+                                        border: '2px solid #64748b',
+                                        borderRadius: '12px',
+                                        fontSize: '24px',
+                                        cursor: 'pointer',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center'
+                                    }}
+                                >
+                                    ←
+                                </button>
+                                <button
+                                    onClick={() => router.push('/lire')}
+                                    style={{
+                                        width: '55px',
+                                        height: '55px',
+                                        backgroundColor: 'white',
+                                        color: '#10b981',
+                                        border: '2px solid #10b981',
+                                        borderRadius: '12px',
+                                        fontSize: '24px',
+                                        cursor: 'pointer',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center'
+                                    }}
+                                >
+                                    📖
+                                </button>
+                                <button
+                                    onClick={() => router.push('/dashboard')}
+                                    style={{
+                                        width: '55px',
+                                        height: '55px',
+                                        backgroundColor: 'white',
+                                        color: '#8b5cf6',
+                                        border: '2px solid #8b5cf6',
+                                        borderRadius: '12px',
+                                        fontSize: '24px',
+                                        cursor: 'pointer',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center'
+                                    }}
+                                >
+                                    🏠
+                                </button>
+                                <button
+                                    onClick={() => loadMotsTexte(selectedTexte)}
+                                    style={{
+                                        width: '55px',
+                                        height: '55px',
+                                        backgroundColor: 'white',
+                                        color: '#3b82f6',
+                                        border: '2px solid #3b82f6',
+                                        borderRadius: '12px',
+                                        fontSize: '24px',
+                                        cursor: 'pointer',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center'
+                                    }}
+                                >
+                                    🔄
+                                </button>
+                            </div>
+
+                            {/* Score final (sans %) */}
+                            <p style={{
+                                fontSize: '24px',
+                                textAlign: 'center',
+                                fontWeight: 'bold',
+                                marginBottom: '30px',
+                                color: '#333'
+                            }}>
+                                Score final : {score}/{attempts}
+                            </p>
+
+                            {/* Bouton "Voir le détail" UNIQUEMENT sur mobile */}
+                            {isMobile && (
                                 <div style={{
-                                    display: 'grid',
-                                    gap: '10px'
+                                    display: 'flex',
+                                    justifyContent: 'center',
+                                    marginBottom: '20px'
                                 }}>
-                                    {userChoices.map((choice, index) => (
-                                        <div key={index} style={{
-                                            display: 'flex',
-                                            justifyContent: 'space-between',
-                                            alignItems: 'center',
-                                            padding: '10px',
-                                            background: choice.isCorrect ? '#d1fae5' : '#fee2e2',
-                                            borderRadius: '4px'
-                                        }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                                <button
-                                                    onClick={() => speakText(choice.mot.clean)}
-                                                    style={{
-                                                        backgroundColor: '#3b82f6',
-                                                        color: 'white',
-                                                        padding: '4px 8px',
-                                                        border: 'none',
-                                                        borderRadius: '4px',
-                                                        fontSize: '12px',
-                                                        cursor: 'pointer'
-                                                    }}
-                                                >
-                                                    🔊
-                                                </button>
-                                                <div>
-                                                    <strong>{choice.mot.clean}</strong> 
-                                                    <span style={{ fontSize: '12px', color: '#666', marginLeft: '10px' }}>
-                                                        {choice.mot.syllables?.join('-')} ({choice.mot.estimatedSyllables} syllabe{choice.mot.estimatedSyllables > 1 ? 's' : ''})
-                                                    </span>
+                                    <button
+                                        onClick={() => setShowResults(!showResults)}
+                                        style={{
+                                            backgroundColor: '#3b82f6',
+                                            color: 'white',
+                                            padding: '10px 20px',
+                                            border: 'none',
+                                            borderRadius: '8px',
+                                            fontSize: '16px',
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        {showResults ? '📊 Masquer le détail' : '📊 Voir le détail'}
+                                    </button>
+                                </div>
+                            )}
+
+                            {/* Détail : toujours affiché sur PC, conditionnel sur mobile */}
+                            {(!isMobile || showResults) && (
+                                <div style={{
+                                    background: 'transparent',
+                                    padding: '0'
+                                }}>
+                                    <h3 style={{
+                                        marginBottom: '20px',
+                                        fontSize: '20px',
+                                        textAlign: isMobile ? 'left' : 'center'
+                                    }}>
+                                        📏 Détail des réponses
+                                    </h3>
+                                    <div style={{
+                                        display: 'grid',
+                                        gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr',
+                                        gap: isMobile ? '15px' : '10px'
+                                    }}>
+                                        {userChoices.map((choice, index) => (
+                                            <div key={index} style={{
+                                                display: 'flex',
+                                                justifyContent: 'space-between',
+                                                alignItems: 'center',
+                                                padding: isMobile ? '10px' : '8px',
+                                                background: choice.isCorrect ? '#d1fae5' : '#fee2e2',
+                                                borderRadius: '4px',
+                                                fontSize: isMobile ? '14px' : '24px'
+                                            }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '10px' : '6px' }}>
+                                                    <button
+                                                        onClick={() => speakText(choice.mot.clean)}
+                                                        style={{
+                                                            backgroundColor: '#3b82f6',
+                                                            color: 'white',
+                                                            padding: isMobile ? '4px 8px' : '3px 6px',
+                                                            border: 'none',
+                                                            borderRadius: '4px',
+                                                            fontSize: isMobile ? '12px' : '20px',
+                                                            cursor: 'pointer'
+                                                        }}
+                                                    >
+                                                        🔊
+                                                    </button>
+                                                    <div>
+                                                        <strong>{choice.mot.clean}</strong>
+                                                        {!isMobile && (
+                                                            <span style={{ fontSize: '20px', color: '#666', marginLeft: '6px' }}>
+                                                                {choice.mot.syllables?.join('-')} ({choice.mot.estimatedSyllables} syll.)
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '10px' : '6px' }}>
+                                                    {!isMobile && (
+                                                        <span style={{
+                                                            color: choice.isCorrect ? '#065f46' : '#991b1b',
+                                                            fontSize: '22px'
+                                                        }}>
+                                                            {choice.isCorrect ? '✅' : '❌'}
+                                                        </span>
+                                                    )}
+                                                    {isMobile && (
+                                                        <span style={{
+                                                            color: '#333',
+                                                            fontSize: '12px'
+                                                        }}>
+                                                            Vous: {choice.userChoice ? 'Mono' : 'Multi'} {!choice.isCorrect && '❌'} / ✅: {choice.mot.isMonosyllabe ? 'Mono' : 'Multi'}
+                                                        </span>
+                                                    )}
+                                                    <button
+                                                        onClick={() => demanderCorrection(choice.mot, choice.isCorrect)}
+                                                        style={{
+                                                            backgroundColor: '#f59e0b',
+                                                            color: 'white',
+                                                            padding: isMobile ? '4px 8px' : '6px 12px',
+                                                            border: 'none',
+                                                            borderRadius: '4px',
+                                                            fontSize: isMobile ? '11px' : '18px',
+                                                            cursor: 'pointer',
+                                                            whiteSpace: 'nowrap'
+                                                        }}
+                                                    >
+                                                        {isMobile ? '🤔' : '🤔 Pas d\'accord'}
+                                                    </button>
                                                 </div>
                                             </div>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                                <span style={{ 
-                                                    color: choice.isCorrect ? '#065f46' : '#991b1b',
-                                                    fontSize: '14px'
-                                                }}>
-                                                    {choice.isCorrect ? '✅' : '❌'} 
-                                                    Vous: {choice.userChoice ? 'Mono' : 'Multi'} | 
-                                                    Correct: {choice.mot.isMonosyllabe ? 'Mono' : 'Multi'}
-                                                </span>
-                                                <button
-                                                    onClick={() => demanderCorrection(choice.mot, choice.isCorrect)}
-                                                    style={{
-                                                        backgroundColor: '#f59e0b',
-                                                        color: 'white',
-                                                        padding: '4px 8px',
-                                                        border: 'none',
-                                                        borderRadius: '4px',
-                                                        fontSize: '11px',
-                                                        cursor: 'pointer',
-                                                        whiteSpace: 'nowrap'
-                                                    }}
-                                                >
-                                                    🤔 Pas d'accord
-                                                </button>
-                                            </div>
-                                        </div>
-                                    ))}
+                                        ))}
+                                    </div>
                                 </div>
-                            </div>
-                        )}
+                            )}
+
+                            {/* Confettis de célébration (score parfait) */}
+                            {showConfetti && (
+                                <>
+                                    <style dangerouslySetInnerHTML={{
+                                        __html: `
+                                            @keyframes confetti-fall {
+                                                0% {
+                                                    transform: translateY(0) rotate(0deg);
+                                                    opacity: 1;
+                                                }
+                                                100% {
+                                                    transform: translateY(100vh) rotate(720deg);
+                                                    opacity: 0;
+                                                }
+                                            }
+                                        `
+                                    }} />
+                                    <div style={{
+                                        position: 'fixed',
+                                        top: 0,
+                                        left: 0,
+                                        width: '100%',
+                                        height: '100%',
+                                        pointerEvents: 'none',
+                                        zIndex: 9999,
+                                        overflow: 'hidden'
+                                    }}>
+                                        {[...Array(50)].map((_, i) => {
+                                            const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8', '#F7DC6F']
+                                            const duration = 3 + Math.random() * 2
+                                            const delay = Math.random() * 0.5
+                                            return (
+                                                <div
+                                                    key={i}
+                                                    style={{
+                                                        position: 'absolute',
+                                                        top: '-20px',
+                                                        left: `${Math.random() * 100}%`,
+                                                        width: '15px',
+                                                        height: '15px',
+                                                        backgroundColor: colors[Math.floor(Math.random() * 6)],
+                                                        opacity: 1,
+                                                        borderRadius: '50%',
+                                                        animation: `confetti-fall ${duration}s linear forwards`,
+                                                        animationDelay: `${delay}s`,
+                                                        zIndex: 10000
+                                                    }}
+                                                />
+                                            )
+                                        })}
+                                    </div>
+                                </>
+                            )}
+                        </div>
                     </>
                 ) : (
                     <>
@@ -1303,7 +1452,42 @@ export default function MonosyllabesMultisyllabes() {
                             >
                                 🔊
                             </button>
+
+                            {/* Bouton Suivant (icône, uniquement si réponse incorrecte) */}
+                            {feedback && !feedback.includes('✅') && (
+                                <button
+                                    onClick={() => goToNextWord()}
+                                    style={{
+                                        width: '55px',
+                                        height: '55px',
+                                        backgroundColor: 'white',
+                                        color: '#10b981',
+                                        border: '2px solid #10b981',
+                                        borderRadius: '12px',
+                                        fontSize: '24px',
+                                        cursor: 'pointer',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center'
+                                    }}
+                                >
+                                    →
+                                </button>
+                            )}
                         </div>
+
+                        {/* Instructions (PC uniquement) */}
+                        {!isMobile && (
+                            <div style={{
+                                textAlign: 'center',
+                                fontSize: '16px',
+                                color: '#666',
+                                marginBottom: '20px',
+                                marginTop: '15px'
+                            }}>
+                                Pour chaque mot, décidez s'il s'agit d'un mot avec une syllabe 🟢 ou d'un mot avec plusieurs syllabes 🔴
+                            </div>
+                        )}
 
                         {/* Mot actuel (sans cadre gris) */}
                         <div style={{
@@ -1328,7 +1512,7 @@ export default function MonosyllabesMultisyllabes() {
                                 fontSize: '20px',
                                 fontWeight: 'bold',
                                 marginBottom: '20px',
-                                color: feedback.includes('✅') ? '#10b981' : '#ef4444'
+                                color: feedback.includes('✅') ? '#10b981' : '#f59e0b'
                             }}>
                                 {feedback}
                             </div>
