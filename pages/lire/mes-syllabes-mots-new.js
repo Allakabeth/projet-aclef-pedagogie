@@ -2,8 +2,10 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
 import dynamic from 'next/dynamic'
 
-// Importer le composant sans SSR
+// Importer les composants sans SSR
 const ExerciceClassement = dynamic(() => import('../../components/exercices-syllabes-mots/ExerciceClassement'), { ssr: false })
+const ExerciceOuEst = dynamic(() => import('../../components/exercices-syllabes-mots/ExerciceOuEst'), { ssr: false })
+const ExerciceQuestCe = dynamic(() => import('../../components/exercices-syllabes-mots/ExerciceQuestCe'), { ssr: false })
 
 // Styles personnalisés
 const customStyles = `
@@ -137,6 +139,22 @@ export default function MesSyllabesMotsNew() {
         setActiveExercice(null)
     }
 
+    const startOuEst = () => {
+        if (selectedTextes.size === 0) {
+            alert('Sélectionnez au moins un texte avant de commencer')
+            return
+        }
+        setActiveExercice('ou-est')
+    }
+
+    const startQuestCe = () => {
+        if (selectedTextes.size === 0) {
+            alert('Sélectionnez au moins un texte avant de commencer')
+            return
+        }
+        setActiveExercice('quest-ce')
+    }
+
     if (isLoading) {
         return null
     }
@@ -144,6 +162,22 @@ export default function MesSyllabesMotsNew() {
     // Si l'exercice Classement est actif, afficher le composant
     if (activeExercice === 'classement') {
         return <ExerciceClassement
+            selectedTextes={Array.from(selectedTextes)}
+            retourSelection={retourSelection}
+        />
+    }
+
+    // Si l'exercice Où est est actif, afficher le composant
+    if (activeExercice === 'ou-est') {
+        return <ExerciceOuEst
+            selectedTextes={Array.from(selectedTextes)}
+            retourSelection={retourSelection}
+        />
+    }
+
+    // Si l'exercice Qu'est-ce est actif, afficher le composant
+    if (activeExercice === 'quest-ce') {
+        return <ExerciceQuestCe
             selectedTextes={Array.from(selectedTextes)}
             retourSelection={retourSelection}
         />
@@ -431,6 +465,7 @@ export default function MesSyllabesMotsNew() {
                                 </p>
 
                                 <button
+                                    onClick={startOuEst}
                                     disabled={selectedTextes.size === 0}
                                     style={{
                                         backgroundColor: selectedTextes.size > 0 ? '#10b981' : '#ccc',
@@ -480,6 +515,7 @@ export default function MesSyllabesMotsNew() {
                                 </p>
 
                                 <button
+                                    onClick={startQuestCe}
                                     disabled={selectedTextes.size === 0}
                                     style={{
                                         backgroundColor: selectedTextes.size > 0 ? '#3b82f6' : '#ccc',
