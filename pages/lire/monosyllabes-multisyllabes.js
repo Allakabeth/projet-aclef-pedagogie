@@ -36,6 +36,8 @@ export default function MonosyllabesMultisyllabes() {
     const [numbersChoices, setNumbersChoices] = useState({})
     const [pendingWords, setPendingWords] = useState([])
     const [correctionsMonoMulti, setCorrectionsMonoMulti] = useState({})
+    const [enregistrementsMap, setEnregistrementsMap] = useState({}) // Enregistrements personnels indexés par mot
+    const [isAudioPlaying, setIsAudioPlaying] = useState(false) // Bloquer boutons pendant lecture audio
     const router = useRouter()
     const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768
 
@@ -52,6 +54,7 @@ export default function MonosyllabesMultisyllabes() {
         try {
             setUser(JSON.parse(userData))
             loadTextes()
+            loadEnregistrements() // Charger les enregistrements vocaux
         } catch (error) {
             console.error('Erreur parsing user data:', error)
             router.push('/login')
@@ -139,6 +142,59 @@ export default function MonosyllabesMultisyllabes() {
             console.error('Erreur chargement textes:', error)
         } finally {
             setIsLoadingTexte(false)
+        }
+    }
+
+    const loadEnregistrements = async () => {
+        try {
+            const token = localStorage.getItem('token')
+            const response = await fetch('/api/enregistrements-mots/list', {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            })
+
+            if (response.ok) {
+                const data = await response.json()
+                console.log(`🎤 ${data.count} enregistrement(s) vocal(aux) chargé(s)`)
+                console.log('📋 Enregistrements chargés:', Object.keys(data.enregistrementsMap || {}))
+                setEnregistrementsMap(data.enregistrementsMap || {})
+            } else {
+                console.error('Erreur chargement enregistrements vocaux')
+            }
+        } catch (error) {
+            console.error('Erreur chargement enregistrements vocaux:', error)
+        }
+    }
+
+    const playEnregistrement = async (enregistrement) => {
+        if (!enregistrement || !enregistrement.audio_url) {
+            console.warn('⚠️ Enregistrement invalide')
+            return false
+        }
+
+        try {
+            console.log('🎵 Lecture enregistrement personnel:', enregistrement.mot)
+            setIsAudioPlaying(true)
+            const audio = new Audio(enregistrement.audio_url)
+
+            audio.onended = () => {
+                console.log('✅ Enregistrement personnel terminé')
+                setIsAudioPlaying(false)
+            }
+
+            audio.onerror = (error) => {
+                console.error('❌ Erreur lecture enregistrement:', error)
+                setIsAudioPlaying(false)
+            }
+
+            await audio.play()
+            console.log('✅ Enregistrement personnel lu avec succès')
+            return true
+        } catch (error) {
+            console.error('❌ Erreur playEnregistrement:', error)
+            setIsAudioPlaying(false)
+            return false
         }
     }
 
@@ -513,12 +569,32 @@ export default function MonosyllabesMultisyllabes() {
         }
     }
 
-    // Fonction TTS intelligente avec priorité : ElevenLabs > Web Speech
+    // Fonction TTS intelligente avec priorité : Enregistrement utilisateur > ElevenLabs > Web Speech
     const speakText = async (text) => {
         if (!text.trim()) return
 
         // ====================================================================
-        // PRIORITÉ 1 : ELEVENLABS (si voix sélectionnée)
+        // PRIORITÉ 1 : ENREGISTREMENT PERSONNEL (si existe)
+        // ====================================================================
+
+        // Normaliser le mot pour chercher dans enregistrementsMap
+        const motNormalise = text
+            .toLowerCase()
+            .trim()
+            .replace(/^[.,;:!?¡¿'"«»\-—]+/, '')  // Ponctuation au début
+            .replace(/[.,;:!?¡¿'"«»\-—]+$/, '')  // Ponctuation à la fin
+
+        console.log(`🔍 Recherche enregistrement pour "${motNormalise}"`)
+
+        if (enregistrementsMap[motNormalise]) {
+            console.log(`✅ Enregistrement personnalisé trouvé pour "${motNormalise}"`)
+            const success = await playEnregistrement(enregistrementsMap[motNormalise])
+            if (success) return // Succès, on s'arrête là
+            console.log('⚠️ Échec enregistrement personnel, fallback ElevenLabs')
+        }
+
+        // ====================================================================
+        // PRIORITÉ 2 : ELEVENLABS (si tokens disponibles)
         // ====================================================================
 
         const selectedVoiceObj = availableVoices.find(v => v.name === selectedVoice)
@@ -537,10 +613,14 @@ export default function MonosyllabesMultisyllabes() {
         const cachedAudio = localStorage.getItem(cacheKey)
         if (cachedAudio) {
             try {
+                setIsAudioPlaying(true)
                 const audio = new Audio(cachedAudio)
+                audio.onended = () => setIsAudioPlaying(false)
+                audio.onerror = () => setIsAudioPlaying(false)
                 audio.play()
                 return
             } catch (error) {
+                setIsAudioPlaying(false)
                 localStorage.removeItem(cacheKey)
             }
         }
@@ -574,7 +654,10 @@ export default function MonosyllabesMultisyllabes() {
                     })
                 }
 
+                setIsAudioPlaying(true)
                 const audio = new Audio(data.audio)
+                audio.onended = () => setIsAudioPlaying(false)
+                audio.onerror = () => setIsAudioPlaying(false)
                 audio.play()
                 return
             }
@@ -583,14 +666,18 @@ export default function MonosyllabesMultisyllabes() {
         }
 
         // ====================================================================
-        // PRIORITÉ 3 : WEB SPEECH API (fallback)
+        // PRIORITÉ 3 : WEB SPEECH API (fallback, pas Hortense)
         // ====================================================================
 
         if ('speechSynthesis' in window) {
+            setIsAudioPlaying(true)
             const utterance = new SpeechSynthesisUtterance(text)
             utterance.lang = 'fr-FR'
             utterance.rate = 0.8
             utterance.pitch = 0.6 // Plus grave pour ressembler aux voix masculines
+
+            utterance.onend = () => setIsAudioPlaying(false)
+            utterance.onerror = () => setIsAudioPlaying(false)
 
             // Chercher une voix masculine française (JAMAIS Hortense)
             const voices = window.speechSynthesis.getVoices()
@@ -624,7 +711,7 @@ export default function MonosyllabesMultisyllabes() {
         setGameFinished(false)
         setUserChoices([])
         setShowResults(false)
-        setShowRecorder(false)
+        setIsAudioPlaying(false)
     }
 
     if (isLoading) {
@@ -654,111 +741,6 @@ export default function MonosyllabesMultisyllabes() {
                 maxWidth: '800px',
                 margin: '0 auto'
             }}>
-                {/* Titre */}
-                <h1 style={{
-                    fontSize: 'clamp(22px, 5vw, 28px)',
-                    fontWeight: 'bold',
-                    marginBottom: '10px',
-                    textAlign: 'center'
-                }}>
-                    <span style={{ marginRight: '8px' }}>🔤</span>
-                    <span style={{
-                        background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                        WebkitBackgroundClip: 'text',
-                        WebkitTextFillColor: 'transparent'
-                    }}>
-                        Trouver mes syllabes-mot
-                    </span>
-                </h1>
-
-                {/* Navigation icônes */}
-                <div style={{
-                    display: 'flex',
-                    justifyContent: 'center',
-                    gap: '12px',
-                    marginBottom: '20px'
-                }}>
-                    {gameStarted && (
-                        <button
-                            onClick={() => {
-                                setGameStarted(false)
-                                setGameFinished(false)
-                            }}
-                            style={{
-                                width: '55px',
-                                height: '55px',
-                                backgroundColor: 'white',
-                                color: '#64748b',
-                                border: '2px solid #64748b',
-                                borderRadius: '12px',
-                                fontSize: '24px',
-                                cursor: 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center'
-                            }}
-                        >
-                            ←
-                        </button>
-                    )}
-                    <button
-                        onClick={() => router.push('/lire')}
-                        style={{
-                            width: '55px',
-                            height: '55px',
-                            backgroundColor: 'white',
-                            color: '#10b981',
-                            border: '2px solid #10b981',
-                            borderRadius: '12px',
-                            fontSize: '24px',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center'
-                        }}
-                    >
-                        📖
-                    </button>
-                    <button
-                        onClick={() => router.push('/dashboard')}
-                        style={{
-                            width: '55px',
-                            height: '55px',
-                            backgroundColor: 'white',
-                            color: '#8b5cf6',
-                            border: '2px solid #8b5cf6',
-                            borderRadius: '12px',
-                            fontSize: '24px',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center'
-                        }}
-                    >
-                        🏠
-                    </button>
-                    {gameFinished && (
-                        <button
-                            onClick={resetGame}
-                            style={{
-                                width: '55px',
-                                height: '55px',
-                                backgroundColor: 'white',
-                                color: '#10b981',
-                                border: '2px solid #10b981',
-                                borderRadius: '12px',
-                                fontSize: '24px',
-                                cursor: 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center'
-                            }}
-                        >
-                            🔄
-                        </button>
-                    )}
-                </div>
-
                 {/* Modale de gestion des nombres */}
                 {showNumbersModal && (
                     <div style={{
@@ -1214,144 +1196,199 @@ export default function MonosyllabesMultisyllabes() {
                     </>
                 ) : (
                     <>
-                        {/* Zone de jeu */}
-                        <div style={{
-                            background: '#f8f9fa',
-                            padding: '20px',
-                            borderRadius: '8px',
-                            marginBottom: '20px'
+                        {/* Ligne 1 : Titre */}
+                        <h2 style={{
+                            fontSize: 'clamp(20px, 4.5vw, 26px)',
+                            fontWeight: 'bold',
+                            marginBottom: '15px',
+                            textAlign: 'center',
+                            color: '#10b981'
                         }}>
-                            {/* Progression */}
-                            <div style={{
-                                display: 'flex',
-                                justifyContent: 'space-between',
-                                alignItems: 'center',
-                                marginBottom: '30px'
-                            }}>
-                                <div style={{ fontSize: '16px', color: '#666' }}>
-                                    📊 Score: {score}/{attempts}
-                                </div>
-                                <div style={{ fontSize: '16px', color: '#666' }}>
-                                    📏 Mot {currentMotIndex + 1}/{allMots.length}
-                                </div>
-                            </div>
+                            🔤 Trouver mes syllabes-mot
+                        </h2>
 
-                            {/* Mot actuel */}
-                            <div style={{
-                                textAlign: 'center',
-                                marginBottom: '30px'
-                            }}>
-                                <div style={{
-                                    fontSize: '48px',
-                                    fontWeight: 'bold',
-                                    color: '#10b981',
-                                    padding: '30px',
-                                    background: 'white',
+                        {/* Ligne 2 : Score (gauche) + Progression (droite) */}
+                        <div style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            marginBottom: '15px',
+                            fontSize: '16px',
+                            color: '#666'
+                        }}>
+                            <div>📊 Score: {score}/{attempts}</div>
+                            <div>📏 Mot {currentMotIndex + 1}/{allMots.length}</div>
+                        </div>
+
+                        {/* Ligne 3 : Icônes de navigation + Écouter */}
+                        <div style={{
+                            display: 'flex',
+                            justifyContent: 'center',
+                            alignItems: 'center',
+                            gap: '12px',
+                            marginBottom: '25px'
+                        }}>
+                            <button
+                                onClick={() => {
+                                    setGameStarted(false)
+                                    setGameFinished(false)
+                                }}
+                                style={{
+                                    width: '55px',
+                                    height: '55px',
+                                    backgroundColor: 'white',
+                                    color: '#64748b',
+                                    border: '2px solid #64748b',
                                     borderRadius: '12px',
-                                    boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
-                                    marginBottom: '20px'
-                                }}>
-                                    {currentMot?.clean}
-                                </div>
-                                
-                                {/* Bouton écouter */}
-                                <button
-                                    onClick={() => speakText(currentMot?.clean)}
-                                    style={{
-                                        backgroundColor: '#3b82f6',
-                                        color: 'white',
-                                        padding: '10px 20px',
-                                        border: 'none',
-                                        borderRadius: '8px',
-                                        fontSize: '16px',
-                                        cursor: 'pointer',
-                                        marginBottom: '15px',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '8px',
-                                        margin: '0 auto 15px auto'
-                                    }}
-                                >
-                                    🔊 Écouter le mot
-                                </button>
+                                    fontSize: '24px',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center'
+                                }}
+                            >
+                                ←
+                            </button>
+                            <button
+                                onClick={() => router.push('/lire')}
+                                style={{
+                                    width: '55px',
+                                    height: '55px',
+                                    backgroundColor: 'white',
+                                    color: '#10b981',
+                                    border: '2px solid #10b981',
+                                    borderRadius: '12px',
+                                    fontSize: '24px',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center'
+                                }}
+                            >
+                                📖
+                            </button>
+                            <button
+                                onClick={() => router.push('/dashboard')}
+                                style={{
+                                    width: '55px',
+                                    height: '55px',
+                                    backgroundColor: 'white',
+                                    color: '#8b5cf6',
+                                    border: '2px solid #8b5cf6',
+                                    borderRadius: '12px',
+                                    fontSize: '24px',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center'
+                                }}
+                            >
+                                🏠
+                            </button>
+                            <button
+                                onClick={() => speakText(currentMot?.clean)}
+                                style={{
+                                    width: '55px',
+                                    height: '55px',
+                                    backgroundColor: 'white',
+                                    color: '#3b82f6',
+                                    border: '2px solid #3b82f6',
+                                    borderRadius: '12px',
+                                    fontSize: '24px',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center'
+                                }}
+                            >
+                                🔊
+                            </button>
+                        </div>
 
-                            </div>
-
-                            {/* Feedback */}
-                            {feedback && (
-                                <div style={{
-                                    textAlign: 'center',
-                                    fontSize: '20px',
-                                    fontWeight: 'bold',
-                                    marginBottom: '20px',
-                                    color: feedback.includes('✅') ? '#10b981' : '#ef4444'
-                                }}>
-                                    {feedback}
-                                </div>
-                            )}
-
-                            {/* Boutons de choix */}
+                        {/* Mot actuel (sans cadre gris) */}
+                        <div style={{
+                            textAlign: 'center',
+                            marginBottom: '30px'
+                        }}>
                             <div style={{
-                                display: 'flex',
-                                gap: '20px',
-                                justifyContent: 'center',
-                                flexWrap: 'wrap'
+                                fontSize: '48px',
+                                fontWeight: 'bold',
+                                color: '#333',
+                                padding: '30px',
+                                marginBottom: '20px'
                             }}>
-                                <button
-                                    onClick={() => handleChoice(true)}
-                                    disabled={!!feedback}
-                                    style={{
-                                        backgroundColor: '#10b981',
-                                        color: 'white',
-                                        padding: '20px 40px',
-                                        border: 'none',
-                                        borderRadius: '12px',
-                                        fontSize: '18px',
-                                        fontWeight: 'bold',
-                                        cursor: feedback ? 'not-allowed' : 'pointer',
-                                        opacity: feedback ? 0.5 : 1,
-                                        minWidth: '200px'
-                                    }}
-                                >
-                                    🟢 1 son
-                                </button>
-
-                                <button
-                                    onClick={() => handleChoice(false)}
-                                    disabled={!!feedback}
-                                    style={{
-                                        backgroundColor: '#ef4444',
-                                        color: 'white',
-                                        padding: '20px 40px',
-                                        border: 'none',
-                                        borderRadius: '12px',
-                                        fontSize: '18px',
-                                        fontWeight: 'bold',
-                                        cursor: feedback ? 'not-allowed' : 'pointer',
-                                        opacity: feedback ? 0.5 : 1,
-                                        minWidth: '200px'
-                                    }}
-                                >
-                                    🔴 Plusieurs sons
-                                </button>
+                                {currentMot?.clean}
                             </div>
                         </div>
 
-                        {/* Bouton arrêter */}
-                        <div style={{ textAlign: 'center' }}>
+                        {/* Feedback */}
+                        {feedback && (
+                            <div style={{
+                                textAlign: 'center',
+                                fontSize: '20px',
+                                fontWeight: 'bold',
+                                marginBottom: '20px',
+                                color: feedback.includes('✅') ? '#10b981' : '#ef4444'
+                            }}>
+                                {feedback}
+                            </div>
+                        )}
+
+                        {/* Boutons de choix */}
+                        <div style={{
+                            display: 'flex',
+                            gap: '20px',
+                            justifyContent: 'center',
+                            flexWrap: 'wrap'
+                        }}>
                             <button
-                                onClick={resetGame}
+                                onClick={() => handleChoice(true)}
+                                disabled={!!feedback || isAudioPlaying}
                                 style={{
-                                    backgroundColor: '#6b7280',
-                                    color: 'white',
-                                    padding: '10px 20px',
-                                    border: 'none',
-                                    borderRadius: '8px',
-                                    fontSize: '14px',
-                                    cursor: 'pointer'
+                                    backgroundColor: 'white',
+                                    color: '#10b981',
+                                    padding: '20px 40px',
+                                    border: '3px solid #10b981',
+                                    borderRadius: '12px',
+                                    fontSize: '18px',
+                                    fontWeight: 'normal',
+                                    cursor: (feedback || isAudioPlaying) ? 'not-allowed' : 'pointer',
+                                    opacity: (feedback || isAudioPlaying) ? 0.5 : 1,
+                                    minWidth: '200px',
+                                    minHeight: isMobile ? '80px' : 'auto',
+                                    flex: '1',
+                                    maxWidth: '250px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center'
                                 }}
                             >
-                                ⏹️ Arrêter l'exercice
+                                🟢 Une syllabe
+                            </button>
+
+                            <button
+                                onClick={() => handleChoice(false)}
+                                disabled={!!feedback || isAudioPlaying}
+                                style={{
+                                    backgroundColor: 'white',
+                                    color: '#3b82f6',
+                                    padding: '20px 40px',
+                                    border: '3px solid #3b82f6',
+                                    borderRadius: '12px',
+                                    fontSize: '18px',
+                                    fontWeight: 'normal',
+                                    cursor: (feedback || isAudioPlaying) ? 'not-allowed' : 'pointer',
+                                    opacity: (feedback || isAudioPlaying) ? 0.5 : 1,
+                                    minWidth: '200px',
+                                    minHeight: isMobile ? '80px' : 'auto',
+                                    flex: '1',
+                                    maxWidth: '250px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center'
+                                }}
+                            >
+                                🔴 Plusieurs syllabes
                             </button>
                         </div>
                     </>
