@@ -1930,9 +1930,6 @@ export default function ReconnaitreLesMotsPage() {
                     {isMobile ? (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', width: '100%' }}>
                             <h1 style={{ ...styles.title, fontSize: '20px', margin: 0 }}>🎤 Karaoké</h1>
-                            <p style={{ ...styles.subtitle, margin: 0, fontSize: '14px' }}>
-                                Groupe {indexGroupe + 1} / {groupesSens.length}
-                            </p>
                             <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
                                 <button
                                     onClick={() => setExerciceActif(null)}
@@ -2015,15 +2012,116 @@ export default function ReconnaitreLesMotsPage() {
                                     🔊
                                 </button>
                             </div>
+                            <p style={{ ...styles.subtitle, margin: 0, fontSize: '14px' }}>
+                                Groupe {indexGroupe + 1} / {groupesSens.length}
+                            </p>
                         </div>
                     ) : (
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
-                            <div style={{ flex: 1 }}>
-                                <h1 style={styles.title}>🎤 Karaoké</h1>
-                                <p style={styles.subtitle}>
-                                    Groupe {indexGroupe + 1} / {groupesSens.length}
-                                </p>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', width: '100%' }}>
+                            <h1 style={{ ...styles.title, margin: 0 }}>🎤 Karaoké</h1>
+                            <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                                <button
+                                    onClick={() => setExerciceActif(null)}
+                                    style={{
+                                        padding: '8px 12px',
+                                        backgroundColor: 'white',
+                                        border: '2px solid #6b7280',
+                                        borderRadius: '8px',
+                                        cursor: 'pointer',
+                                        fontSize: '20px',
+                                        display: 'flex',
+                                        alignItems: 'center'
+                                    }}
+                                    title="Menu exercices"
+                                >
+                                    ←
+                                </button>
+                                <button
+                                    onClick={() => setEtape('selection')}
+                                    style={{
+                                        padding: '8px 12px',
+                                        backgroundColor: 'white',
+                                        border: '2px solid #3b82f6',
+                                        borderRadius: '8px',
+                                        cursor: 'pointer',
+                                        fontSize: '20px',
+                                        display: 'flex',
+                                        alignItems: 'center'
+                                    }}
+                                    title="Sélection des textes"
+                                >
+                                    👁️
+                                </button>
+                                <button
+                                    onClick={() => router.push('/lire')}
+                                    style={{
+                                        padding: '8px 12px',
+                                        backgroundColor: 'white',
+                                        border: '2px solid #10b981',
+                                        borderRadius: '8px',
+                                        cursor: 'pointer',
+                                        fontSize: '20px',
+                                        display: 'flex',
+                                        alignItems: 'center'
+                                    }}
+                                    title="Menu Lire"
+                                >
+                                    📖
+                                </button>
+                                <button
+                                    onClick={() => router.push('/dashboard')}
+                                    style={{
+                                        padding: '8px 12px',
+                                        backgroundColor: 'white',
+                                        border: '2px solid #f59e0b',
+                                        borderRadius: '8px',
+                                        cursor: 'pointer',
+                                        fontSize: '20px',
+                                        display: 'flex',
+                                        alignItems: 'center'
+                                    }}
+                                    title="Accueil"
+                                >
+                                    🏠
+                                </button>
+                                <button
+                                    onClick={lireGroupeDeSens}
+                                    style={{
+                                        padding: '8px 12px',
+                                        backgroundColor: 'white',
+                                        border: '2px solid #8b5cf6',
+                                        borderRadius: '8px',
+                                        cursor: 'pointer',
+                                        fontSize: '20px',
+                                        display: 'flex',
+                                        alignItems: 'center'
+                                    }}
+                                    title="Écouter le groupe de sens"
+                                >
+                                    🔊
+                                </button>
+                                <button
+                                    onClick={groupeSuivantKaraoke}
+                                    disabled={indexGroupe >= groupesSens.length - 1}
+                                    style={{
+                                        padding: '8px 12px',
+                                        backgroundColor: 'white',
+                                        border: '2px solid #6b7280',
+                                        borderRadius: '8px',
+                                        cursor: indexGroupe >= groupesSens.length - 1 ? 'not-allowed' : 'pointer',
+                                        fontSize: '20px',
+                                        opacity: indexGroupe >= groupesSens.length - 1 ? 0.5 : 1,
+                                        display: 'flex',
+                                        alignItems: 'center'
+                                    }}
+                                    title="Groupe suivant"
+                                >
+                                    →
+                                </button>
                             </div>
+                            <p style={{ ...styles.subtitle, margin: 0, textAlign: 'center' }}>
+                                Groupe {indexGroupe + 1} / {groupesSens.length}
+                            </p>
                         </div>
                     )}
                 </div>
@@ -2085,65 +2183,19 @@ export default function ReconnaitreLesMotsPage() {
                     )}
                 </div>
 
-                <div style={{ ...styles.actions, justifyContent: 'space-between', flexWrap: 'nowrap' }}>
-                    <button onClick={jouerKaraoke} style={styles.primaryButton}>
-                        ▶️ Jouer
-                    </button>
-                    <button onClick={groupeSuivantKaraoke} style={styles.secondaryButton}>
-                        Groupe suivant →
-                    </button>
-                </div>
-
-                {/* Icônes de navigation */}
-                {!isMobile && (
-                    <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', marginTop: '16px' }}>
-                        <button
-                            onClick={() => router.push('/dashboard')}
-                            style={{
-                                padding: '8px 12px',
-                                backgroundColor: 'white',
-                                border: '2px solid #f59e0b',
-                                borderRadius: '8px',
-                                cursor: 'pointer',
-                                fontSize: '20px',
-                                display: 'flex',
-                                alignItems: 'center'
-                            }}
-                            title="Tableau de bord"
-                        >
-                            🏠
+                {isMobile ? (
+                    <div style={{ ...styles.actions, justifyContent: 'space-between', flexWrap: 'nowrap' }}>
+                        <button onClick={jouerKaraoke} style={styles.primaryButton}>
+                            ▶️ Jouer
                         </button>
-                        <button
-                            onClick={() => router.push('/lire')}
-                            style={{
-                                padding: '8px 12px',
-                                backgroundColor: 'white',
-                                border: '2px solid #10b981',
-                                borderRadius: '8px',
-                                cursor: 'pointer',
-                                fontSize: '20px',
-                                display: 'flex',
-                                alignItems: 'center'
-                            }}
-                            title="Menu Lire"
-                        >
-                            📖
+                        <button onClick={groupeSuivantKaraoke} style={styles.secondaryButton}>
+                            Groupe suivant →
                         </button>
-                        <button
-                            onClick={() => router.push('/lire/ma-voix-mes-mots')}
-                            style={{
-                                padding: '8px 12px',
-                                backgroundColor: 'white',
-                                border: '2px solid #3b82f6',
-                                borderRadius: '8px',
-                                cursor: 'pointer',
-                                fontSize: '20px',
-                                display: 'flex',
-                                alignItems: 'center'
-                            }}
-                            title="Ma voix, mes mots"
-                        >
-                            👁️
+                    </div>
+                ) : (
+                    <div style={{ ...styles.actions, justifyContent: 'center' }}>
+                        <button onClick={jouerKaraoke} style={styles.primaryButton}>
+                            ▶️ Jouer
                         </button>
                     </div>
                 )}
