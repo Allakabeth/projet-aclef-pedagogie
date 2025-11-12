@@ -581,66 +581,7 @@ export default function MaVoixMesMotsPage() {
         )
     }
 
-    // ÉTAPE 1 : Sélection du texte
-    if (etape === 'selection') {
-        return (
-            <div style={styles.container}>
-                <div style={styles.header}>
-                    <h1 style={styles.title}>🎤 Ma voix, mes mots</h1>
-                    <p style={styles.subtitle}>
-                        Enregistre ta voix pour chaque mot de ton texte
-                    </p>
-                </div>
-
-                {error && (
-                    <div style={styles.errorBox}>{error}</div>
-                )}
-
-                {textes.length === 0 ? (
-                    <div style={styles.emptyBox}>
-                        <p>Tu n'as pas encore créé de textes.</p>
-                        <button
-                            onClick={() => router.push('/lire/mes-textes-references')}
-                            style={styles.primaryButton}
-                        >
-                            Créer mon premier texte
-                        </button>
-                    </div>
-                ) : (
-                    <>
-                        <div style={styles.section}>
-                            <h2 style={styles.sectionTitle}>📚 Choisis ton texte</h2>
-                            <div style={styles.textesGrid}>
-                                {textes.map(texte => (
-                                    <div
-                                        key={texte.id}
-                                        style={styles.texteCard}
-                                        onClick={() => demarrerExercice(texte.id)}
-                                    >
-                                        <div style={styles.texteCardTitle}>{texte.titre}</div>
-                                        <div style={styles.texteCardInfo}>
-                                            {texte.nombre_groupes} groupes de sens
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-
-                        <div style={styles.actions}>
-                            <button
-                                onClick={() => router.push('/lire/reconnaitre-les-mots')}
-                                style={styles.secondaryButton}
-                            >
-                                ← Retour au menu
-                            </button>
-                        </div>
-                    </>
-                )}
-            </div>
-        )
-    }
-
-    // ÉTAPE 2 : Exercice d'enregistrement
+    // Exercice d'enregistrement
     if (etape === 'exercice' && groupeActuel) {
         const motsUniques = getMotsUniquesDuGroupe()
         const pourcentage = statsProgression.total > 0
