@@ -826,7 +826,7 @@ export default function OuEstCe() {
                     {gameStarted && (
                         <button
                             onClick={() => {
-                                setSelectedTexte(null)
+                                setSelectedTextes([])
                                 setGameStarted(false)
                                 setGameFinished(false)
                             }}
