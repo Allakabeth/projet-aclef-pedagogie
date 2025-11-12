@@ -33,9 +33,11 @@ export default async function handler(req, res) {
         console.log(`Récupération monosyllabes validés pour texte ${texteId}`)
 
         // 1. D'ABORD : Récupérer les monosyllabes VALIDÉS PAR ADMIN (priorité absolue)
+        // FILTRÉ PAR TEXTE : On ne prend que les mots centralisés qui sont dans CE texte
         const { data: monosyllabesValides, error: validesError } = await supabase
             .from('mots_classifies')
             .select('mot')
+            .eq('texte_reference_id', texteId)
             .eq('classification', 'mono')
             .eq('valide_par_admin', true)
 
@@ -61,57 +63,8 @@ export default async function handler(req, res) {
         console.log(`${motsTexte.length} monosyllabes du texte trouvés`)
 
         // FUSIONNER : Corrections centralisées + mots du texte (centralisées en priorité)
+        // ❌ AUCUN FALLBACK - L'admin a tranché sur la classification mono/multi
         let monosyllabes = [...monosyllabesCentralises, ...motsTexte]
-        
-        if (monosyllabes.length < 10) {
-            console.log('Peu de mots validés, récupération des mots non validés...')
-            
-            // Récupérer les mots classifiés comme mono mais pas encore validés
-            const { data: motsNonValidesData, error: nonValidesError } = await supabase
-                .from('mots_classifies')
-                .select('mot')
-                .eq('texte_reference_id', texteId)
-                .eq('classification', 'mono')
-                .eq('valide_par_admin', false)
-
-            if (nonValidesError) {
-                console.error('Erreur récupération mots non validés:', nonValidesError)
-            } else {
-                const motsNonValides = motsNonValidesData?.map(row => row.mot) || []
-                console.log(`${motsNonValides.length} monosyllabes non validés trouvés`)
-                
-                // Ajouter les mots non validés qui ne sont pas déjà dans la liste
-                motsNonValides.forEach(mot => {
-                    if (!monosyllabes.includes(mot)) {
-                        monosyllabes.push(mot)
-                    }
-                })
-            }
-        }
-
-        // Si on a toujours très peu de mots, fallback sur l'ancienne table syllabes_mots
-        if (monosyllabes.length < 5) {
-            console.log('Très peu de mots dans mots_classifies, fallback sur syllabes_mots...')
-            
-            const { data: fallbackData, error: fallbackError } = await supabase
-                .from('syllabes_mots')
-                .select('mot_complet')
-                .eq('texte_reference_id', texteId)
-
-            if (fallbackError) {
-                console.error('Erreur fallback syllabes_mots:', fallbackError)
-            } else {
-                const motsFallback = fallbackData?.map(row => row.mot_complet) || []
-                console.log(`${motsFallback.length} mots trouvés en fallback`)
-                
-                // Ajouter les mots fallback qui ne sont pas déjà dans la liste
-                motsFallback.forEach(mot => {
-                    if (!monosyllabes.includes(mot)) {
-                        monosyllabes.push(mot)
-                    }
-                })
-            }
-        }
 
         // Éliminer les doublons et trier
         const monosyllabesUniques = [...new Set(monosyllabes)].sort()
