@@ -3567,14 +3567,94 @@ export default function ReconnaitreLesMotsPage() {
                             </div>
                         </div>
                     ) : (
-                        // VERSION DESKTOP : Layout horizontal
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
-                            <div style={{ flex: 1 }}>
-                                <h1 style={styles.title}>🔄 Remettre dans l'ordre</h1>
-                                <p style={styles.subtitle}>
-                                    Phrase {indexGroupe + 1} / {groupesSens.length} • Score : {score.bonnes}/{score.total}
-                                </p>
+                        // VERSION DESKTOP
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', width: '100%' }}>
+                            <h1 style={styles.title}>🔄 Remettre dans l'ordre</h1>
+                            <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                                <button
+                                    onClick={() => setExerciceActif(null)}
+                                    style={{
+                                        padding: '8px 12px',
+                                        backgroundColor: 'white',
+                                        border: '2px solid #6b7280',
+                                        borderRadius: '8px',
+                                        cursor: 'pointer',
+                                        fontSize: '20px',
+                                        display: 'flex',
+                                        alignItems: 'center'
+                                    }}
+                                    title="Menu exercices"
+                                >
+                                    ←
+                                </button>
+                                <button
+                                    onClick={() => setEtape('selection')}
+                                    style={{
+                                        padding: '8px 12px',
+                                        backgroundColor: 'white',
+                                        border: '2px solid #3b82f6',
+                                        borderRadius: '8px',
+                                        cursor: 'pointer',
+                                        fontSize: '20px',
+                                        display: 'flex',
+                                        alignItems: 'center'
+                                    }}
+                                    title="Sélection des textes"
+                                >
+                                    👁️
+                                </button>
+                                <button
+                                    onClick={() => router.push('/lire')}
+                                    style={{
+                                        padding: '8px 12px',
+                                        backgroundColor: 'white',
+                                        border: '2px solid #10b981',
+                                        borderRadius: '8px',
+                                        cursor: 'pointer',
+                                        fontSize: '20px',
+                                        display: 'flex',
+                                        alignItems: 'center'
+                                    }}
+                                    title="Menu Lire"
+                                >
+                                    📖
+                                </button>
+                                <button
+                                    onClick={() => router.push('/dashboard')}
+                                    style={{
+                                        padding: '8px 12px',
+                                        backgroundColor: 'white',
+                                        border: '2px solid #f59e0b',
+                                        borderRadius: '8px',
+                                        cursor: 'pointer',
+                                        fontSize: '20px',
+                                        display: 'flex',
+                                        alignItems: 'center'
+                                    }}
+                                    title="Accueil"
+                                >
+                                    🏠
+                                </button>
+                                <button
+                                    onClick={lireGroupeDeSens}
+                                    style={{
+                                        padding: '8px 12px',
+                                        backgroundColor: 'white',
+                                        border: '2px solid #10b981',
+                                        borderRadius: '8px',
+                                        cursor: 'pointer',
+                                        fontSize: '20px',
+                                        display: 'flex',
+                                        alignItems: 'center'
+                                    }}
+                                    title="Écouter la phrase"
+                                >
+                                    🔊
+                                </button>
                             </div>
+                            <p style={styles.subtitle}>
+                                Phrase {indexGroupe + 1} / {groupesSens.length} • Score : {score.bonnes}/{score.total}
+                            </p>
                         </div>
                     )}
                 </div>
@@ -3738,44 +3818,6 @@ export default function ReconnaitreLesMotsPage() {
                         </button>
                     )}
                 </div>
-
-                {/* Icônes de navigation (desktop uniquement) */}
-                {!isMobile && (
-                    <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', marginTop: '16px' }}>
-                        <button
-                            onClick={() => router.push('/lire/ma-voix-mes-mots')}
-                            style={{
-                                padding: '8px 12px',
-                                backgroundColor: 'white',
-                                border: '2px solid #3b82f6',
-                                borderRadius: '8px',
-                                cursor: 'pointer',
-                                fontSize: '20px',
-                                display: 'flex',
-                                alignItems: 'center'
-                            }}
-                            title="Ma voix, mes mots"
-                        >
-                            👁️
-                        </button>
-                        <button
-                            onClick={() => router.push('/lire')}
-                            style={{
-                                padding: '8px 12px',
-                                backgroundColor: 'white',
-                                border: '2px solid #10b981',
-                                borderRadius: '8px',
-                                cursor: 'pointer',
-                                fontSize: '20px',
-                                display: 'flex',
-                                alignItems: 'center'
-                            }}
-                            title="Menu Lire"
-                        >
-                            📖
-                        </button>
-                    </div>
-                )}
             </div>
         )
     }
