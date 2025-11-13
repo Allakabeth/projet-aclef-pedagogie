@@ -4,6 +4,7 @@ import { useRouter } from 'next/router'
 export default function ReconnaitreLesMotsExercices2() {
     const [user, setUser] = useState(null)
     const [isLoading, setIsLoading] = useState(true)
+    const [isMobile, setIsMobile] = useState(false)
     const router = useRouter()
 
     useEffect(() => {
@@ -25,16 +26,27 @@ export default function ReconnaitreLesMotsExercices2() {
         setIsLoading(false)
     }, [router])
 
+    useEffect(() => {
+        const checkMobile = () => {
+            setIsMobile(window.innerWidth < 768)
+        }
+
+        checkMobile()
+        window.addEventListener('resize', checkMobile)
+
+        return () => window.removeEventListener('resize', checkMobile)
+    }, [])
+
     const exercices = [
-        { id: 1, titre: 'Ma voix, mes mots', icon: '🎙️', description: 'Enregistre ta voix pour chaque mot de ton texte', bg: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' },
-        { id: 2, titre: 'Karaoké', icon: '🎤', description: 'Chaque mot s\'illumine quand il est prononcé', bg: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)' },
-        { id: 3, titre: 'Remettre dans l\'ordre', icon: '🔀', description: 'Les mots sont mélangés, remets-les dans l\'ordre', bg: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)' },
-        { id: 4, titre: 'Où est-ce ?', icon: '🎯', description: 'Écoute le mot et clique sur le bon mot écrit', bg: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)' },
-        { id: 5, titre: 'Qu\'est-ce ?', icon: '🔊', description: 'Un mot est illuminé, trouve le bon son', bg: 'linear-gradient(135deg, #fa709a 0%, #fee140 100%)' },
-        { id: 6, titre: 'Découpage', icon: '✂️', description: 'Sépare les mots qui sont collés', bg: 'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)' },
-        { id: 7, titre: 'Écoute et trouve', icon: '🎯', description: 'Écoute un mot et trouve-le parmi plusieurs choix', bg: 'linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%)' },
-        { id: 8, titre: 'Lis et trouve', icon: '👁️', description: 'Lis un mot et trouve le bon son parmi plusieurs audios', bg: 'linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%)' },
-        { id: 9, titre: 'Construis des phrases', icon: '📝', description: 'Crée des phrases avec les mots de tes textes', bg: 'linear-gradient(135deg, #c471f5 0%, #fa71cd 100%)' }
+        { id: 1, titre: 'Ma voix, mes mots', icon: '🎙️', bg: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' },
+        { id: 2, titre: 'Karaoké', icon: '🎤', bg: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)' },
+        { id: 3, titre: 'Remettre dans l\'ordre', icon: '🔀', bg: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)' },
+        { id: 4, titre: 'Où est-ce ?', icon: '🎯', bg: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)' },
+        { id: 5, titre: 'Qu\'est-ce ?', icon: '🔊', bg: 'linear-gradient(135deg, #fa709a 0%, #fee140 100%)' },
+        { id: 6, titre: 'Découpage', icon: '✂️', bg: 'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)' },
+        { id: 7, titre: 'Écoute et trouve', icon: '👂', bg: 'linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%)' },
+        { id: 8, titre: 'Lis et trouve', icon: '👀', bg: 'linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%)' },
+        { id: 9, titre: 'Construis des phrases', icon: '📝', bg: 'linear-gradient(135deg, #c471f5 0%, #fa71cd 100%)' }
     ]
 
     if (isLoading) {
@@ -52,7 +64,7 @@ export default function ReconnaitreLesMotsExercices2() {
 
                 {/* Navigation */}
                 <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', marginBottom: '10px' }}>
-                    <button onClick={() => router.push('/lire/reconnaitre-les-mots-new')} style={{ width: '40px', height: '40px', backgroundColor: 'white', color: '#64748b', border: '2px solid #64748b', borderRadius: '8px', fontSize: '18px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>←</button>
+                    <button onClick={() => router.push('/lire/reconnaitre-les-mots')} style={{ width: '40px', height: '40px', backgroundColor: 'white', color: '#64748b', border: '2px solid #64748b', borderRadius: '8px', fontSize: '18px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>←</button>
                     <button onClick={() => router.push('/lire')} style={{ width: '40px', height: '40px', backgroundColor: 'white', color: '#0ea5e9', border: '2px solid #0ea5e9', borderRadius: '8px', fontSize: '18px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>📖</button>
                     <button onClick={() => router.push('/dashboard')} style={{ width: '40px', height: '40px', backgroundColor: 'white', color: '#8b5cf6', border: '2px solid #8b5cf6', borderRadius: '8px', fontSize: '18px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>🏠</button>
                 </div>
@@ -60,12 +72,12 @@ export default function ReconnaitreLesMotsExercices2() {
                 {/* Sous-titre */}
                 <p style={{ textAlign: 'center', color: '#64748b', fontSize: '12px', marginBottom: '15px' }}>8 groupes de sens • Choisis un exercice</p>
 
-                {/* GRILLE 3x3 - 200px par carte - 20px de gap */}
+                {/* GRILLE 3x3 - Responsive */}
                 <div style={{
                     display: 'grid',
-                    gridTemplateColumns: '200px 200px 200px',
-                    gridTemplateRows: '200px 200px 200px',
-                    gap: '20px',
+                    gridTemplateColumns: isMobile ? '90px 90px 90px' : '200px 200px 200px',
+                    gridTemplateRows: isMobile ? '90px 90px 90px' : '200px 200px 200px',
+                    gap: isMobile ? '10px' : '20px',
                     justifyContent: 'center',
                     alignContent: 'center'
                 }}>
@@ -95,8 +107,8 @@ export default function ReconnaitreLesMotsExercices2() {
                             }}
                             style={{
                                 background: exercice.bg,
-                                borderRadius: '12px',
-                                padding: '10px',
+                                borderRadius: isMobile ? '8px' : '12px',
+                                padding: isMobile ? '6px' : '10px',
                                 boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
                                 display: 'flex',
                                 flexDirection: 'column',
@@ -105,9 +117,8 @@ export default function ReconnaitreLesMotsExercices2() {
                                 textAlign: 'center',
                                 cursor: 'pointer'
                             }}>
-                            <div style={{ fontSize: '36px', marginBottom: '6px' }}>{exercice.icon}</div>
-                            <div style={{ color: 'white', fontWeight: 'bold', fontSize: '12px', textShadow: '0 1px 2px rgba(0,0,0,0.2)', marginBottom: '3px' }}>{exercice.titre}</div>
-                            <div style={{ color: 'rgba(255,255,255,0.9)', fontSize: '9px', textShadow: '0 1px 2px rgba(0,0,0,0.1)', lineHeight: '1.3' }}>{exercice.description}</div>
+                            <div style={{ fontSize: isMobile ? '32px' : '48px', marginBottom: isMobile ? '4px' : '6px' }}>{exercice.icon}</div>
+                            <div style={{ color: 'white', fontWeight: 'bold', fontSize: isMobile ? '11px' : '16px', textShadow: '0 1px 2px rgba(0,0,0,0.2)' }}>{exercice.titre}</div>
                         </div>
                     ))}
                 </div>
