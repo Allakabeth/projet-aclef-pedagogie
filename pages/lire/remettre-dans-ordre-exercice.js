@@ -79,8 +79,7 @@ export default function RemettreOrdreExercicePage() {
             const parsedUser = JSON.parse(userData)
             setUser(parsedUser)
             await loadTextes(parsedUser.id)
-            await loadEnregistrements(parsedUser.id)
-            await loadEnregistrementsGroupes(parsedUser.id)
+            // Enregistrements chargés dans chargerGroupesSens() avec texte_ids
         } catch (err) {
             console.error('Erreur auth:', err)
             router.push('/login')
@@ -105,17 +104,35 @@ export default function RemettreOrdreExercicePage() {
         }
     }
 
-    async function loadEnregistrements(apprenantId) {
+    async function loadEnregistrements(texteIds) {
         try {
-            const { data, error } = await supabase
-                .from('enregistrements_mots')
-                .select('*')
-                .eq('apprenant_id', apprenantId)
+            console.log('🔍 DEBUG loadEnregistrements - texteIds:', texteIds)
 
-            if (!error && data) {
+            const token = localStorage.getItem('token')
+            const response = await fetch(`/api/enregistrements-mots/list?texte_ids=${texteIds.join(',')}`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            })
+            const data = await response.json()
+
+            console.log('🔍 DEBUG loadEnregistrements - résultat API:', {
+                nbEnregistrements: data?.enregistrements?.length || 0,
+                premierEnregistrement: data?.enregistrements?.[0]
+            })
+
+            if (data && data.enregistrements) {
                 const map = {}
-                data.forEach(enr => {
-                    map[enr.mot.toLowerCase()] = enr
+                data.enregistrements.forEach(enr => {
+                    // Normaliser la clé comme dans lireTTS()
+                    const motNormalise = enr.mot.toLowerCase().trim()
+                        .replace(/^[.,;:!?¡¿'"«»\-—]+/, '')
+                        .replace(/[.,;:!?¡¿'"«»\-—]+$/, '')
+                    map[motNormalise] = enr
+                })
+                console.log('🔍 DEBUG loadEnregistrements - map créé:', {
+                    nbClés: Object.keys(map).length,
+                    clés: Object.keys(map).slice(0, 10)
                 })
                 setEnregistrementsMap(map)
             }
@@ -124,17 +141,30 @@ export default function RemettreOrdreExercicePage() {
         }
     }
 
-    async function loadEnregistrementsGroupes(apprenantId) {
+    async function loadEnregistrementsGroupes(texteIds) {
         try {
-            const { data, error } = await supabase
-                .from('enregistrements_groupes')
-                .select('*')
-                .eq('apprenant_id', apprenantId)
+            console.log('🔍 DEBUG loadEnregistrementsGroupes - texteIds:', texteIds)
 
-            if (!error && data) {
+            const token = localStorage.getItem('token')
+            const response = await fetch(`/api/enregistrements-groupes/list?texte_ids=${texteIds.join(',')}`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            })
+            const data = await response.json()
+
+            console.log('🔍 DEBUG loadEnregistrementsGroupes - résultat API:', {
+                nbEnregistrements: data?.enregistrements?.length || 0,
+                premierEnregistrement: data?.enregistrements?.[0]
+            })
+
+            if (data && data.enregistrements) {
                 const map = {}
-                data.forEach(enr => {
-                    map[enr.groupe_id] = enr
+                data.enregistrements.forEach(enr => {
+                    map[enr.groupe_sens_id] = enr  // ✅ groupe_sens_id (pas groupe_id)
+                })
+                console.log('🔍 DEBUG loadEnregistrementsGroupes - map créé:', {
+                    nbClés: Object.keys(map).length
                 })
                 setEnregistrementsGroupesMap(map)
             }
@@ -170,6 +200,11 @@ export default function RemettreOrdreExercicePage() {
             })
 
             console.log(`✅ ${groupesFiltres.length} groupes de sens chargés`)
+
+            // Charger les enregistrements via API avec texte_ids
+            await loadEnregistrements(texteIds)
+            await loadEnregistrementsGroupes(texteIds)
+
             setGroupesSens(groupesFiltres)
 
             // AUTO-DÉMARRER l'exercice
@@ -191,6 +226,16 @@ export default function RemettreOrdreExercicePage() {
             .trim()
             .replace(/^[.,;:!?¡¿'"«»\-—]+/, '')
             .replace(/[.,;:!?¡¿'"«»\-—]+$/, '')
+
+        // DEBUG TEMPORAIRE
+        console.log('🔍 DEBUG lireTTS:', {
+            texteOriginal: texte,
+            motNormalise: motNormalise,
+            nbEnregistrements: Object.keys(enregistrementsMap).length,
+            clésDisponibles: Object.keys(enregistrementsMap).slice(0, 10),
+            enregistrementTrouvé: !!enregistrementsMap[motNormalise],
+            enregistrement: enregistrementsMap[motNormalise]
+        })
 
         // PRIORITÉ 1 : VOIX PERSONNALISÉE
         if (enregistrementsMap[motNormalise]) {
@@ -284,18 +329,9 @@ export default function RemettreOrdreExercicePage() {
     async function lireGroupeDeSens() {
         if (!groupeActuel) return
 
-        // PRIORITÉ 1: Enregistrement du groupe complet
-        if (enregistrementsGroupesMap[groupeActuel.id]) {
-            console.log(`✅ Enregistrement de groupe trouvé pour groupe ${groupeActuel.id}`)
-            const audio = new Audio(enregistrementsGroupesMap[groupeActuel.id].audio_url)
-            audio.play().catch(err => {
-                console.error('❌ Erreur lecture groupe:', err)
-                lireGroupeMotParMot()
-            })
-        } else {
-            console.log(`⏭️ Pas d'enregistrement de groupe pour ${groupeActuel.id}, lecture mot par mot`)
-            lireGroupeMotParMot()
-        }
+        // Lecture mot par mot avec cascade audio (Voix perso > ElevenLabs > Web Speech)
+        console.log(`🔊 Lecture mot par mot du groupe ${groupeActuel.id}`)
+        lireGroupeMotParMot()
     }
 
     function lireGroupeMotParMot() {
@@ -691,7 +727,7 @@ export default function RemettreOrdreExercicePage() {
                                     ←
                                 </button>
                                 <button
-                                    onClick={() => router.push(`/lire/reconnaitre-les-mots-new`)}
+                                    onClick={() => router.push('/lire/reconnaitre-les-mots')}
                                     style={{
                                         padding: '8px 12px',
                                         backgroundColor: 'white',
@@ -702,7 +738,7 @@ export default function RemettreOrdreExercicePage() {
                                         display: 'flex',
                                         alignItems: 'center'
                                     }}
-                                    title="Sélection des textes"
+                                    title="Reconnaître les mots"
                                 >
                                     👁️
                                 </button>
@@ -778,7 +814,7 @@ export default function RemettreOrdreExercicePage() {
                                     ←
                                 </button>
                                 <button
-                                    onClick={() => router.push(`/lire/reconnaitre-les-mots-new`)}
+                                    onClick={() => router.push('/lire/reconnaitre-les-mots')}
                                     style={{
                                         padding: '8px 12px',
                                         backgroundColor: 'white',
@@ -789,7 +825,7 @@ export default function RemettreOrdreExercicePage() {
                                         display: 'flex',
                                         alignItems: 'center'
                                     }}
-                                    title="Sélection des textes"
+                                    title="Reconnaître les mots"
                                 >
                                     👁️
                                 </button>
@@ -967,9 +1003,16 @@ export default function RemettreOrdreExercicePage() {
                         onClick={verifierOrdre}
                         disabled={motsSelectionnes.length === 0 || feedback !== null || isVerifying}
                         style={{
-                            ...styles.primaryButton,
-                            ...(motsSelectionnes.length === 0 || feedback || isVerifying ? { opacity: 0.5, cursor: 'not-allowed' } : {}),
-                            ...(isMobile ? { padding: '8px 12px', fontSize: '14px' } : {})
+                            padding: isMobile ? '8px 12px' : '14px 32px',
+                            backgroundColor: 'white',
+                            color: '#10b981',
+                            border: '2px solid #10b981',
+                            borderRadius: '12px',
+                            fontSize: isMobile ? '14px' : '18px',
+                            fontWeight: 'bold',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s',
+                            ...(motsSelectionnes.length === 0 || feedback || isVerifying ? { opacity: 0.5, cursor: 'not-allowed' } : {})
                         }}
                     >
                         Vérifier
@@ -978,12 +1021,18 @@ export default function RemettreOrdreExercicePage() {
                         <button
                             onClick={phraseSuivante}
                             style={{
-                                ...styles.primaryButton,
-                                backgroundColor: '#3b82f6',
+                                padding: isMobile ? '8px 12px' : '14px 32px',
+                                backgroundColor: 'white',
+                                color: '#3b82f6',
+                                border: '2px solid #3b82f6',
+                                borderRadius: '12px',
+                                fontSize: isMobile ? '14px' : '18px',
+                                fontWeight: 'bold',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s',
                                 display: 'flex',
                                 alignItems: 'center',
-                                gap: '8px',
-                                ...(isMobile ? { padding: '8px 12px', fontSize: '14px' } : {})
+                                gap: '8px'
                             }}
                         >
                             Phrase suivante ➡️
@@ -1044,7 +1093,7 @@ export default function RemettreOrdreExercicePage() {
                                     ←
                                 </button>
                                 <button
-                                    onClick={() => router.push(`/lire/reconnaitre-les-mots-new`)}
+                                    onClick={() => router.push('/lire/reconnaitre-les-mots')}
                                     style={{
                                         padding: '8px 12px',
                                         backgroundColor: 'white',
@@ -1055,7 +1104,7 @@ export default function RemettreOrdreExercicePage() {
                                         display: 'flex',
                                         alignItems: 'center'
                                     }}
-                                    title="Retour aux textes"
+                                    title="Reconnaître les mots"
                                 >
                                     👁️
                                 </button>
@@ -1135,28 +1184,92 @@ export default function RemettreOrdreExercicePage() {
                     ) : (
                         // VERSION DESKTOP
                         <div style={{ width: '100%' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
-                                <div style={{ flex: 1 }}>
-                                    <h1 style={styles.title}>📊 Résultats</h1>
-                                </div>
-                                {/* Score pour desktop */}
-                                <div style={{
-                                    border: '3px solid #3b82f6',
-                                    borderRadius: '12px',
-                                    padding: '8px 20px',
-                                    backgroundColor: 'white',
-                                    fontSize: '32px',
-                                    fontWeight: 'bold',
-                                    color: '#1e293b',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '8px'
-                                }}>
-                                    <span>{score.bonnes}</span>
-                                    <span style={{ color: '#64748b' }}>/</span>
-                                    <span style={{ color: '#64748b' }}>{score.total}</span>
-                                </div>
+                            <h1 style={styles.title}>📊 Résultats</h1>
+                            <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', marginTop: '16px', marginBottom: '16px' }}>
+                                <button
+                                    onClick={() => router.push(`/lire/reconnaitre-les-mots/exercices2?textes=${router.query.texte_ids}`)}
+                                    style={{
+                                        padding: '8px 12px',
+                                        backgroundColor: 'white',
+                                        border: '2px solid #6b7280',
+                                        borderRadius: '8px',
+                                        cursor: 'pointer',
+                                        fontSize: '20px',
+                                        display: 'flex',
+                                        alignItems: 'center'
+                                    }}
+                                    title="Menu exercices"
+                                >
+                                    ←
+                                </button>
+                                <button
+                                    onClick={() => router.push('/lire/reconnaitre-les-mots')}
+                                    style={{
+                                        padding: '8px 12px',
+                                        backgroundColor: 'white',
+                                        border: '2px solid #3b82f6',
+                                        borderRadius: '8px',
+                                        cursor: 'pointer',
+                                        fontSize: '20px',
+                                        display: 'flex',
+                                        alignItems: 'center'
+                                    }}
+                                    title="Reconnaître les mots"
+                                >
+                                    👁️
+                                </button>
+                                <button
+                                    onClick={() => router.push('/lire')}
+                                    style={{
+                                        padding: '8px 12px',
+                                        backgroundColor: 'white',
+                                        border: '2px solid #10b981',
+                                        borderRadius: '8px',
+                                        cursor: 'pointer',
+                                        fontSize: '20px',
+                                        display: 'flex',
+                                        alignItems: 'center'
+                                    }}
+                                    title="Menu Lire"
+                                >
+                                    📖
+                                </button>
+                                <button
+                                    onClick={() => router.push('/dashboard')}
+                                    style={{
+                                        padding: '8px 12px',
+                                        backgroundColor: 'white',
+                                        border: '2px solid #f59e0b',
+                                        borderRadius: '8px',
+                                        cursor: 'pointer',
+                                        fontSize: '20px',
+                                        display: 'flex',
+                                        alignItems: 'center'
+                                    }}
+                                    title="Accueil"
+                                >
+                                    🏠
+                                </button>
+                                <button
+                                    onClick={() => demarrerRemettreOrdre()}
+                                    style={{
+                                        padding: '8px 12px',
+                                        backgroundColor: 'white',
+                                        border: '2px solid #8b5cf6',
+                                        borderRadius: '8px',
+                                        cursor: 'pointer',
+                                        fontSize: '20px',
+                                        display: 'flex',
+                                        alignItems: 'center'
+                                    }}
+                                    title="Recommencer"
+                                >
+                                    🔄
+                                </button>
                             </div>
+                            <p style={styles.subtitle}>
+                                Score : {score.bonnes}/{score.total}
+                            </p>
                         </div>
                     )}
                 </div>
