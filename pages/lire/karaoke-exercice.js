@@ -796,10 +796,6 @@ const styles = {
     },
     karaokeBox: {
         padding: '60px 40px',
-        backgroundColor: 'rgba(255, 255, 255, 0.95)',
-        borderRadius: '20px',
-        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
-        backdropFilter: 'blur(10px)',
         marginBottom: '24px',
         textAlign: 'center',
         minHeight: '300px',
@@ -811,9 +807,6 @@ const styles = {
     },
     karaokeBoxMobile: {
         padding: '24px 16px',
-        backgroundColor: 'rgba(255, 255, 255, 0.95)',
-        borderRadius: '16px',
-        boxShadow: '0 4px 16px rgba(0, 0, 0, 0.1)',
         marginBottom: '20px',
         display: 'flex',
         flexDirection: 'column',
@@ -832,21 +825,21 @@ const styles = {
     motIllumine: {
         fontSize: '56px',
         fontWeight: 'bold',
-        color: '#fff',
-        background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+        color: '#78350f',
+        background: '#fef08a',
+        border: '2px solid #78350f',
         borderRadius: '12px',
         padding: '12px 24px',
-        boxShadow: '0 8px 24px rgba(240, 147, 251, 0.4)',
         transform: 'scale(1.1)'
     },
     motPrincipalMobile: {
         fontSize: '64px',
         fontWeight: 'bold',
-        color: '#fff',
-        background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+        color: '#78350f',
+        background: '#fef08a',
+        border: '2px solid #78350f',
         borderRadius: '16px',
         padding: '24px',
-        boxShadow: '0 8px 24px rgba(240, 147, 251, 0.4)',
         textAlign: 'center',
         width: '100%',
         wordBreak: 'break-word'
@@ -872,14 +865,13 @@ const styles = {
     },
     primaryButton: {
         padding: '16px 32px',
-        background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
-        color: 'white',
-        border: 'none',
+        background: '#fef08a',
+        color: '#78350f',
+        border: '2px solid #78350f',
         borderRadius: '12px',
         fontSize: '18px',
         fontWeight: '600',
         cursor: 'pointer',
-        boxShadow: '0 4px 12px rgba(240, 147, 251, 0.3)',
         transition: 'all 0.2s'
     },
     secondaryButton: {
