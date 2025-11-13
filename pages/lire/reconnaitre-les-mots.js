@@ -1618,6 +1618,30 @@ export default function ReconnaitreLesMotsPage() {
                     <div style={{
                         ...styles.exerciceCard,
                         padding: isMobile ? '8px' : '32px'
+                    }} onClick={() => {
+                        const textesIds = textesSelectionnes.join(',')
+                        router.push(`/lire/ma-voix-mes-mots-exercice?texte_ids=${textesIds}`)
+                    }}>
+                        <div style={{
+                            ...styles.exerciceIcon,
+                            fontSize: isMobile ? '16px' : '64px',
+                            marginBottom: isMobile ? '4px' : '16px'
+                        }}>🎙️</div>
+                        <h3 style={{
+                            ...styles.exerciceTitle,
+                            fontSize: isMobile ? '12px' : '20px',
+                            marginBottom: isMobile ? '2px' : '8px'
+                        }}>Ma voix, mes mots</h3>
+                        {!isMobile && (
+                            <p style={styles.exerciceDescription}>
+                                Enregistre ta voix pour chaque mot de ton texte
+                            </p>
+                        )}
+                    </div>
+
+                    <div style={{
+                        ...styles.exerciceCard,
+                        padding: isMobile ? '8px' : '32px'
                     }} onClick={demarrerKaraoke}>
                         <div style={{
                             ...styles.exerciceIcon,
