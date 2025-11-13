@@ -705,8 +705,9 @@ export default function MaVoixMesMotsPage() {
                                         backgroundColor: isCurrentWord ? '#fef3c7' : 'transparent',
                                         color: isCurrentWord ? '#92400e' : '#666',
                                         fontWeight: isCurrentWord ? 'bold' : 'normal',
-                                        padding: isCurrentWord ? '2px 4px' : '0',
-                                        borderRadius: '4px'
+                                        padding: isCurrentWord ? '8px 12px' : '0',
+                                        borderRadius: '12px',
+                                        display: 'inline-block'
                                     }}>
                                         {mot}{idx < groupeActuel.contenu.split(' ').length - 1 ? ' ' : ''}
                                     </span>
@@ -790,6 +791,22 @@ export default function MaVoixMesMotsPage() {
                                 🏠
                             </button>
                             <button
+                                onClick={lireGroupeDeSens}
+                                style={{
+                                    padding: '8px 12px',
+                                    backgroundColor: 'white',
+                                    border: '2px solid #8b5cf6',
+                                    borderRadius: '8px',
+                                    cursor: 'pointer',
+                                    fontSize: '20px',
+                                    display: 'flex',
+                                    alignItems: 'center'
+                                }}
+                                title="Écouter le groupe de sens"
+                            >
+                                🔊
+                            </button>
+                            <button
                                 onClick={groupeSuivant}
                                 disabled={indexGroupe >= groupesSens.length - 1}
                                 style={{
@@ -811,22 +828,15 @@ export default function MaVoixMesMotsPage() {
 
                         {/* Groupe de sens avec mot actuel illuminé + flèches navigation */}
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center', marginTop: '12px' }}>
-                            {/* Flèche gauche - mot précédent */}
+                            {/* Flèche gauche */}
                             <button
                                 onClick={() => setIndexMotActuel(Math.max(0, indexMotActuel - 1))}
                                 disabled={indexMotActuel === 0}
                                 style={{
-                                    padding: '12px 16px',
-                                    backgroundColor: 'white',
-                                    border: '2px solid #6b7280',
-                                    borderRadius: '8px',
-                                    cursor: indexMotActuel === 0 ? 'not-allowed' : 'pointer',
-                                    fontSize: '32px',
+                                    ...styles.navButton,
                                     opacity: indexMotActuel === 0 ? 0.3 : 1,
-                                    display: 'flex',
-                                    alignItems: 'center'
+                                    cursor: indexMotActuel === 0 ? 'not-allowed' : 'pointer'
                                 }}
-                                title="Mot précédent"
                             >
                                 ←
                             </button>
@@ -836,8 +846,7 @@ export default function MaVoixMesMotsPage() {
                                 fontSize: '48px',
                                 color: '#666',
                                 lineHeight: '1.2',
-                                textAlign: 'center',
-                                flex: 1
+                                textAlign: 'center'
                             }}>
                                 {groupeActuel?.contenu.split(' ').map((mot, idx) => {
                                     const motsUniques = getMotsUniquesDuGroupe()
@@ -845,16 +854,21 @@ export default function MaVoixMesMotsPage() {
                                     const isCurrentWord = mot.toLowerCase().replace(/[.,!?;:]/g, '') === motActuel?.toLowerCase().replace(/[.,!?;:]/g, '')
                                     return (
                                         <span key={idx} style={{
-                                            color: isCurrentWord ? '#3b82f6' : '#666',
-                                            fontWeight: isCurrentWord ? 'bold' : 'normal'
+                                            backgroundColor: isCurrentWord ? '#fef3c7' : 'transparent',
+                                            color: isCurrentWord ? '#92400e' : '#666',
+                                            fontWeight: isCurrentWord ? 'bold' : 'normal',
+                                            padding: isCurrentWord ? '8px 12px' : '0',
+                                            borderRadius: '12px',
+                                            display: 'inline-block',
+                                            marginRight: '12px'
                                         }}>
-                                            {mot}{idx < groupeActuel.contenu.split(' ').length - 1 ? ' ' : ''}
+                                            {mot}
                                         </span>
                                     )
                                 })}
                             </div>
 
-                            {/* Flèche droite - mot suivant */}
+                            {/* Flèche droite */}
                             <button
                                 onClick={() => {
                                     const motsUniques = getMotsUniquesDuGroupe()
@@ -862,17 +876,10 @@ export default function MaVoixMesMotsPage() {
                                 }}
                                 disabled={indexMotActuel === getMotsUniquesDuGroupe().length - 1}
                                 style={{
-                                    padding: '12px 16px',
-                                    backgroundColor: 'white',
-                                    border: '2px solid #6b7280',
-                                    borderRadius: '8px',
-                                    cursor: indexMotActuel === getMotsUniquesDuGroupe().length - 1 ? 'not-allowed' : 'pointer',
-                                    fontSize: '32px',
+                                    ...styles.navButton,
                                     opacity: indexMotActuel === getMotsUniquesDuGroupe().length - 1 ? 0.3 : 1,
-                                    display: 'flex',
-                                    alignItems: 'center'
+                                    cursor: indexMotActuel === getMotsUniquesDuGroupe().length - 1 ? 'not-allowed' : 'pointer'
                                 }}
-                                title="Mot suivant"
                             >
                                 →
                             </button>
@@ -925,42 +932,42 @@ export default function MaVoixMesMotsPage() {
                                     <div style={styles.motTexteMobile}>{mot}</div>
 
                                     <div style={styles.motActions}>
-                                        {/* Bouton Écouter (TTS ordinateur) */}
+                                        {/* Bouton Écouter - Vert si IA, Bleu si voix perso */}
                                         <button
                                             onClick={() => lireTTS(mot)}
-                                            style={styles.buttonMobile}
+                                            style={{
+                                                ...styles.buttonMobile,
+                                                color: dejaEnregistre ? '#3b82f6' : '#10b981',
+                                                border: `2px solid ${dejaEnregistre ? '#3b82f6' : '#10b981'}`
+                                            }}
                                         >
                                             🔊 Écouter
                                         </button>
 
                                         {dejaEnregistre ? (
-                                            <>
-                                                <button
-                                                    onClick={() => rejouerEnregistrement(mot)}
-                                                    style={{ ...styles.buttonMobile, background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)' }}
-                                                >
-                                                    🎤 Ma voix
-                                                </button>
-                                                <button
-                                                    onClick={() => ouvrirEnregistreur(mot)}
-                                                    disabled={isUploading}
-                                                    style={{
-                                                        ...styles.buttonMobile,
-                                                        background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
-                                                        opacity: isUploading ? 0.5 : 1,
-                                                        cursor: isUploading ? 'not-allowed' : 'pointer'
-                                                    }}
-                                                >
-                                                    🎤 Recommencer
-                                                </button>
-                                            </>
+                                            <button
+                                                onClick={() => ouvrirEnregistreur(mot)}
+                                                disabled={isUploading}
+                                                style={{
+                                                    ...styles.buttonMobile,
+                                                    background: 'white',
+                                                    color: '#f59e0b',
+                                                    border: '2px solid #f59e0b',
+                                                    opacity: isUploading ? 0.5 : 1,
+                                                    cursor: isUploading ? 'not-allowed' : 'pointer'
+                                                }}
+                                            >
+                                                🎤 Recommencer
+                                            </button>
                                         ) : (
                                             <button
                                                 onClick={() => ouvrirEnregistreur(mot)}
                                                 disabled={isUploading}
                                                 style={{
                                                     ...styles.buttonMobile,
-                                                    background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+                                                    background: 'white',
+                                                    color: '#ef4444',
+                                                    border: '2px solid #ef4444',
                                                     opacity: isUploading ? 0.5 : 1,
                                                     cursor: isUploading ? 'not-allowed' : 'pointer'
                                                 }}
@@ -989,71 +996,57 @@ export default function MaVoixMesMotsPage() {
                                         <div style={styles.motTexte}>{mot}</div>
 
                                         <div style={styles.motActions}>
-                                            {/* Bouton Écouter (TTS ordinateur) */}
+                                            {/* Bouton Écouter - Vert si IA, Bleu si voix perso */}
                                             <button
                                                 onClick={() => lireTTS(mot)}
                                                 style={{
-                                                    background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                                                    color: 'white',
-                                                    border: 'none',
+                                                    background: 'white',
+                                                    color: dejaEnregistre ? '#3b82f6' : '#10b981',
+                                                    border: `2px solid ${dejaEnregistre ? '#3b82f6' : '#10b981'}`,
                                                     borderRadius: '10px',
                                                     padding: '12px 16px',
                                                     fontSize: '15px',
                                                     fontWeight: '600',
                                                     cursor: 'pointer',
-                                                    boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)',
-                                                    transition: 'transform 0.2s, box-shadow 0.2s'
+                                                    transition: 'transform 0.2s'
                                                 }}
                                                 onMouseEnter={(e) => {
                                                     e.target.style.transform = 'translateY(-2px)'
-                                                    e.target.style.boxShadow = '0 6px 16px rgba(16, 185, 129, 0.4)'
                                                 }}
                                                 onMouseLeave={(e) => {
                                                     e.target.style.transform = 'translateY(0)'
-                                                    e.target.style.boxShadow = '0 4px 12px rgba(16, 185, 129, 0.3)'
                                                 }}
                                             >
                                                 🔊 Écouter
                                             </button>
 
                                             {dejaEnregistre ? (
-                                                <>
-                                                    <button
-                                                        onClick={() => rejouerEnregistrement(mot)}
-                                                        style={styles.ecouterButton}
-                                                        onMouseEnter={(e) => {
+                                                <button
+                                                    onClick={() => ouvrirEnregistreur(mot)}
+                                                    disabled={isUploading}
+                                                    style={{
+                                                        background: 'white',
+                                                        color: '#f59e0b',
+                                                        border: '2px solid #f59e0b',
+                                                        borderRadius: '10px',
+                                                        padding: '12px 16px',
+                                                        fontSize: '15px',
+                                                        fontWeight: '600',
+                                                        cursor: isUploading ? 'not-allowed' : 'pointer',
+                                                        opacity: isUploading ? 0.5 : 1,
+                                                        transition: 'transform 0.2s'
+                                                    }}
+                                                    onMouseEnter={(e) => {
+                                                        if (!isUploading) {
                                                             e.target.style.transform = 'translateY(-2px)'
-                                                            e.target.style.boxShadow = '0 6px 16px rgba(59, 130, 246, 0.4)'
-                                                        }}
-                                                        onMouseLeave={(e) => {
-                                                            e.target.style.transform = 'translateY(0)'
-                                                            e.target.style.boxShadow = '0 4px 12px rgba(59, 130, 246, 0.3)'
-                                                        }}
-                                                    >
-                                                        🎤 Ma voix
-                                                    </button>
-                                                    <button
-                                                        onClick={() => ouvrirEnregistreur(mot)}
-                                                        disabled={isUploading}
-                                                        style={{
-                                                            ...styles.reEnregistrerButton,
-                                                            opacity: isUploading ? 0.5 : 1,
-                                                            cursor: isUploading ? 'not-allowed' : 'pointer'
-                                                        }}
-                                                        onMouseEnter={(e) => {
-                                                            if (!isUploading) {
-                                                                e.target.style.transform = 'translateY(-2px)'
-                                                                e.target.style.boxShadow = '0 6px 16px rgba(245, 158, 11, 0.4)'
-                                                            }
-                                                        }}
-                                                        onMouseLeave={(e) => {
-                                                            e.target.style.transform = 'translateY(0)'
-                                                            e.target.style.boxShadow = '0 4px 12px rgba(245, 158, 11, 0.3)'
-                                                        }}
-                                                    >
-                                                        🎤 Recommencer
-                                                    </button>
-                                                </>
+                                                        }
+                                                    }}
+                                                    onMouseLeave={(e) => {
+                                                        e.target.style.transform = 'translateY(0)'
+                                                    }}
+                                                >
+                                                    🎤 Recommencer
+                                                </button>
                                             ) : (
                                                 <button
                                                     onClick={() => ouvrirEnregistreur(mot)}
@@ -1066,12 +1059,10 @@ export default function MaVoixMesMotsPage() {
                                                     onMouseEnter={(e) => {
                                                         if (!isUploading) {
                                                             e.target.style.transform = 'translateY(-2px)'
-                                                            e.target.style.boxShadow = '0 6px 16px rgba(239, 68, 68, 0.4)'
                                                         }
                                                     }}
                                                     onMouseLeave={(e) => {
                                                         e.target.style.transform = 'translateY(0)'
-                                                        e.target.style.boxShadow = '0 4px 12px rgba(239, 68, 68, 0.3)'
                                                     }}
                                                 >
                                                     🎤 Enregistrer
@@ -1390,15 +1381,14 @@ const styles = {
     },
     enregistrerButton: {
         padding: '14px 20px',
-        background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
-        color: 'white',
-        border: 'none',
+        background: 'white',
+        color: '#ef4444',
+        border: '2px solid #ef4444',
         borderRadius: '10px',
         fontSize: '17px',
         fontWeight: 'bold',
         cursor: 'pointer',
-        boxShadow: '0 4px 12px rgba(239, 68, 68, 0.3)',
-        transition: 'transform 0.2s, box-shadow 0.2s'
+        transition: 'transform 0.2s'
     },
     // Styles mobile
     mobileNavigation: {
@@ -1450,14 +1440,13 @@ const styles = {
     },
     buttonMobile: {
         padding: '16px 20px',
-        background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-        color: 'white',
-        border: 'none',
+        background: 'white',
+        color: '#10b981',
+        border: '2px solid #10b981',
         borderRadius: '12px',
         fontSize: '18px',
         fontWeight: '600',
         cursor: 'pointer',
-        boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)',
         transition: 'transform 0.2s'
     },
     modalOverlay: {
