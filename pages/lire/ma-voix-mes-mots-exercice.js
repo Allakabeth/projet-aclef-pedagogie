@@ -22,8 +22,8 @@ export default function MaVoixMesMotsPage() {
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState(null)
 
-    // Étapes : selection | exercice | termine
-    const [etape, setEtape] = useState('selection')
+    // Étapes : exercice | termine
+    const [etape, setEtape] = useState('exercice')
 
     // Sélection du texte
     const [textes, setTextes] = useState([])
@@ -111,21 +111,19 @@ export default function MaVoixMesMotsPage() {
             texte_ids: router.query.texte_ids,
             hasUser: !!user,
             textesCount: textes.length,
-            etape: etape
+            hasGroupes: groupesSens.length > 0
         })
 
-        if (router.isReady && router.query.texte_ids && user && textes.length > 0 && etape === 'selection') {
+        if (router.isReady && router.query.texte_ids && user && textes.length > 0 && groupesSens.length === 0) {
             const ids = router.query.texte_ids.split(',').map(id => parseInt(id))
             console.log('✅ Toutes les conditions remplies, IDs parsés:', ids)
-            if (ids.length === 1) {
-                // Un seul texte → démarrer automatiquement
+            if (ids.length >= 1) {
+                // Démarrer avec le premier texte
                 console.log('🎯 Démarrage automatique avec texte ID:', ids[0])
                 demarrerExercice(ids[0])
-            } else if (ids.length > 1) {
-                console.log('⚠️ Plusieurs textes détectés, pas de démarrage auto')
             }
         }
-    }, [router.isReady, router.query.texte_ids, user, textes, etape])
+    }, [router.isReady, router.query.texte_ids, user, textes, groupesSens])
 
     // Recalculer automatiquement la progression quand enregistrementsMap change
     useEffect(() => {
@@ -581,66 +579,7 @@ export default function MaVoixMesMotsPage() {
         )
     }
 
-    // ÉTAPE 1 : Sélection du texte
-    if (etape === 'selection') {
-        return (
-            <div style={styles.container}>
-                <div style={styles.header}>
-                    <h1 style={styles.title}>🎤 Ma voix, mes mots</h1>
-                    <p style={styles.subtitle}>
-                        Enregistre ta voix pour chaque mot de ton texte
-                    </p>
-                </div>
-
-                {error && (
-                    <div style={styles.errorBox}>{error}</div>
-                )}
-
-                {textes.length === 0 ? (
-                    <div style={styles.emptyBox}>
-                        <p>Tu n'as pas encore créé de textes.</p>
-                        <button
-                            onClick={() => router.push('/lire/mes-textes-references')}
-                            style={styles.primaryButton}
-                        >
-                            Créer mon premier texte
-                        </button>
-                    </div>
-                ) : (
-                    <>
-                        <div style={styles.section}>
-                            <h2 style={styles.sectionTitle}>📚 Choisis ton texte</h2>
-                            <div style={styles.textesGrid}>
-                                {textes.map(texte => (
-                                    <div
-                                        key={texte.id}
-                                        style={styles.texteCard}
-                                        onClick={() => demarrerExercice(texte.id)}
-                                    >
-                                        <div style={styles.texteCardTitle}>{texte.titre}</div>
-                                        <div style={styles.texteCardInfo}>
-                                            {texte.nombre_groupes} groupes de sens
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-
-                        <div style={styles.actions}>
-                            <button
-                                onClick={() => router.push('/lire/reconnaitre-les-mots')}
-                                style={styles.secondaryButton}
-                            >
-                                ← Retour au menu
-                            </button>
-                        </div>
-                    </>
-                )}
-            </div>
-        )
-    }
-
-    // ÉTAPE 2 : Exercice d'enregistrement
+    // Exercice d'enregistrement
     if (etape === 'exercice' && groupeActuel) {
         const motsUniques = getMotsUniquesDuGroupe()
         const pourcentage = statsProgression.total > 0
@@ -871,82 +810,72 @@ export default function MaVoixMesMotsPage() {
                         </div>
 
                         {/* Groupe de sens avec mot actuel illuminé + flèches navigation */}
-                        <div style={{ display: 'flex', justifyContent: 'center', marginTop: '12px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                {/* Flèche gauche - mot précédent */}
-                                <button
-                                    onClick={() => setIndexMotActuel(Math.max(0, indexMotActuel - 1))}
-                                    disabled={indexMotActuel === 0}
-                                    style={{
-                                        padding: '12px 20px',
-                                        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                                        color: 'white',
-                                        border: 'none',
-                                        borderRadius: '10px',
-                                        fontSize: '14px',
-                                        fontWeight: '600',
-                                        cursor: indexMotActuel === 0 ? 'not-allowed' : 'pointer',
-                                        boxShadow: '0 4px 12px rgba(102, 126, 234, 0.3)',
-                                        opacity: indexMotActuel === 0 ? 0.3 : 1,
-                                        display: 'flex',
-                                        alignItems: 'center'
-                                    }}
-                                    title="Mot précédent"
-                                >
-                                    ←
-                                </button>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center', marginTop: '12px' }}>
+                            {/* Flèche gauche - mot précédent */}
+                            <button
+                                onClick={() => setIndexMotActuel(Math.max(0, indexMotActuel - 1))}
+                                disabled={indexMotActuel === 0}
+                                style={{
+                                    padding: '12px 16px',
+                                    backgroundColor: 'white',
+                                    border: '2px solid #6b7280',
+                                    borderRadius: '8px',
+                                    cursor: indexMotActuel === 0 ? 'not-allowed' : 'pointer',
+                                    fontSize: '32px',
+                                    opacity: indexMotActuel === 0 ? 0.3 : 1,
+                                    display: 'flex',
+                                    alignItems: 'center'
+                                }}
+                                title="Mot précédent"
+                            >
+                                ←
+                            </button>
 
-                                {/* Groupe de sens avec highlighting */}
-                                <div style={{
-                                    fontSize: '48px',
-                                    color: '#666',
-                                    lineHeight: '1.2',
-                                    textAlign: 'center'
-                                }}>
-                                    {groupeActuel?.contenu.split(' ').map((mot, idx) => {
-                                        const motsUniques = getMotsUniquesDuGroupe()
-                                        const motActuel = motsUniques[indexMotActuel] || motsUniques[0]
-                                        const isCurrentWord = mot.toLowerCase().replace(/[.,!?;:]/g, '') === motActuel?.toLowerCase().replace(/[.,!?;:]/g, '')
-                                        return (
-                                            <span key={idx} style={{
-                                                backgroundColor: isCurrentWord ? '#fef3c7' : 'transparent',
-                                                color: isCurrentWord ? '#92400e' : '#666',
-                                                fontWeight: isCurrentWord ? 'bold' : 'normal',
-                                                padding: isCurrentWord ? '2px 4px' : '0',
-                                                borderRadius: '4px'
-                                            }}>
-                                                {mot}{idx < groupeActuel.contenu.split(' ').length - 1 ? ' ' : ''}
-                                            </span>
-                                        )
-                                    })}
-                                </div>
-
-                                {/* Flèche droite - mot suivant */}
-                                <button
-                                    onClick={() => {
-                                        const motsUniques = getMotsUniquesDuGroupe()
-                                        setIndexMotActuel(Math.min(motsUniques.length - 1, indexMotActuel + 1))
-                                    }}
-                                    disabled={indexMotActuel === getMotsUniquesDuGroupe().length - 1}
-                                    style={{
-                                        padding: '12px 20px',
-                                        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                                        color: 'white',
-                                        border: 'none',
-                                        borderRadius: '10px',
-                                        fontSize: '14px',
-                                        fontWeight: '600',
-                                        cursor: indexMotActuel === getMotsUniquesDuGroupe().length - 1 ? 'not-allowed' : 'pointer',
-                                        boxShadow: '0 4px 12px rgba(102, 126, 234, 0.3)',
-                                        opacity: indexMotActuel === getMotsUniquesDuGroupe().length - 1 ? 0.3 : 1,
-                                        display: 'flex',
-                                        alignItems: 'center'
-                                    }}
-                                    title="Mot suivant"
-                                >
-                                    →
-                                </button>
+                            {/* Groupe de sens avec highlighting */}
+                            <div style={{
+                                fontSize: '48px',
+                                color: '#666',
+                                lineHeight: '1.2',
+                                textAlign: 'center',
+                                flex: 1
+                            }}>
+                                {groupeActuel?.contenu.split(' ').map((mot, idx) => {
+                                    const motsUniques = getMotsUniquesDuGroupe()
+                                    const motActuel = motsUniques[indexMotActuel] || motsUniques[0]
+                                    const isCurrentWord = mot.toLowerCase().replace(/[.,!?;:]/g, '') === motActuel?.toLowerCase().replace(/[.,!?;:]/g, '')
+                                    return (
+                                        <span key={idx} style={{
+                                            color: isCurrentWord ? '#3b82f6' : '#666',
+                                            fontWeight: isCurrentWord ? 'bold' : 'normal'
+                                        }}>
+                                            {mot}{idx < groupeActuel.contenu.split(' ').length - 1 ? ' ' : ''}
+                                        </span>
+                                    )
+                                })}
                             </div>
+
+                            {/* Flèche droite - mot suivant */}
+                            <button
+                                onClick={() => {
+                                    const motsUniques = getMotsUniquesDuGroupe()
+                                    setIndexMotActuel(Math.min(motsUniques.length - 1, indexMotActuel + 1))
+                                }}
+                                disabled={indexMotActuel === getMotsUniquesDuGroupe().length - 1}
+                                style={{
+                                    padding: '12px 16px',
+                                    backgroundColor: 'white',
+                                    border: '2px solid #6b7280',
+                                    borderRadius: '8px',
+                                    cursor: indexMotActuel === getMotsUniquesDuGroupe().length - 1 ? 'not-allowed' : 'pointer',
+                                    fontSize: '32px',
+                                    opacity: indexMotActuel === getMotsUniquesDuGroupe().length - 1 ? 0.3 : 1,
+                                    display: 'flex',
+                                    alignItems: 'center'
+                                }}
+                                title="Mot suivant"
+                            >
+                                →
+                            </button>
                         </div>
                     </div>
                 )}
