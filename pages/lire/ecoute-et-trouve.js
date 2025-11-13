@@ -41,7 +41,8 @@ export default function EcouteEtTrouve() {
     const [enregistrementsMap, setEnregistrementsMap] = useState({}) // Enregistrements personnels indexés par mot
     const [resultats, setResultats] = useState({ reussis: [], rates: [] }) // Mots réussis et ratés
     const [showConfetti, setShowConfetti] = useState(false) // Effet de célébration
-    const [showIntro, setShowIntro] = useState(true) // Page d'intro avant le jeu
+    const [etape, setEtape] = useState('chargement') // chargement | intro | exercice | resultats
+    const [showIntro, setShowIntro] = useState(true) // Afficher l'écran d'intro avec slider
     const router = useRouter()
 
     useEffect(() => {
@@ -55,12 +56,16 @@ export default function EcouteEtTrouve() {
     }, [])
 
     useEffect(() => {
-        checkAuth()
-    }, [router.query])
+        // Attendre que router.query soit prêt
+        if (router.isReady) {
+            console.log('🔍 Router ready, query:', router.query)
+            checkAuth()
+        }
+    }, [router.isReady, router.query])
 
     // Célébration pour score parfait
     useEffect(() => {
-        if (gameFinished && finalScore.total > 0 && finalScore.correct === finalScore.total) {
+        if (etape === 'resultats' && finalScore.total > 0 && finalScore.correct === finalScore.total) {
             // Lancer la célébration
             setShowConfetti(true)
 
@@ -77,7 +82,25 @@ export default function EcouteEtTrouve() {
                 clearTimeout(timerConfetti)
             }
         }
-    }, [gameFinished, finalScore])
+    }, [etape, finalScore])
+
+    // ==================== LECTURE AUTO AU DÉMARRAGE ====================
+    useEffect(() => {
+        if (etape === 'exercice' && currentMot) {
+            // Au premier démarrage, attendre que enregistrementsMap soit chargé
+            if (completedMots.length === 0 && Object.keys(enregistrementsMap).length === 0) {
+                console.log('⏳ Attente du chargement des enregistrements avant le premier audio...')
+                return
+            }
+
+            const timer = setTimeout(() => {
+                console.log(`🎯 Lecture auto du mot - ${Object.keys(enregistrementsMap).length} enregistrements disponibles`)
+                playAudio(currentMot.mot)
+            }, 300)
+
+            return () => clearTimeout(timer)
+        }
+    }, [currentMot, etape, enregistrementsMap])
 
     const checkAuth = async () => {
         // Charger les voix disponibles
@@ -102,12 +125,22 @@ export default function EcouteEtTrouve() {
 
         // Récupérer les textes sélectionnés depuis les query params
         if (router.query.texte_ids) {
+            console.log('✅ texte_ids trouvés:', router.query.texte_ids)
             const texteIds = router.query.texte_ids.split(',').map(id => parseInt(id))
             setSelectedTexteIds(texteIds)
-        }
 
-        // Charger les enregistrements personnels
-        await loadEnregistrements()
+            // Charger les enregistrements personnels
+            await loadEnregistrements()
+
+            // ⭐ CHARGER ET DÉMARRER AUTOMATIQUEMENT
+            console.log('🚀 Chargement des mots pour textes:', texteIds)
+            await loadMotsForTextes(texteIds)
+            // loadMotsForTextes déclenche maintenant demarrerExercice automatiquement
+        } else {
+            console.warn('⚠️ Aucun texte_ids dans query params')
+            // Charger les enregistrements même sans textes sélectionnés
+            await loadEnregistrements()
+        }
 
         setIsLoading(false)
     }
@@ -124,8 +157,20 @@ export default function EcouteEtTrouve() {
             if (response.ok) {
                 const data = await response.json()
                 console.log(`🎤 ${data.count} enregistrement(s) vocal(aux) chargé(s)`)
-                console.log('📋 Enregistrements chargés:', Object.keys(data.enregistrementsMap || {}))
-                setEnregistrementsMap(data.enregistrementsMap || {})
+
+                // ⚠️ IMPORTANT: Normaliser les clés pour correspondre à playAudio()
+                const mapNormalise = {}
+                Object.entries(data.enregistrementsMap || {}).forEach(([mot, enreg]) => {
+                    const motNormalise = mot
+                        .toLowerCase()
+                        .trim()
+                        .replace(/^[.,;:!?¡¿'"«»\-—]+/, '')
+                        .replace(/[.,;:!?¡¿'"«»\-—]+$/, '')
+                    mapNormalise[motNormalise] = enreg
+                })
+
+                console.log('📋 Enregistrements normalisés:', Object.keys(mapNormalise))
+                setEnregistrementsMap(mapNormalise)
             } else {
                 console.error('Erreur chargement enregistrements vocaux')
             }
@@ -206,6 +251,13 @@ export default function EcouteEtTrouve() {
 
             const mots = Array.from(motsMap.values())
             console.log(`✅ ${mots.length} mots uniques chargés depuis ${data?.length || 0} groupes (après déduplication)`)
+
+            // ⭐ STOCKER LES MOTS ET AFFICHER INTRO (choix nbChoix)
+            if (mots.length > 0) {
+                setAllMots(mots)
+                setEtape('intro') // Afficher slider pour choisir nbChoix
+            }
+
             return mots
 
         } catch (error) {
@@ -272,6 +324,36 @@ export default function EcouteEtTrouve() {
         setTimeout(() => playAudio(shuffled[0].mot), 500)
     }
 
+    // ⭐ NOUVELLE FONCTION - Auto-démarrage sans intro
+    const demarrerExercice = (mots) => {
+        if (mots.length === 0) {
+            console.error('Aucun mot trouvé dans les textes sélectionnés')
+            setEtape('chargement')
+            return
+        }
+
+        // Vérifier nombre de mots suffisant
+        if (mots.length < nbChoix) {
+            console.error(`Pas assez de mots ! Il faut au moins ${nbChoix} mots. Vous n'avez que ${mots.length} mots.`)
+            setEtape('chargement')
+            return
+        }
+
+        setAllMots(mots)
+        const shuffled = shuffleFisherYates(mots)
+        setShuffledMots(shuffled)
+        setCurrentMot(shuffled[0])
+        updateDisplayedMots(shuffled[0], mots)
+
+        setScore(0)
+        setAttempts(0)
+        setCompletedMots([])
+        setResultats({ reussis: [], rates: [] })
+        setEtape('exercice') // ⭐ Nouvelle gestion d'état
+
+        // ❌ PAS DE playAudio ici → le useEffect (ligne 87) s'en charge
+    }
+
     const updateDisplayedMots = (motCourant, tousLesMots) => {
         // Créer un array avec le mot courant + (nbChoix - 1) autres mots aléatoires
         const autresMots = tousLesMots.filter(m => m.id !== motCourant.id)
@@ -286,15 +368,21 @@ export default function EcouteEtTrouve() {
     }
 
     const restartGame = () => {
-        setGameFinished(false)
-        setGameStarted(false)
-        setShowIntro(true) // Retourner à la page d'intro
         setScore(0)
         setAttempts(0)
         setCompletedMots([])
         setVisualFeedback({ clickedMotId: null, correctMotId: null, isCorrect: null })
         setFinalScore({ correct: 0, total: 0 })
         setResultats({ reussis: [], rates: [] })
+
+        // ⭐ REDÉMARRER DIRECTEMENT L'EXERCICE
+        if (allMots.length > 0) {
+            demarrerExercice(allMots)
+        } else {
+            // Recharger si nécessaire
+            const texteIds = router.query.texte_ids.split(',').map(id => parseInt(id))
+            loadMotsForTextes(texteIds)
+        }
     }
 
     // Fonctions de cache optimisées
@@ -552,8 +640,7 @@ export default function EcouteEtTrouve() {
                     correct: finalCorrect,
                     total: finalTotal
                 })
-                setGameStarted(false)
-                setGameFinished(true)
+                setEtape('resultats') // ⭐ Gestion moderne
                 setVisualFeedback({ clickedMotId: null, correctMotId: null, isCorrect: null })
             }
         }, delai)
@@ -604,42 +691,131 @@ export default function EcouteEtTrouve() {
                 maxWidth: '1000px',
                 margin: '0 auto'
             }}>
-                {/* Titre avec icône maison */}
-                <div style={{ position: 'relative' }}>
+                {/* Navigation moderne - Desktop uniquement */}
+                {!isMobile && etape === 'exercice' && (
+                    <>
+                        <h1 style={{
+                            fontSize: '28px',
+                            fontWeight: 'bold',
+                            marginBottom: '16px',
+                            color: '#06b6d4',
+                            textAlign: 'center'
+                        }}>
+                            🎯 Écoute et trouve
+                        </h1>
+
+                        {/* Navigation entre titre et score */}
+                        <div style={{
+                            display: 'flex',
+                            gap: '8px',
+                            justifyContent: 'center',
+                            marginBottom: '16px'
+                        }}>
+                            <button
+                                onClick={() => {
+                                    const texteIds = selectedTexteIds.join(',')
+                                    router.push(`/lire/reconnaitre-les-mots?etape=exercices&texte_ids=${texteIds}`)
+                                }}
+                                style={{
+                                    padding: '8px 12px',
+                                    backgroundColor: 'white',
+                                    border: '2px solid #64748b',
+                                    borderRadius: '8px',
+                                    cursor: 'pointer',
+                                    fontSize: '20px'
+                                }}
+                                title="Menu exercices"
+                            >
+                                ←
+                            </button>
+                            <button
+                                onClick={() => router.push('/lire/reconnaitre-les-mots')}
+                                style={{
+                                    padding: '8px 12px',
+                                    backgroundColor: 'white',
+                                    border: '2px solid #3b82f6',
+                                    borderRadius: '8px',
+                                    cursor: 'pointer',
+                                    fontSize: '20px'
+                                }}
+                                title="Sélection des textes"
+                            >
+                                👁️
+                            </button>
+                            <button
+                                onClick={() => router.push('/lire')}
+                                style={{
+                                    padding: '8px 12px',
+                                    backgroundColor: 'white',
+                                    border: '2px solid #10b981',
+                                    borderRadius: '8px',
+                                    cursor: 'pointer',
+                                    fontSize: '20px'
+                                }}
+                                title="Menu Lire"
+                            >
+                                📖
+                            </button>
+                            <button
+                                onClick={() => router.push('/dashboard')}
+                                style={{
+                                    padding: '8px 12px',
+                                    backgroundColor: 'white',
+                                    border: '2px solid #8b5cf6',
+                                    borderRadius: '8px',
+                                    cursor: 'pointer',
+                                    fontSize: '20px'
+                                }}
+                                title="Accueil"
+                            >
+                                🏠
+                            </button>
+                            <button
+                                onClick={() => currentMot && playAudio(currentMot.mot)}
+                                disabled={isPlaying || !currentMot}
+                                style={{
+                                    padding: '8px 12px',
+                                    backgroundColor: 'white',
+                                    border: '2px solid #f59e0b',
+                                    borderRadius: '8px',
+                                    cursor: currentMot ? 'pointer' : 'not-allowed',
+                                    fontSize: '20px',
+                                    opacity: currentMot ? 1 : 0.5
+                                }}
+                                title="Écouter le mot"
+                            >
+                                🔊
+                            </button>
+                        </div>
+
+                        {/* Score */}
+                        <div style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            marginBottom: '20px',
+                            fontSize: '16px'
+                        }}>
+                            <span>📊 Score: {score}/{attempts}</span>
+                            <span>📝 Progression: {completedMots.length}/{shuffledMots.length}</span>
+                        </div>
+                    </>
+                )}
+
+                {/* Titre simple pour mobile et autres états */}
+                {(isMobile || etape !== 'exercice') && (
                     <h1 style={{
                         fontSize: 'clamp(22px, 5vw, 28px)',
                         fontWeight: 'bold',
-                        marginBottom: isMobile && gameStarted ? '12px' : '20px',
+                        marginBottom: isMobile && etape === 'exercice' ? '12px' : '20px',
                         color: '#06b6d4',
                         textAlign: 'center'
                     }}>
                         🎯 Écoute et trouve<span className="desktop-only"> - Reconnaissance des mots</span>
                     </h1>
-                    <button
-                        onClick={() => router.push('/dashboard')}
-                        style={{
-                            position: 'absolute',
-                            top: '0',
-                            right: '0',
-                            padding: '6px 10px',
-                            backgroundColor: 'transparent',
-                            border: '1px solid #e0e0e0',
-                            borderRadius: '6px',
-                            cursor: 'pointer',
-                            fontSize: '20px',
-                            opacity: '0.6',
-                            transition: 'opacity 0.2s'
-                        }}
-                        onMouseEnter={(e) => e.target.style.opacity = '1'}
-                        onMouseLeave={(e) => e.target.style.opacity = '0.6'}
-                        title="Retour au dashboard"
-                    >
-                        🏠
-                    </button>
-                </div>
+                )}
 
                 {/* Score/Progression et Icônes de navigation - Mobile uniquement */}
-                {isMobile && gameStarted && (
+                {isMobile && etape === 'exercice' && (
                     <>
                         {/* Score et progression - sans cadre */}
                         <div style={{
@@ -759,83 +935,8 @@ export default function EcouteEtTrouve() {
                     </>
                 )}
 
-                {/* Page d'introduction */}
-                {showIntro && !gameStarted && !gameFinished && !isLoadingTextes && (
-                    <div style={{
-                        maxWidth: '600px',
-                        margin: '0 auto',
-                        padding: isMobile ? '20px' : '40px'
-                    }}>
-                        {/* Slider pour nombre de mots */}
-                        <div style={{ marginBottom: '40px' }}>
-                            <label style={{
-                                display: 'block',
-                                marginBottom: '15px',
-                                fontSize: isMobile ? '16px' : '18px',
-                                fontWeight: '600',
-                                color: '#1e293b'
-                            }}>
-                                Nombre de mots proposés :
-                            </label>
-                            <input
-                                type="range"
-                                min="4"
-                                max="12"
-                                value={nbChoix}
-                                onChange={(e) => setNbChoix(parseInt(e.target.value))}
-                                style={{
-                                    width: '100%',
-                                    height: '8px',
-                                    borderRadius: '5px',
-                                    outline: 'none',
-                                    background: '#ddd'
-                                }}
-                            />
-                            <div style={{
-                                textAlign: 'center',
-                                marginTop: '10px',
-                                fontSize: isMobile ? '24px' : '32px',
-                                fontWeight: 'bold',
-                                color: '#06b6d4'
-                            }}>
-                                {nbChoix} mots
-                            </div>
-                        </div>
-
-                        {/* Bouton démarrer */}
-                        <button
-                            onClick={startGame}
-                            disabled={selectedTexteIds.length === 0}
-                            style={{
-                                width: '100%',
-                                backgroundColor: selectedTexteIds.length === 0 ? '#94a3b8' : '#10b981',
-                                color: 'white',
-                                padding: isMobile ? '16px' : '20px',
-                                border: 'none',
-                                borderRadius: '8px',
-                                fontSize: isMobile ? '18px' : '20px',
-                                fontWeight: 'bold',
-                                cursor: selectedTexteIds.length === 0 ? 'not-allowed' : 'pointer',
-                                transition: 'transform 0.1s'
-                            }}
-                            onMouseEnter={(e) => {
-                                if (selectedTexteIds.length > 0 && !isMobile) {
-                                    e.target.style.transform = 'scale(1.02)'
-                                }
-                            }}
-                            onMouseLeave={(e) => {
-                                if (!isMobile) {
-                                    e.target.style.transform = 'scale(1)'
-                                }
-                            }}
-                        >
-                            🚀 Démarrer l'exercice
-                        </button>
-                    </div>
-                )}
-
                 {/* Chargement */}
-                {!showIntro && !gameStarted && !gameFinished && isLoadingTextes && (
+                {etape === 'chargement' && (
                     <div style={{
                         textAlign: 'center',
                         padding: '60px 20px',
@@ -846,84 +947,90 @@ export default function EcouteEtTrouve() {
                     </div>
                 )}
 
-                {gameStarted && (
+                {/* Écran d'intro avec slider */}
+                {etape === 'intro' && (
+                    <div style={{
+                        maxWidth: '600px',
+                        margin: '40px auto',
+                        padding: '30px',
+                        textAlign: 'center'
+                    }}>
+                        <h1 style={{
+                            fontSize: '24px',
+                            fontWeight: 'bold',
+                            marginBottom: '40px',
+                            color: '#06b6d4'
+                        }}>
+                            🎯 Écoute et trouve - Reconnaissance des mots
+                        </h1>
+
+                        <div style={{ marginBottom: '40px' }}>
+                            <p style={{
+                                fontSize: '16px',
+                                marginBottom: '20px',
+                                color: '#64748b'
+                            }}>
+                                Nombre de mots proposés :
+                            </p>
+
+                            <input
+                                type="range"
+                                min="4"
+                                max="12"
+                                value={nbChoix}
+                                onChange={(e) => setNbChoix(parseInt(e.target.value))}
+                                style={{
+                                    width: '100%',
+                                    marginBottom: '20px',
+                                    accentColor: '#06b6d4'
+                                }}
+                            />
+
+                            <div style={{
+                                fontSize: '32px',
+                                fontWeight: 'bold',
+                                color: '#06b6d4',
+                                marginBottom: '30px'
+                            }}>
+                                {nbChoix} mots
+                            </div>
+                        </div>
+
+                        <button
+                            onClick={() => demarrerExercice(allMots)}
+                            style={{
+                                backgroundColor: '#10b981',
+                                color: 'white',
+                                padding: '16px 40px',
+                                border: 'none',
+                                borderRadius: '12px',
+                                fontSize: '18px',
+                                fontWeight: 'bold',
+                                cursor: 'pointer',
+                                boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+                                transition: 'all 0.3s'
+                            }}
+                            onMouseEnter={(e) => {
+                                e.target.style.transform = 'scale(1.05)'
+                                e.target.style.backgroundColor = '#059669'
+                            }}
+                            onMouseLeave={(e) => {
+                                e.target.style.transform = 'scale(1)'
+                                e.target.style.backgroundColor = '#10b981'
+                            }}
+                        >
+                            🚀 Démarrer l'exercice
+                        </button>
+                    </div>
+                )}
+
+                {etape === 'exercice' && currentMot && (
                     <>
                         {/* Zone de jeu */}
                         <div style={{
                             padding: '20px',
                             marginBottom: '20px'
                         }}>
-                            {/* Score et progression - masqué sur mobile */}
-                            <div className="desktop-only" style={{
-                                display: 'flex',
-                                justifyContent: 'space-between',
-                                marginBottom: '20px',
-                                fontSize: '16px'
-                            }}>
-                                <span>📊 Score: {score}/{attempts}</span>
-                                <span>📝 Progression: {completedMots.length}/{shuffledMots.length}</span>
-                            </div>
-
-                            {/* Boutons d'action - Desktop uniquement */}
-                            <div className="desktop-only" style={{
-                                display: 'flex',
-                                justifyContent: 'center',
-                                alignItems: 'center',
-                                gap: '20px',
-                                marginBottom: '30px',
-                                flexWrap: 'wrap'
-                            }}>
-                                <button
-                                    onClick={() => playAudio(currentMot.mot)}
-                                    disabled={isPlaying}
-                                    style={{
-                                        backgroundColor: isPlaying ? '#f59e0b' : '#3b82f6',
-                                        color: 'white',
-                                        padding: '15px 30px',
-                                        border: 'none',
-                                        borderRadius: '8px',
-                                        fontSize: '18px',
-                                        fontWeight: 'bold',
-                                        cursor: 'pointer'
-                                    }}
-                                >
-                                    {isPlaying ? '⏸️ Pause' : '🔊 Écouter'}
-                                </button>
-
-                                <button
-                                    onClick={resetGame}
-                                    style={{
-                                        backgroundColor: '#ef4444',
-                                        color: 'white',
-                                        padding: '10px 20px',
-                                        border: 'none',
-                                        borderRadius: '8px',
-                                        fontSize: '14px',
-                                        cursor: 'pointer'
-                                    }}
-                                    title="Arrêter l'exercice"
-                                >
-                                    ⏹️ Arrêter l'exercice
-                                </button>
-
-                                <button
-                                    onClick={() => router.push('/lire')}
-                                    style={{
-                                        backgroundColor: '#6b7280',
-                                        color: 'white',
-                                        padding: '12px 30px',
-                                        border: 'none',
-                                        borderRadius: '8px',
-                                        fontSize: '14px',
-                                        fontWeight: 'bold',
-                                        cursor: 'pointer'
-                                    }}
-                                    title="Retour au menu Lire"
-                                >
-                                    ← Retour au menu Lire
-                                </button>
-                            </div>
-
                             {/* Étiquettes des mots */}
                             <div style={{
                                 display: 'grid',
@@ -993,7 +1100,7 @@ export default function EcouteEtTrouve() {
                 )}
 
                 {/* Écran de fin avec score - Pattern ou-est-ce */}
-                {gameFinished && (
+                {etape === 'resultats' && (
                     <div style={{ width: '100%' }}>
                         {isMobile ? (
                             // VERSION MOBILE

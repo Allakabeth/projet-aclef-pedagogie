@@ -41,7 +41,8 @@ export default function LisEtTrouve() {
     const [enregistrementsMap, setEnregistrementsMap] = useState({})
     const [resultats, setResultats] = useState({ reussis: [], rates: [] })
     const [showConfetti, setShowConfetti] = useState(false)
-    const [showIntro, setShowIntro] = useState(true) // Page d'intro avant le jeu
+    const [etape, setEtape] = useState('chargement') // chargement | intro | exercice | resultats
+    const [showIntro, setShowIntro] = useState(true) // Page d'intro avant le jeu (LEGACY - garder pour compatibilité)
     const router = useRouter()
 
     useEffect(() => {
@@ -55,12 +56,16 @@ export default function LisEtTrouve() {
     }, [])
 
     useEffect(() => {
-        checkAuth()
-    }, [router.query])
+        // Attendre que router.query soit prêt
+        if (router.isReady) {
+            console.log('🔍 Router ready, query:', router.query)
+            checkAuth()
+        }
+    }, [router.isReady, router.query])
 
     // Célébration pour score parfait
     useEffect(() => {
-        if (gameFinished && finalScore.total > 0 && finalScore.correct === finalScore.total) {
+        if (etape === 'resultats' && finalScore.total > 0 && finalScore.correct === finalScore.total) {
             // Lancer la célébration
             setShowConfetti(true)
 
@@ -102,12 +107,25 @@ export default function LisEtTrouve() {
 
         // Récupérer les textes sélectionnés depuis les query params
         if (router.query.texte_ids) {
+            console.log('✅ texte_ids trouvés:', router.query.texte_ids)
             const texteIds = router.query.texte_ids.split(',').map(id => parseInt(id))
             setSelectedTexteIds(texteIds)
-        }
 
-        // Charger les enregistrements personnels
-        await loadEnregistrements()
+            // Charger les enregistrements personnels
+            await loadEnregistrements()
+
+            // ⭐ AUTO-CHARGEMENT DES MOTS ET AFFICHAGE INTRO
+            console.log('🚀 Chargement des mots pour textes:', texteIds)
+            const mots = await loadMotsForTextes(texteIds)
+
+            if (mots && mots.length > 0) {
+                setAllMots(mots)
+                setEtape('intro') // Afficher slider pour choisir nbSons
+            }
+        } else {
+            console.warn('⚠️ Aucun texte_ids dans query params')
+            await loadEnregistrements()
+        }
 
         setIsLoading(false)
     }
@@ -124,8 +142,20 @@ export default function LisEtTrouve() {
             if (response.ok) {
                 const data = await response.json()
                 console.log(`🎤 ${data.count} enregistrement(s) vocal(aux) chargé(s)`)
-                console.log('📋 Enregistrements chargés:', Object.keys(data.enregistrementsMap || {}))
-                setEnregistrementsMap(data.enregistrementsMap || {})
+
+                // ⚠️ IMPORTANT: Normaliser les clés pour correspondre à playAudio()
+                const mapNormalise = {}
+                Object.entries(data.enregistrementsMap || {}).forEach(([mot, enreg]) => {
+                    const motNormalise = mot
+                        .toLowerCase()
+                        .trim()
+                        .replace(/^[.,;:!?¡¿'"«»\-—]+/, '')
+                        .replace(/[.,;:!?¡¿'"«»\-—]+$/, '')
+                    mapNormalise[motNormalise] = enreg
+                })
+
+                console.log('📋 Enregistrements normalisés:', Object.keys(mapNormalise))
+                setEnregistrementsMap(mapNormalise)
             } else {
                 console.error('Erreur chargement enregistrements vocaux')
             }
@@ -225,48 +255,35 @@ export default function LisEtTrouve() {
     }
 
     const startGame = async () => {
-        if (selectedTexteIds.length === 0) {
-            alert('Aucun texte sélectionné')
-            return
-        }
-
-        setShowIntro(false) // Masquer la page d'intro
-        setIsLoadingTextes(true)
-        // Charger les mots des textes sélectionnés depuis la page précédente
-        const mots = await loadMotsForTextes(selectedTexteIds)
-
-        if (mots.length === 0) {
-            alert('Aucun mot trouvé dans les textes sélectionnés')
-            setIsLoadingTextes(false)
+        // ⭐ UTILISE allMots DÉJÀ CHARGÉ dans checkAuth()
+        if (!allMots || allMots.length === 0) {
+            console.error('Aucun mot chargé')
             return
         }
 
         // Vérifier qu'on a assez de mots pour le nombre de sons
-        if (mots.length < nbSons) {
-            alert(`Pas assez de mots ! Il faut au moins ${nbSons} mots. Vous n'avez que ${mots.length} mots.`)
-            setIsLoadingTextes(false)
+        if (allMots.length < nbSons) {
+            alert(`Pas assez de mots ! Il faut au moins ${nbSons} mots. Vous n'avez que ${allMots.length} mots.`)
             return
         }
 
-        setAllMots(mots)
-
         // Mélanger les mots avec Fisher-Yates (toujours aléatoire)
-        const shuffled = shuffleFisherYates(mots)
+        const shuffled = shuffleFisherYates(allMots)
 
         setShuffledMots(shuffled)
         setCurrentMot(shuffled[0])
 
         // Afficher les premiers choix audio
-        updateDisplayedMots(shuffled[0], mots)
+        updateDisplayedMots(shuffled[0], allMots)
 
         setScore(0)
         setAttempts(0)
         setCompletedMots([])
-        setGameStarted(true)
-        setGameFinished(false)
         setFinalScore({ correct: 0, total: 0 })
         setResultats({ reussis: [], rates: [] })
-        setIsLoadingTextes(false)
+
+        // ⭐ PASSER À L'EXERCICE
+        setEtape('exercice')
     }
 
     const updateDisplayedMots = (motCourant, tousLesMots) => {
@@ -561,8 +578,9 @@ export default function LisEtTrouve() {
                     correct: finalCorrect,
                     total: finalTotal
                 })
-                setGameStarted(false)
-                setGameFinished(true)
+
+                // ⭐ PASSER À LA PAGE RÉSULTATS
+                setEtape('resultats')
             }
         }, delai)
     }
@@ -652,7 +670,7 @@ export default function LisEtTrouve() {
                 )}
 
                 {/* Page d'introduction */}
-                {showIntro && !gameStarted && !gameFinished && !isLoadingTextes && (
+                {etape === 'intro' && (
                     <div style={{
                         maxWidth: '600px',
                         margin: '0 auto',
@@ -739,7 +757,7 @@ export default function LisEtTrouve() {
                 )}
 
                 {/* En-tête du jeu */}
-                {gameStarted && !gameFinished && (
+                {etape === 'exercice' && (
                     <div style={{ marginBottom: '20px' }}>
                         {/* Titre */}
                         <h1 style={{
@@ -847,7 +865,7 @@ export default function LisEtTrouve() {
                     </div>
                 )}
 
-                {gameStarted && !gameFinished && (
+                {etape === 'exercice' && (
                     <>
                         {/* Zone de jeu */}
                         <div style={{
@@ -995,7 +1013,7 @@ export default function LisEtTrouve() {
                 )}
 
                 {/* Écran de fin avec score - Pattern ou-est-ce */}
-                {gameFinished && (
+                {etape === 'resultats' && (
                     <div style={{ width: '100%' }}>
                         {isMobile ? (
                             // VERSION MOBILE

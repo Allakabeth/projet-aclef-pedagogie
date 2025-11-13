@@ -1,0 +1,117 @@
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/router'
+
+export default function ReconnaitreLesMotsExercices2() {
+    const [user, setUser] = useState(null)
+    const [isLoading, setIsLoading] = useState(true)
+    const router = useRouter()
+
+    useEffect(() => {
+        const token = localStorage.getItem('token')
+        const userData = localStorage.getItem('user')
+
+        if (!token || !userData) {
+            router.push('/login')
+            return
+        }
+
+        try {
+            setUser(JSON.parse(userData))
+        } catch (error) {
+            router.push('/login')
+            return
+        }
+
+        setIsLoading(false)
+    }, [router])
+
+    const exercices = [
+        { id: 1, titre: 'Ma voix, mes mots', icon: '🎙️', description: 'Enregistre ta voix pour chaque mot de ton texte', bg: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' },
+        { id: 2, titre: 'Karaoké', icon: '🎤', description: 'Chaque mot s\'illumine quand il est prononcé', bg: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)' },
+        { id: 3, titre: 'Remettre dans l\'ordre', icon: '🔀', description: 'Les mots sont mélangés, remets-les dans l\'ordre', bg: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)' },
+        { id: 4, titre: 'Où est-ce ?', icon: '🎯', description: 'Écoute le mot et clique sur le bon mot écrit', bg: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)' },
+        { id: 5, titre: 'Qu\'est-ce ?', icon: '🔊', description: 'Un mot est illuminé, trouve le bon son', bg: 'linear-gradient(135deg, #fa709a 0%, #fee140 100%)' },
+        { id: 6, titre: 'Découpage', icon: '✂️', description: 'Sépare les mots qui sont collés', bg: 'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)' },
+        { id: 7, titre: 'Écoute et trouve', icon: '🎯', description: 'Écoute un mot et trouve-le parmi plusieurs choix', bg: 'linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%)' },
+        { id: 8, titre: 'Lis et trouve', icon: '👁️', description: 'Lis un mot et trouve le bon son parmi plusieurs audios', bg: 'linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%)' },
+        { id: 9, titre: 'Construis des phrases', icon: '📝', description: 'Crée des phrases avec les mots de tes textes', bg: 'linear-gradient(135deg, #c471f5 0%, #fa71cd 100%)' }
+    ]
+
+    if (isLoading) {
+        return <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><p>Chargement...</p></div>
+    }
+
+    return (
+        <div style={{ minHeight: '100vh', background: 'white', padding: '10px' }}>
+            <div style={{ maxWidth: '800px', margin: '0 auto' }}>
+                {/* Titre */}
+                <h1 style={{ fontSize: '22px', fontWeight: 'bold', marginBottom: '8px', textAlign: 'center' }}>
+                    <span style={{ marginRight: '6px' }}>🎯</span>
+                    <span style={{ background: 'linear-gradient(135deg, #0ea5e9 0%, #06b6d4 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Reconnaître les mots</span>
+                </h1>
+
+                {/* Navigation */}
+                <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', marginBottom: '10px' }}>
+                    <button onClick={() => router.push('/lire/reconnaitre-les-mots-new')} style={{ width: '40px', height: '40px', backgroundColor: 'white', color: '#64748b', border: '2px solid #64748b', borderRadius: '8px', fontSize: '18px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>←</button>
+                    <button onClick={() => router.push('/lire')} style={{ width: '40px', height: '40px', backgroundColor: 'white', color: '#0ea5e9', border: '2px solid #0ea5e9', borderRadius: '8px', fontSize: '18px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>📖</button>
+                    <button onClick={() => router.push('/dashboard')} style={{ width: '40px', height: '40px', backgroundColor: 'white', color: '#8b5cf6', border: '2px solid #8b5cf6', borderRadius: '8px', fontSize: '18px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>🏠</button>
+                </div>
+
+                {/* Sous-titre */}
+                <p style={{ textAlign: 'center', color: '#64748b', fontSize: '12px', marginBottom: '15px' }}>8 groupes de sens • Choisis un exercice</p>
+
+                {/* GRILLE 3x3 - 200px par carte - 20px de gap */}
+                <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: '200px 200px 200px',
+                    gridTemplateRows: '200px 200px 200px',
+                    gap: '20px',
+                    justifyContent: 'center',
+                    alignContent: 'center'
+                }}>
+                    {exercices.map((exercice) => (
+                        <div
+                            key={exercice.id}
+                            onClick={() => {
+                                if (exercice.id === 1) {
+                                    router.push(`/lire/ma-voix-mes-mots-exercice?texte_ids=${router.query.textes}`)
+                                } else if (exercice.id === 2) {
+                                    router.push(`/lire/karaoke-exercice?texte_ids=${router.query.textes}`)
+                                } else if (exercice.id === 3) {
+                                    router.push(`/lire/remettre-dans-ordre-exercice?texte_ids=${router.query.textes}`)
+                                } else if (exercice.id === 4) {
+                                    router.push(`/lire/ou-est-ce-exercice?texte_ids=${router.query.textes}`)
+                                } else if (exercice.id === 5) {
+                                    router.push(`/lire/reconnaitre-les-mots/quest-ce-exercice?texte_ids=${router.query.textes}`)
+                                } else if (exercice.id === 6) {
+                                    router.push(`/lire/reconnaitre-les-mots/decoupage-exercice?texte_ids=${router.query.textes}`)
+                                } else if (exercice.id === 7) {
+                                    router.push(`/lire/ecoute-et-trouve?texte_ids=${router.query.textes}`)
+                                } else if (exercice.id === 8) {
+                                    router.push(`/lire/lis-et-trouve?texte_ids=${router.query.textes}`)
+                                } else if (exercice.id === 9) {
+                                    router.push(`/lire/reconnaitre-les-mots/construis-phrases-intro?texte_ids=${router.query.textes}`)
+                                }
+                            }}
+                            style={{
+                                background: exercice.bg,
+                                borderRadius: '12px',
+                                padding: '10px',
+                                boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                textAlign: 'center',
+                                cursor: 'pointer'
+                            }}>
+                            <div style={{ fontSize: '36px', marginBottom: '6px' }}>{exercice.icon}</div>
+                            <div style={{ color: 'white', fontWeight: 'bold', fontSize: '12px', textShadow: '0 1px 2px rgba(0,0,0,0.2)', marginBottom: '3px' }}>{exercice.titre}</div>
+                            <div style={{ color: 'rgba(255,255,255,0.9)', fontSize: '9px', textShadow: '0 1px 2px rgba(0,0,0,0.1)', lineHeight: '1.3' }}>{exercice.description}</div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </div>
+    )
+}
