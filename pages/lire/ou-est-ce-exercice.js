@@ -30,7 +30,7 @@ export default function OuEstCeExercice() {
     const [motActuel, setMotActuel] = useState(null)
     const [groupeActuel, setGroupeActuel] = useState(null)
     const [score, setScore] = useState({ bonnes: 0, total: 0 })
-    const [feedback, setFeedback] = useState(null) // { type: 'success' | 'error', message: '...' }
+    const [feedback, setFeedback] = useState(null) // { type: 'success' | 'error', motClique: '...' }
     const [resultats, setResultats] = useState({ reussis: [], rates: [] })
     const [tousLesMots, setTousLesMots] = useState([]) // Toutes les questions
     const [indexQuestion, setIndexQuestion] = useState(-1) // -1 pour déclencher useEffect au premier démarrage
@@ -295,6 +295,31 @@ export default function OuEstCeExercice() {
         }
     }
 
+    // ==================== PASSAGE QUESTION SUIVANTE ====================
+    function passerQuestionSuivante() {
+        setFeedback(null)
+
+        const nextIndex = indexQuestion + 1
+
+        // Vérifier si on a fini
+        if (nextIndex >= tousLesMots.length) {
+            setEtape('resultats')
+            return
+        }
+
+        // Préparer la question suivante (l'audio sera lancé par useEffect)
+        const question = tousLesMots[nextIndex]
+
+        if (question && question.mot && question.motsDuGroupe) {
+            setMotActuel(question.mot)
+            setGroupeActuel({
+                ...question.groupe,
+                motsDuGroupe: question.motsDuGroupe
+            })
+            setIndexQuestion(nextIndex)
+        }
+    }
+
     // ==================== VÉRIFICATION RÉPONSE ====================
     function verifierReponseOuEstCe(motClique) {
         const correct = motClique.toLowerCase() === motActuel.toLowerCase()
@@ -310,39 +335,23 @@ export default function OuEstCeExercice() {
                 ...prev,
                 reussis: [...prev.reussis, motActuel]
             }))
-            setFeedback({ type: 'success', message: '✅ Correct !' })
+            setFeedback({ type: 'success', motClique: motClique })
         } else {
             setResultats(prev => ({
                 ...prev,
                 rates: [...prev.rates, motActuel]
             }))
-            setFeedback({ type: 'error', message: `❌ Non, c'était "${motActuel}"` })
+            setFeedback({ type: 'error', motClique: motClique })
         }
 
-        // Question suivante après 1.5 sec
-        setTimeout(() => {
-            setFeedback(null)
-
-            const nextIndex = indexQuestion + 1
-
-            // Vérifier si on a fini
-            if (nextIndex >= tousLesMots.length) {
-                setEtape('resultats')
-                return
-            }
-
-            // Préparer la question suivante (l'audio sera lancé par useEffect)
-            const question = tousLesMots[nextIndex]
-
-            if (question && question.mot && question.motsDuGroupe) {
-                setMotActuel(question.mot)
-                setGroupeActuel({
-                    ...question.groupe,
-                    motsDuGroupe: question.motsDuGroupe
-                })
-                setIndexQuestion(nextIndex)
-            }
-        }, 1500)
+        // Passage automatique : si mobile OU si bonne réponse
+        // Sur desktop avec erreur : attendre clic sur bouton "Suivant"
+        if (isMobile || correct) {
+            setTimeout(() => {
+                passerQuestionSuivante()
+            }, 1500)
+        }
+        // Si desktop + erreur : pas de setTimeout, on attend le bouton
     }
 
     // ==================== LECTURE QUESTION "OÙ EST [MOT]" ====================
@@ -574,7 +583,7 @@ export default function OuEstCeExercice() {
         title: {
             fontSize: isMobile ? '24px' : '32px',
             fontWeight: 'bold',
-            color: '#1e293b',
+            color: '#06B6D4',
             margin: 0,
             textAlign: 'center'
         },
@@ -611,13 +620,15 @@ export default function OuEstCeExercice() {
         },
         consigne: {
             fontSize: '20px',
-            color: '#1e293b',
+            color: '#06B6D4',
             marginBottom: '16px',
             backgroundColor: '#dbeafe',
             padding: '16px',
             borderRadius: '12px',
-            border: '2px solid #3b82f6',
-            fontWeight: 'bold'
+            border: '2px solid #06B6D4',
+            fontWeight: 'bold',
+            display: 'inline-block',
+            minWidth: '400px'
         },
         ecouterButton: {
             padding: '12px 24px',
@@ -643,11 +654,11 @@ export default function OuEstCeExercice() {
         motButton: {
             padding: '12px 24px',
             backgroundColor: 'white',
-            border: '3px solid #3b82f6',
+            border: '3px solid #06B6D4',
             borderRadius: '12px',
             fontSize: '20px',
             fontWeight: 'bold',
-            color: '#1e293b',
+            color: '#06B6D4',
             cursor: 'pointer',
             transition: 'all 0.2s',
             minWidth: '120px',
@@ -662,7 +673,7 @@ export default function OuEstCeExercice() {
         },
         primaryButton: {
             padding: '12px 24px',
-            backgroundColor: '#3b82f6',
+            backgroundColor: '#06B6D4',
             color: 'white',
             border: 'none',
             borderRadius: '12px',
@@ -753,7 +764,7 @@ export default function OuEstCeExercice() {
                             </p>
                             <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
                                 <button
-                                    onClick={() => router.push(`/lire/reconnaitre-les-mots/exercices2?textes=${router.query.texte_ids}`)}
+                                    onClick={() => router.push(`/lire/reconnaitre-les-mots/exercices2?textes=1`)}
                                     style={{
                                         padding: '8px 12px',
                                         backgroundColor: 'white',
@@ -769,11 +780,11 @@ export default function OuEstCeExercice() {
                                     ←
                                 </button>
                                 <button
-                                    onClick={() => router.push(`/lire/reconnaitre-les-mots-new`)}
+                                    onClick={() => router.push(`/lire/reconnaitre-les-mots`)}
                                     style={{
                                         padding: '8px 12px',
                                         backgroundColor: 'white',
-                                        border: '2px solid #3b82f6',
+                                        border: '2px solid #06B6D4',
                                         borderRadius: '8px',
                                         cursor: 'pointer',
                                         fontSize: '20px',
@@ -846,7 +857,7 @@ export default function OuEstCeExercice() {
                             </div>
                             <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
                                 <button
-                                    onClick={() => router.push(`/lire/reconnaitre-les-mots/exercices2?textes=${router.query.texte_ids}`)}
+                                    onClick={() => router.push(`/lire/reconnaitre-les-mots/exercices2?textes=1`)}
                                     style={{
                                         padding: '12px 16px',
                                         backgroundColor: 'white',
@@ -862,11 +873,11 @@ export default function OuEstCeExercice() {
                                     ←
                                 </button>
                                 <button
-                                    onClick={() => router.push(`/lire/reconnaitre-les-mots-new`)}
+                                    onClick={() => router.push(`/lire/reconnaitre-les-mots`)}
                                     style={{
                                         padding: '12px 16px',
                                         backgroundColor: 'white',
-                                        border: '2px solid #3b82f6',
+                                        border: '2px solid #06B6D4',
                                         borderRadius: '8px',
                                         cursor: 'pointer',
                                         fontSize: '24px',
@@ -930,17 +941,8 @@ export default function OuEstCeExercice() {
                     )}
                 </div>
 
-                {feedback && (
-                    <div style={{
-                        ...styles.feedbackBox,
-                        ...(feedback.type === 'success' ? styles.feedbackSuccess : styles.feedbackError)
-                    }}>
-                        {feedback.message}
-                    </div>
-                )}
-
                 <div style={styles.questionBox}>
-                    <p style={styles.consigne}>🔊 Écoute bien et clique sur le bon mot :</p>
+                    <p style={styles.consigne}>🔊 Écoute et clique sur le bon mot</p>
                 </div>
 
                 <div
@@ -960,12 +962,21 @@ export default function OuEstCeExercice() {
                             disabled={feedback !== null}
                             style={{
                                 ...styles.motButton,
-                                ...(feedback ? { opacity: 0.5, cursor: 'not-allowed' } : {}),
                                 ...(isMobile ? {
                                     fontSize: `${taillePoliceOuEst}px`,
                                     padding: `${taillePoliceOuEst * 0.5}px ${taillePoliceOuEst * 0.8}px`,
                                     minWidth: 'auto',
                                     flexShrink: 1
+                                } : {}),
+                                // Cadre vert gras pour le bon mot
+                                ...(feedback && mot.toLowerCase() === motActuel.toLowerCase() ? {
+                                    border: '4px solid #22c55e',
+                                    boxShadow: '0 0 0 2px #22c55e'
+                                } : {}),
+                                // Cadre rouge gras pour le mauvais choix
+                                ...(feedback && feedback.type === 'error' && mot.toLowerCase() === feedback.motClique.toLowerCase() ? {
+                                    border: '4px solid #ef4444',
+                                    boxShadow: '0 0 0 2px #ef4444'
                                 } : {})
                             }}
                             onMouseEnter={(e) => !feedback && (e.target.style.transform = 'scale(1.05)')}
@@ -975,6 +986,36 @@ export default function OuEstCeExercice() {
                         </button>
                     ))}
                 </div>
+
+                {/* Bouton Suivant (desktop uniquement, erreur uniquement) */}
+                {!isMobile && feedback && feedback.type === 'error' && (
+                    <div style={{
+                        width: '100%',
+                        display: 'flex',
+                        justifyContent: 'center',
+                        marginTop: '24px'
+                    }}>
+                        <button
+                            onClick={passerQuestionSuivante}
+                            style={{
+                                padding: '16px 48px',
+                                backgroundColor: 'white',
+                                color: '#06B6D4',
+                                border: '3px solid #06B6D4',
+                                borderRadius: '12px',
+                                fontSize: '20px',
+                                fontWeight: 'bold',
+                                cursor: 'pointer',
+                                boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+                                transition: 'transform 0.1s'
+                            }}
+                            onMouseEnter={(e) => e.target.style.transform = 'scale(1.05)'}
+                            onMouseLeave={(e) => e.target.style.transform = 'scale(1)'}
+                        >
+                            Suivant →
+                        </button>
+                    </div>
+                )}
 
             </div>
         )
@@ -997,10 +1038,8 @@ export default function OuEstCeExercice() {
                             </h1>
                             <div style={{ display: 'flex', justifyContent: 'center', marginTop: '12px' }}>
                                 <div style={{
-                                    border: '3px solid #3b82f6',
-                                    borderRadius: '12px',
                                     padding: '8px 20px',
-                                    backgroundColor: 'white',
+                                    backgroundColor: 'transparent',
                                     fontSize: '24px',
                                     fontWeight: 'bold',
                                     color: '#1e293b',
@@ -1021,10 +1060,8 @@ export default function OuEstCeExercice() {
                                     <h1 style={styles.title}>📊 Résultats</h1>
                                 </div>
                                 <div style={{
-                                    border: '3px solid #3b82f6',
-                                    borderRadius: '12px',
                                     padding: '8px 20px',
-                                    backgroundColor: 'white',
+                                    backgroundColor: 'transparent',
                                     fontSize: '32px',
                                     fontWeight: 'bold',
                                     color: '#1e293b',
