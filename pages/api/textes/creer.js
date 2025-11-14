@@ -160,8 +160,8 @@ export default async function handler(req, res) {
 
     } catch (error) {
         console.error('Erreur création texte de référence:', error)
-        return res.status(500).json({ 
-            error: 'Erreur serveur' 
+        return res.status(500).json({
+            error: 'Erreur serveur'
         })
     }
 }
