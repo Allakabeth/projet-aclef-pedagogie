@@ -833,7 +833,7 @@ export default function EcouteEtTrouve() {
                 )}
 
                 {/* Titre simple pour mobile et autres états */}
-                {(isMobile || etape !== 'exercice') && (
+                {(isMobile || etape !== 'exercice') && etape !== 'resultats' && (
                     <h1 style={{
                         fontSize: 'clamp(22px, 5vw, 28px)',
                         fontWeight: 'bold',
@@ -1464,7 +1464,7 @@ export default function EcouteEtTrouve() {
                                         fontWeight: 'bold',
                                         textAlign: 'center'
                                     }}>
-                                        ✅ Mots réussis ({resultats.reussis.length})
+                                        Mots réussis ({resultats.reussis.length})
                                     </h2>
                                     <div style={{
                                         display: 'flex',
@@ -1515,7 +1515,7 @@ export default function EcouteEtTrouve() {
                                         fontWeight: 'bold',
                                         textAlign: 'center'
                                     }}>
-                                        ❌ Mots à revoir ({resultats.rates.length})
+                                        Mots à revoir ({resultats.rates.length})
                                     </h2>
                                     <div style={{
                                         display: 'flex',
