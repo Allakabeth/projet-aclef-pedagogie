@@ -11,6 +11,48 @@ const mobileStyles = `
     }
 `
 
+// Styles pour le slider turquoise
+const sliderStyles = `
+    input[type="range"] {
+        -webkit-appearance: none;
+        appearance: none;
+    }
+
+    /* Track (barre) */
+    input[type="range"]::-webkit-slider-runnable-track {
+        height: 8px;
+        border-radius: 5px;
+    }
+
+    input[type="range"]::-moz-range-track {
+        height: 8px;
+        border-radius: 5px;
+    }
+
+    /* Thumb (curseur) - TURQUOISE */
+    input[type="range"]::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: #06B6D4;
+        cursor: pointer;
+        border: 2px solid white;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+
+    input[type="range"]::-moz-range-thumb {
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: #06B6D4;
+        cursor: pointer;
+        border: 2px solid white;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+`
+
 export default function LisEtTrouve() {
     const [user, setUser] = useState(null)
     const [isLoading, setIsLoading] = useState(true)
@@ -300,9 +342,8 @@ export default function LisEtTrouve() {
     }
 
     const restartGame = () => {
-        setGameFinished(false)
-        setGameStarted(false)
-        setShowIntro(true) // Retourner à la page d'intro
+        // Retourner à la page d'intro
+        setEtape('intro')
         setScore(0)
         setAttempts(0)
         setCompletedMots([])
@@ -403,7 +444,7 @@ export default function LisEtTrouve() {
                             'Authorization': `Bearer ${token}`
                         },
                         body: JSON.stringify({
-                            text: motTexte,
+                            text: "le mot est, " + motTexte,
                             voice_id: selectedVoice
                         })
                     })
@@ -454,7 +495,7 @@ export default function LisEtTrouve() {
 
     const fallbackToWebSpeech = (texte) => {
         try {
-            const utterance = new SpeechSynthesisUtterance(texte)
+            const utterance = new SpeechSynthesisUtterance("le mot est, " + texte)
             utterance.lang = 'fr-FR'
             utterance.rate = 0.8
             utterance.pitch = 0.6
@@ -555,34 +596,46 @@ export default function LisEtTrouve() {
             isCorrect: isCorrect
         })
 
-        // Délai conditionnel : 1.5s si bon, 3s si mauvais
-        const delai = isCorrect ? 1500 : 3000
+        // ⭐ PASSAGE AUTO uniquement si :
+        // - Bonne réponse (mobile ET desktop)
+        // - Mauvaise réponse sur MOBILE uniquement
+        if (isCorrect || isMobile) {
+            const delai = isCorrect ? 1500 : 3000
 
-        // Passer au mot suivant ou finir le jeu après délai
-        setTimeout(() => {
-            setVisualFeedback({ clickedMotId: null, correctMotId: null, isCorrect: null })
+            setTimeout(() => {
+                setVisualFeedback({ clickedMotId: null, correctMotId: null, isCorrect: null })
 
-            const currentIndex = shuffledMots.findIndex(m => m.id === currentMot.id)
-            if (currentIndex < shuffledMots.length - 1) {
-                // Passer au mot suivant
-                const nextMot = shuffledMots[currentIndex + 1]
-                setCurrentMot(nextMot)
-                updateDisplayedMots(nextMot, allMots)
-                setIsPlaying(null)
-            } else {
-                // Fin du jeu - calculer le score final
-                const finalCorrect = isCorrect ? score + 1 : score
-                const finalTotal = shuffledMots.length
+                const currentIndex = shuffledMots.findIndex(m => m.id === currentMot.id)
+                if (currentIndex < shuffledMots.length - 1) {
+                    const nextMot = shuffledMots[currentIndex + 1]
+                    setCurrentMot(nextMot)
+                    updateDisplayedMots(nextMot, allMots)
+                    setIsPlaying(null)
+                } else {
+                    const finalCorrect = isCorrect ? score + 1 : score
+                    const finalTotal = shuffledMots.length
+                    setFinalScore({ correct: finalCorrect, total: finalTotal })
+                    setEtape('resultats')
+                }
+            }, delai)
+        }
+        // Si desktop ET mauvaise réponse : pas de setTimeout, afficher bouton "Suivant"
+    }
 
-                setFinalScore({
-                    correct: finalCorrect,
-                    total: finalTotal
-                })
+    const passerQuestionSuivante = () => {
+        setVisualFeedback({ clickedMotId: null, correctMotId: null, isCorrect: null })
 
-                // ⭐ PASSER À LA PAGE RÉSULTATS
-                setEtape('resultats')
-            }
-        }, delai)
+        const currentIndex = shuffledMots.findIndex(m => m.id === currentMot.id)
+        if (currentIndex < shuffledMots.length - 1) {
+            const nextMot = shuffledMots[currentIndex + 1]
+            setCurrentMot(nextMot)
+            updateDisplayedMots(nextMot, allMots)
+            setIsPlaying(null)
+        } else {
+            const finalTotal = shuffledMots.length
+            setFinalScore({ correct: score, total: finalTotal })
+            setEtape('resultats')
+        }
     }
 
     const resetGame = () => {
@@ -628,45 +681,25 @@ export default function LisEtTrouve() {
             background: 'white',
             padding: '15px'
         }}>
-            <style dangerouslySetInnerHTML={{ __html: mobileStyles }} />
+            <>
+                <style dangerouslySetInnerHTML={{ __html: mobileStyles }} />
+                <style dangerouslySetInnerHTML={{ __html: sliderStyles }} />
+            </>
             <div style={{
                 maxWidth: '1000px',
                 margin: '0 auto'
             }}>
-                {/* Titre principal avec icône maison */}
-                {!gameStarted && !gameFinished && (
-                    <div style={{ position: 'relative' }}>
-                        <h1 style={{
-                            fontSize: 'clamp(22px, 5vw, 28px)',
-                            fontWeight: 'bold',
-                            marginBottom: '20px',
-                            color: '#10b981',
-                            textAlign: 'center'
-                        }}>
-                            🔊 Lis et trouve<span className="desktop-only"> - Reconnaissance audio</span>
-                        </h1>
-                        <button
-                            onClick={() => router.push('/dashboard')}
-                            style={{
-                                position: 'absolute',
-                                top: '0',
-                                right: '0',
-                                padding: '6px 10px',
-                                backgroundColor: 'transparent',
-                                border: '1px solid #e0e0e0',
-                                borderRadius: '6px',
-                                cursor: 'pointer',
-                                fontSize: '20px',
-                                opacity: '0.6',
-                                transition: 'opacity 0.2s'
-                            }}
-                            onMouseEnter={(e) => e.target.style.opacity = '1'}
-                            onMouseLeave={(e) => e.target.style.opacity = '0.6'}
-                            title="Retour au dashboard"
-                        >
-                            🏠
-                        </button>
-                    </div>
+                {/* Titre principal */}
+                {etape === 'intro' && (
+                    <h1 style={{
+                        fontSize: 'clamp(22px, 5vw, 28px)',
+                        fontWeight: 'bold',
+                        marginBottom: '20px',
+                        color: '#06B6D4',
+                        textAlign: 'center'
+                    }}>
+                        🔊 Lis et trouve
+                    </h1>
                 )}
 
                 {/* Page d'introduction */}
@@ -677,16 +710,19 @@ export default function LisEtTrouve() {
                         padding: isMobile ? '20px' : '40px'
                     }}>
                         {/* Slider pour nombre de sons */}
-                        <div style={{ marginBottom: '40px' }}>
-                            <label style={{
-                                display: 'block',
-                                marginBottom: '15px',
-                                fontSize: isMobile ? '16px' : '18px',
-                                fontWeight: '600',
-                                color: '#1e293b'
-                            }}>
-                                Nombre de sons proposés :
-                            </label>
+                        <div style={{ marginBottom: isMobile ? '40px' : '60px' }}>
+                            {!isMobile && (
+                                <label style={{
+                                    display: 'block',
+                                    marginBottom: '25px',
+                                    fontSize: '18px',
+                                    fontWeight: '600',
+                                    color: '#06B6D4',
+                                    textAlign: 'center'
+                                }}>
+                                    Nombre de sons proposés
+                                </label>
+                            )}
                             <input
                                 type="range"
                                 min="4"
@@ -698,15 +734,15 @@ export default function LisEtTrouve() {
                                     height: '8px',
                                     borderRadius: '5px',
                                     outline: 'none',
-                                    background: '#ddd'
+                                    background: `linear-gradient(to right, #06B6D4 0%, #06B6D4 ${((nbSons - 4) / (8 - 4)) * 100}%, #e5e7eb ${((nbSons - 4) / (8 - 4)) * 100}%, #e5e7eb 100%)`
                                 }}
                             />
                             <div style={{
                                 textAlign: 'center',
-                                marginTop: '10px',
+                                marginTop: isMobile ? '10px' : '20px',
                                 fontSize: isMobile ? '24px' : '32px',
                                 fontWeight: 'bold',
-                                color: '#10b981'
+                                color: '#06B6D4'
                             }}>
                                 {nbSons} sons
                             </div>
@@ -718,10 +754,10 @@ export default function LisEtTrouve() {
                             disabled={selectedTexteIds.length === 0}
                             style={{
                                 width: '100%',
-                                backgroundColor: selectedTexteIds.length === 0 ? '#94a3b8' : '#10b981',
-                                color: 'white',
+                                backgroundColor: selectedTexteIds.length === 0 ? '#e0e0e0' : 'white',
+                                color: selectedTexteIds.length === 0 ? '#94a3b8' : '#10b981',
                                 padding: isMobile ? '16px' : '20px',
-                                border: 'none',
+                                border: selectedTexteIds.length === 0 ? 'none' : '3px solid #10b981',
                                 borderRadius: '8px',
                                 fontSize: isMobile ? '18px' : '20px',
                                 fontWeight: 'bold',
@@ -739,7 +775,7 @@ export default function LisEtTrouve() {
                                 }
                             }}
                         >
-                            🚀 Démarrer l'exercice
+                            Commencer
                         </button>
                     </div>
                 )}
@@ -763,48 +799,32 @@ export default function LisEtTrouve() {
                         <h1 style={{
                             fontSize: isMobile ? '22px' : '28px',
                             fontWeight: 'bold',
-                            color: '#10b981',
+                            color: '#06B6D4',
                             textAlign: 'center',
                             marginBottom: '16px'
                         }}>
                             🔊 Lis et trouve
                         </h1>
 
-                        {/* Score et Progression */}
+                        {/* Navigation */}
                         <div style={{
                             display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center',
-                            marginBottom: '16px',
-                            fontSize: isMobile ? '14px' : '16px',
-                            color: '#64748b'
-                        }}>
-                            <span>📊 Score: {score}/{attempts}</span>
-                            <span>📝 Progression: {completedMots.length}/{shuffledMots.length}</span>
-                        </div>
-
-                        {/* Icônes de navigation */}
-                        <div style={{
-                            display: 'flex',
-                            gap: '10px',
+                            gap: '8px',
                             justifyContent: 'center',
-                            marginBottom: '20px'
+                            marginBottom: '16px'
                         }}>
                             <button
                                 onClick={() => {
                                     const texteIds = selectedTexteIds.join(',')
-                                    router.push(`/lire/reconnaitre-les-mots?etape=exercices&texte_ids=${texteIds}`)
+                                    router.push(`/lire/reconnaitre-les-mots/exercices2?textes=${texteIds}`)
                                 }}
                                 style={{
-                                    padding: '8px 16px',
+                                    padding: '8px 12px',
                                     backgroundColor: 'white',
                                     border: '2px solid #64748b',
                                     borderRadius: '8px',
                                     cursor: 'pointer',
-                                    fontSize: '20px',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '6px'
+                                    fontSize: '20px'
                                 }}
                                 title="Menu exercices"
                             >
@@ -813,15 +833,12 @@ export default function LisEtTrouve() {
                             <button
                                 onClick={() => router.push('/lire/reconnaitre-les-mots')}
                                 style={{
-                                    padding: '8px 16px',
+                                    padding: '8px 12px',
                                     backgroundColor: 'white',
                                     border: '2px solid #3b82f6',
                                     borderRadius: '8px',
                                     cursor: 'pointer',
-                                    fontSize: '20px',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '6px'
+                                    fontSize: '20px'
                                 }}
                                 title="Sélection des textes"
                             >
@@ -830,15 +847,12 @@ export default function LisEtTrouve() {
                             <button
                                 onClick={() => router.push('/lire')}
                                 style={{
-                                    padding: '8px 16px',
+                                    padding: '8px 12px',
                                     backgroundColor: 'white',
                                     border: '2px solid #10b981',
                                     borderRadius: '8px',
                                     cursor: 'pointer',
-                                    fontSize: '20px',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '6px'
+                                    fontSize: '20px'
                                 }}
                                 title="Menu Lire"
                             >
@@ -847,20 +861,30 @@ export default function LisEtTrouve() {
                             <button
                                 onClick={() => router.push('/dashboard')}
                                 style={{
-                                    padding: '8px 16px',
+                                    padding: '8px 12px',
                                     backgroundColor: 'white',
                                     border: '2px solid #8b5cf6',
                                     borderRadius: '8px',
                                     cursor: 'pointer',
-                                    fontSize: '20px',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '6px'
+                                    fontSize: '20px'
                                 }}
                                 title="Accueil"
                             >
                                 🏠
                             </button>
+                        </div>
+
+                        {/* Score */}
+                        <div style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            maxWidth: '600px',
+                            margin: '0 auto',
+                            marginBottom: '20px',
+                            fontSize: '16px'
+                        }}>
+                            <span>📊 Score: {score}/{attempts}</span>
+                            <span>📝 Progression: {completedMots.length}/{shuffledMots.length}</span>
                         </div>
                     </div>
                 )}
@@ -873,26 +897,28 @@ export default function LisEtTrouve() {
                         }}>
                             {/* Mot affiché */}
                             <div style={{
-                                textAlign: 'center',
-                                marginBottom: isMobile ? '20px' : '30px'
+                                maxWidth: '600px',
+                                margin: '0 auto',
+                                marginBottom: isMobile ? '20px' : '50px'
                             }}>
                                 <div style={{
-                                    fontSize: isMobile ? '28px' : '36px',
+                                    fontSize: isMobile ? '22px' : '36px',
                                     fontWeight: 'bold',
-                                    color: '#10b981',
-                                    padding: isMobile ? '20px' : '30px',
-                                    background: '#f0fdf4',
+                                    color: '#06B6D4',
+                                    padding: isMobile ? '12px' : '30px',
+                                    background: '#e0f2fe',
                                     borderRadius: '12px',
-                                    border: '3px solid #10b981'
+                                    border: '3px solid #06B6D4',
+                                    textAlign: 'center'
                                 }}>
                                     {currentMot?.mot}
                                 </div>
                             </div>
 
-                            {/* Choix audio - 2 par ligne */}
+                            {/* Choix audio - grille adaptative */}
                             <div style={{
                                 display: 'grid',
-                                gridTemplateColumns: 'repeat(2, 1fr)',
+                                gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : `repeat(${Math.ceil(nbSons / 2)}, 1fr)`,
                                 gap: isMobile ? '12px' : '16px',
                                 maxWidth: '600px',
                                 margin: '0 auto'
@@ -902,8 +928,9 @@ export default function LisEtTrouve() {
                                         const stableIndex = allMots.findIndex(m => m.id === mot.id) + 1
 
                                         // Déterminer le style de la carte selon le feedback visuel
-                                        let borderColor = '#dee2e6'
+                                        let borderColor = '#06B6D4'
                                         let borderWidth = isMobile ? '1px' : '2px'
+                                        let backgroundColor = '#fff'
 
                                         // Bonne réponse cliquée → bordure verte
                                         if (mot.id === visualFeedback.clickedMotId && visualFeedback.isCorrect) {
@@ -917,33 +944,36 @@ export default function LisEtTrouve() {
                                             borderWidth = isMobile ? '2px' : '4px'
                                         }
 
-                                        // Montrer la bonne réponse si erreur → bordure verte
+                                        // Montrer la bonne réponse si erreur → bordure verte + fond vert clair
                                         if (mot.id === visualFeedback.correctMotId && visualFeedback.isCorrect === false) {
                                             borderColor = '#10b981'
                                             borderWidth = isMobile ? '2px' : '4px'
+                                            backgroundColor = '#f0fdf4'
                                         }
 
                                         return (
                                         <div key={mot.id} style={{
-                                            background: '#fff',
+                                            background: backgroundColor,
                                             border: `${borderWidth} solid ${borderColor}`,
                                             borderRadius: isMobile ? '6px' : '8px',
                                             padding: isMobile ? '10px' : '15px',
                                             transition: 'all 0.3s'
                                         }}>
-                                            {/* Titre "Son X" en haut */}
-                                            <div style={{
-                                                textAlign: 'center',
-                                                marginBottom: isMobile ? '10px' : '12px'
-                                            }}>
-                                                <span style={{
-                                                    fontSize: isMobile ? '14px' : '18px',
-                                                    fontWeight: 'bold',
-                                                    color: '#333'
+                                            {/* Titre "Son X" en haut - Desktop uniquement */}
+                                            {!isMobile && (
+                                                <div style={{
+                                                    textAlign: 'center',
+                                                    marginBottom: '12px'
                                                 }}>
-                                                    Son {stableIndex}
-                                                </span>
-                                            </div>
+                                                    <span style={{
+                                                        fontSize: '18px',
+                                                        fontWeight: 'bold',
+                                                        color: '#06B6D4'
+                                                    }}>
+                                                        Son {stableIndex}
+                                                    </span>
+                                                </div>
+                                            )}
 
                                             {/* Boutons côte à côte */}
                                             <div style={{
@@ -1007,164 +1037,169 @@ export default function LisEtTrouve() {
                                         )
                                     })}
                                 </div>
+
+                                {/* Bouton Suivant - Desktop uniquement après erreur */}
+                                {!isMobile && visualFeedback.isCorrect === false && (
+                                    <div style={{
+                                        textAlign: 'center',
+                                        marginTop: '30px'
+                                    }}>
+                                        <button
+                                            onClick={passerQuestionSuivante}
+                                            style={{
+                                                backgroundColor: 'white',
+                                                border: '3px solid #06B6D4',
+                                                color: '#06B6D4',
+                                                padding: '16px 40px',
+                                                borderRadius: '12px',
+                                                fontSize: '20px',
+                                                fontWeight: 'bold',
+                                                cursor: 'pointer',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '12px',
+                                                margin: '0 auto',
+                                                transition: 'all 0.3s'
+                                            }}
+                                            onMouseEnter={(e) => {
+                                                e.target.style.transform = 'scale(1.05)'
+                                                e.target.style.backgroundColor = '#e0f2fe'
+                                            }}
+                                            onMouseLeave={(e) => {
+                                                e.target.style.transform = 'scale(1)'
+                                                e.target.style.backgroundColor = 'white'
+                                            }}
+                                        >
+                                            Suivant
+                                            <span style={{ fontSize: '24px', color: '#3b82f6' }}>→</span>
+                                        </button>
+                                    </div>
+                                )}
                         </div>
 
                     </>
                 )}
 
-                {/* Écran de fin avec score - Pattern ou-est-ce */}
+                {/* Écran de fin avec score */}
                 {etape === 'resultats' && (
                     <div style={{ width: '100%' }}>
-                        {isMobile ? (
-                            // VERSION MOBILE
-                            <div style={{ width: '100%' }}>
-                                <h1 style={{
-                                    fontSize: '20px',
-                                    fontWeight: 'bold',
-                                    marginBottom: '12px',
-                                    color: '#10b981',
-                                    textAlign: 'center'
-                                }}>
-                                    📊 Résultats
-                                </h1>
+                        {/* Titre - Mobile et Desktop */}
+                        <h1 style={{
+                            fontSize: isMobile ? '20px' : '28px',
+                            fontWeight: 'bold',
+                            marginBottom: '16px',
+                            color: '#06B6D4',
+                            textAlign: 'center'
+                        }}>
+                            🔊 Lis et trouve - Resultats
+                        </h1>
 
-                                {/* 5 icônes : ← 👁️ 📖 🏠 🔄 */}
-                                <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', marginBottom: '16px' }}>
-                                    <button
-                                        onClick={() => router.push('/lire/reconnaitre-les-mots')}
-                                        style={{
-                                            padding: '8px 12px',
-                                            backgroundColor: 'white',
-                                            border: '2px solid #64748b',
-                                            borderRadius: '8px',
-                                            cursor: 'pointer',
-                                            fontSize: '20px',
-                                            display: 'flex',
-                                            alignItems: 'center'
-                                        }}
-                                        title="Menu exercices"
-                                    >
-                                        ←
-                                    </button>
-                                    <button
-                                        onClick={() => router.push('/lire/reconnaitre-les-mots')}
-                                        style={{
-                                            padding: '8px 12px',
-                                            backgroundColor: 'white',
-                                            border: '2px solid #3b82f6',
-                                            borderRadius: '8px',
-                                            cursor: 'pointer',
-                                            fontSize: '20px',
-                                            display: 'flex',
-                                            alignItems: 'center'
-                                        }}
-                                        title="Retour aux exercices"
-                                    >
-                                        👁️
-                                    </button>
-                                    <button
-                                        onClick={() => router.push('/lire')}
-                                        style={{
-                                            padding: '8px 12px',
-                                            backgroundColor: 'white',
-                                            border: '2px solid #10b981',
-                                            borderRadius: '8px',
-                                            cursor: 'pointer',
-                                            fontSize: '20px',
-                                            display: 'flex',
-                                            alignItems: 'center'
-                                        }}
-                                        title="Menu Lire"
-                                    >
-                                        📖
-                                    </button>
-                                    <button
-                                        onClick={() => router.push('/dashboard')}
-                                        style={{
-                                            padding: '8px 12px',
-                                            backgroundColor: 'white',
-                                            border: '2px solid #8b5cf6',
-                                            borderRadius: '8px',
-                                            cursor: 'pointer',
-                                            fontSize: '20px',
-                                            display: 'flex',
-                                            alignItems: 'center'
-                                        }}
-                                        title="Accueil"
-                                    >
-                                        🏠
-                                    </button>
-                                    <button
-                                        onClick={restartGame}
-                                        style={{
-                                            padding: '8px 12px',
-                                            backgroundColor: 'white',
-                                            border: '2px solid #f59e0b',
-                                            borderRadius: '8px',
-                                            cursor: 'pointer',
-                                            fontSize: '20px',
-                                            display: 'flex',
-                                            alignItems: 'center'
-                                        }}
-                                        title="Recommencer"
-                                    >
-                                        🔄
-                                    </button>
-                                </div>
+                        {/* 5 icônes : ← 👁️ 📖 🏠 🔄 */}
+                        <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', marginBottom: '16px' }}>
+                            <button
+                                onClick={() => {
+                                    const texteIds = selectedTexteIds.join(',')
+                                    router.push(`/lire/reconnaitre-les-mots/exercices2?textes=${texteIds}`)
+                                }}
+                                style={{
+                                    padding: isMobile ? '8px 12px' : '10px 16px',
+                                    backgroundColor: 'white',
+                                    border: '2px solid #64748b',
+                                    borderRadius: '8px',
+                                    cursor: 'pointer',
+                                    fontSize: isMobile ? '20px' : '24px',
+                                    display: 'flex',
+                                    alignItems: 'center'
+                                }}
+                                title="Retour exercices"
+                            >
+                                ←
+                            </button>
+                            <button
+                                onClick={() => router.push('/lire/reconnaitre-les-mots')}
+                                style={{
+                                    padding: isMobile ? '8px 12px' : '10px 16px',
+                                    backgroundColor: 'white',
+                                    border: '2px solid #3b82f6',
+                                    borderRadius: '8px',
+                                    cursor: 'pointer',
+                                    fontSize: isMobile ? '20px' : '24px',
+                                    display: 'flex',
+                                    alignItems: 'center'
+                                }}
+                                title="Menu exercices"
+                            >
+                                👁️
+                            </button>
+                            <button
+                                onClick={() => router.push('/lire')}
+                                style={{
+                                    padding: isMobile ? '8px 12px' : '10px 16px',
+                                    backgroundColor: 'white',
+                                    border: '2px solid #10b981',
+                                    borderRadius: '8px',
+                                    cursor: 'pointer',
+                                    fontSize: isMobile ? '20px' : '24px',
+                                    display: 'flex',
+                                    alignItems: 'center'
+                                }}
+                                title="Menu Lire"
+                            >
+                                📖
+                            </button>
+                            <button
+                                onClick={() => router.push('/dashboard')}
+                                style={{
+                                    padding: isMobile ? '8px 12px' : '10px 16px',
+                                    backgroundColor: 'white',
+                                    border: '2px solid #8b5cf6',
+                                    borderRadius: '8px',
+                                    cursor: 'pointer',
+                                    fontSize: isMobile ? '20px' : '24px',
+                                    display: 'flex',
+                                    alignItems: 'center'
+                                }}
+                                title="Accueil"
+                            >
+                                🏠
+                            </button>
+                            <button
+                                onClick={restartGame}
+                                style={{
+                                    padding: isMobile ? '8px 12px' : '10px 16px',
+                                    backgroundColor: 'white',
+                                    border: '2px solid #f59e0b',
+                                    borderRadius: '8px',
+                                    cursor: 'pointer',
+                                    fontSize: isMobile ? '20px' : '24px',
+                                    display: 'flex',
+                                    alignItems: 'center'
+                                }}
+                                title="Recommencer"
+                            >
+                                🔄
+                            </button>
+                        </div>
 
-                                {/* Score intégré sous les icônes */}
-                                <div style={{ display: 'flex', justifyContent: 'center', marginTop: '12px', marginBottom: '20px' }}>
-                                    <div style={{
-                                        border: '3px solid #3b82f6',
-                                        borderRadius: '12px',
-                                        padding: '8px 20px',
-                                        backgroundColor: 'white',
-                                        fontSize: '24px',
-                                        fontWeight: 'bold',
-                                        color: '#1e293b',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '8px'
-                                    }}>
-                                        <span>{finalScore.correct}</span>
-                                        <span style={{ color: '#64748b' }}>/</span>
-                                        <span style={{ color: '#64748b' }}>{finalScore.total}</span>
-                                    </div>
-                                </div>
+                        {/* Score */}
+                        <div style={{ display: 'flex', justifyContent: 'center', marginTop: '12px', marginBottom: '20px' }}>
+                            <div style={{
+                                border: '3px solid #06B6D4',
+                                borderRadius: '12px',
+                                padding: isMobile ? '8px 20px' : '10px 24px',
+                                backgroundColor: 'white',
+                                fontSize: isMobile ? '24px' : '32px',
+                                fontWeight: 'bold',
+                                color: '#1e293b',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px'
+                            }}>
+                                <span>{finalScore.correct}</span>
+                                <span style={{ color: '#64748b' }}>/</span>
+                                <span style={{ color: '#64748b' }}>{finalScore.total}</span>
                             </div>
-                        ) : (
-                            // VERSION DESKTOP - score inline with title
-                            <div style={{ width: '100%', marginBottom: '20px' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
-                                    <div style={{ flex: 1 }}>
-                                        <h1 style={{
-                                            fontSize: '28px',
-                                            fontWeight: 'bold',
-                                            color: '#10b981'
-                                        }}>
-                                            📊 Résultats
-                                        </h1>
-                                    </div>
-                                    {/* Score pour desktop */}
-                                    <div style={{
-                                        border: '3px solid #3b82f6',
-                                        borderRadius: '12px',
-                                        padding: '8px 20px',
-                                        backgroundColor: 'white',
-                                        fontSize: '32px',
-                                        fontWeight: 'bold',
-                                        color: '#1e293b',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '8px'
-                                    }}>
-                                        <span>{finalScore.correct}</span>
-                                        <span style={{ color: '#64748b' }}>/</span>
-                                        <span style={{ color: '#64748b' }}>{finalScore.total}</span>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
+                        </div>
 
                         {/* Listes des mots avec espacement optimisé pour mobile */}
                         <div style={{
@@ -1194,10 +1229,11 @@ export default function LisEtTrouve() {
                                             fontSize: '20px',
                                             marginBottom: '15px'
                                         }),
-                                        color: '#10b981',
-                                        fontWeight: 'bold'
+                                        color: '#06B6D4',
+                                        fontWeight: 'bold',
+                                        textAlign: 'center'
                                     }}>
-                                        ✅ Mots réussis ({resultats.reussis.length})
+                                        Mots réussis ({resultats.reussis.length})
                                     </h2>
                                     <div style={{
                                         display: 'flex',
@@ -1244,10 +1280,11 @@ export default function LisEtTrouve() {
                                             fontSize: '20px',
                                             marginBottom: '15px'
                                         }),
-                                        color: '#ef4444',
-                                        fontWeight: 'bold'
+                                        color: '#06B6D4',
+                                        fontWeight: 'bold',
+                                        textAlign: 'center'
                                     }}>
-                                        ❌ Mots ratés ({resultats.rates.length})
+                                        Mots à revoir ({resultats.rates.length})
                                     </h2>
                                     <div style={{
                                         display: 'flex',
@@ -1280,63 +1317,6 @@ export default function LisEtTrouve() {
                                 </div>
                             )}
                         </div>
-
-                        {/* Boutons de navigation desktop uniquement */}
-                        {!isMobile && (
-                            <div style={{
-                                display: 'flex',
-                                gap: '15px',
-                                justifyContent: 'center',
-                                marginTop: '30px',
-                                flexWrap: 'wrap'
-                            }}>
-                                <button
-                                    onClick={restartGame}
-                                    style={{
-                                        backgroundColor: '#10b981',
-                                        color: 'white',
-                                        padding: '12px 24px',
-                                        border: 'none',
-                                        borderRadius: '8px',
-                                        fontSize: '16px',
-                                        fontWeight: 'bold',
-                                        cursor: 'pointer'
-                                    }}
-                                >
-                                    🔄 Recommencer
-                                </button>
-                                <button
-                                    onClick={() => router.push('/lire/reconnaitre-les-mots')}
-                                    style={{
-                                        backgroundColor: '#3b82f6',
-                                        color: 'white',
-                                        padding: '12px 24px',
-                                        border: 'none',
-                                        borderRadius: '8px',
-                                        fontSize: '16px',
-                                        fontWeight: 'bold',
-                                        cursor: 'pointer'
-                                    }}
-                                >
-                                    👁️ Autres exercices
-                                </button>
-                                <button
-                                    onClick={() => router.push('/lire')}
-                                    style={{
-                                        backgroundColor: '#6b7280',
-                                        color: 'white',
-                                        padding: '12px 24px',
-                                        border: 'none',
-                                        borderRadius: '8px',
-                                        fontSize: '16px',
-                                        fontWeight: 'bold',
-                                        cursor: 'pointer'
-                                    }}
-                                >
-                                    📖 Menu Lire
-                                </button>
-                            </div>
-                        )}
                     </div>
                 )}
 
