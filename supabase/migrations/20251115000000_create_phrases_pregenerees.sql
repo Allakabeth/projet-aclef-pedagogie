@@ -25,7 +25,7 @@ CREATE TABLE IF NOT EXISTS public.phrases_pregenerees (
     longueur_mots INTEGER NOT NULL CHECK (longueur_mots >= 3 AND longueur_mots <= 7),
 
     -- Propriétaire des textes (apprenant)
-    user_id INTEGER NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
 
     -- Source de génération ('gemini' | 'groq')
     source TEXT DEFAULT 'gemini',
@@ -85,6 +85,6 @@ COMMENT ON COLUMN public.phrases_pregenerees.mots IS 'Liste des mots contenus da
 
 COMMENT ON COLUMN public.phrases_pregenerees.longueur_mots IS 'Nombre de mots dans la phrase (3-7 mots)';
 
-COMMENT ON COLUMN public.phrases_pregenerees.user_id IS 'ID de l''apprenant propriétaire des textes sources';
+COMMENT ON COLUMN public.phrases_pregenerees.user_id IS 'UUID de l''apprenant propriétaire des textes sources';
 
 COMMENT ON COLUMN public.phrases_pregenerees.source IS 'Service d''IA utilisé pour la génération: "gemini" ou "groq"';

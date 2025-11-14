@@ -105,19 +105,10 @@ export default function ConstruisPhrasesDefi() {
 
     const chargerPhrases = async (texteIds) => {
         try {
-            // Charger les mots
-            const motsResponse = await fetch(`/api/syllabes-mots/list?texte_ids=${texteIds}`)
-            const motsData = await motsResponse.json()
+            // Convertir texte_ids en tableau de nombres
+            const texteIdsArray = texteIds.split(',').map(Number)
 
-            if (!motsData.success || !motsData.mots || motsData.mots.length === 0) {
-                alert('Aucun mot trouvé pour ces textes.')
-                router.push('/lire/reconnaitre-les-mots/exercices2?textes=' + texteIds)
-                return
-            }
-
-            const mots = motsData.mots
-
-            // Générer les phrases
+            // Récupérer les phrases pré-générées
             const token = localStorage.getItem('token')
             const response = await fetch('/api/phrases/generer', {
                 method: 'POST',
@@ -125,7 +116,7 @@ export default function ConstruisPhrasesDefi() {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`
                 },
-                body: JSON.stringify({ mots: mots })
+                body: JSON.stringify({ texte_ids: texteIdsArray })
             })
 
             if (response.ok) {
@@ -139,7 +130,14 @@ export default function ConstruisPhrasesDefi() {
                 setEtape('exercice')
             } else {
                 const error = await response.json()
-                alert(error.error || 'Erreur lors du chargement des phrases')
+
+                // Afficher le message d'erreur détaillé pour les phrases non générées
+                if (error.error === 'Phrases non générées') {
+                    alert(error.message)
+                } else {
+                    alert(error.error || 'Erreur lors du chargement des phrases')
+                }
+
                 router.push('/lire/reconnaitre-les-mots/construis-phrases-intro?texte_ids=' + texteIds)
             }
         } catch (error) {
