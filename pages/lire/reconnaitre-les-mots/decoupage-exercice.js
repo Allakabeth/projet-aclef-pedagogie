@@ -648,61 +648,101 @@ export default function DecoupageExercice() {
                 )}
 
                 <div style={styles.header}>
-                    <h1 style={styles.title}>✂️ Découpage - Résultats</h1>
-                    {!isMobile && (
-                        <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', marginTop: '16px' }}>
-                            <button
-                                onClick={() => router.push(`/lire/reconnaitre-les-mots/exercices2?textes=${router.query.texte_ids}`)}
-                                style={{ ...styles.secondaryButton, padding: '8px 12px', fontSize: '20px' }}
-                            >
-                                ←
-                            </button>
-                            <button
-                                onClick={() => router.push('/lire/reconnaitre-les-mots')}
-                                style={{ ...styles.secondaryButton, padding: '8px 12px', fontSize: '20px', border: '2px solid #06B6D4' }}
-                            >
-                                👁️
-                            </button>
-                            <button
-                                onClick={() => router.push('/lire')}
-                                style={{ ...styles.secondaryButton, padding: '8px 12px', fontSize: '20px' }}
-                            >
-                                📖
-                            </button>
-                            <button
-                                onClick={() => router.push('/dashboard')}
-                                style={{ ...styles.secondaryButton, padding: '8px 12px', fontSize: '20px' }}
-                            >
-                                🏠
-                            </button>
-                            <button
-                                onClick={() => {
-                                    setScore({ bonnes: 0, total: 0 })
-                                    setResultats({ reussis: [], rates: [] })
-                                    demarrerDecoupage()
-                                }}
-                                style={{ ...styles.secondaryButton, padding: '8px 12px', fontSize: '20px', border: '2px solid #06B6D4' }}
-                            >
-                                🔄
-                            </button>
-                        </div>
-                    )}
+                    <h1 style={{
+                        ...styles.title,
+                        fontSize: isMobile ? '24px' : '36px',
+                        whiteSpace: 'nowrap'
+                    }}>✂️ Découpage - Résultats</h1>
+
+                    {/* Icônes de navigation (desktop ET mobile) */}
+                    <div style={{
+                        display: 'flex',
+                        gap: isMobile ? '6px' : '8px',
+                        justifyContent: 'center',
+                        marginTop: '16px',
+                        flexWrap: 'wrap'
+                    }}>
+                        <button
+                            onClick={() => router.push(`/lire/reconnaitre-les-mots/exercices2?textes=${router.query.texte_ids}`)}
+                            style={{
+                                ...styles.secondaryButton,
+                                padding: isMobile ? '6px 10px' : '8px 12px',
+                                fontSize: '20px'
+                            }}
+                        >
+                            ←
+                        </button>
+                        <button
+                            onClick={() => router.push('/lire/reconnaitre-les-mots')}
+                            style={{
+                                ...styles.secondaryButton,
+                                padding: isMobile ? '6px 10px' : '8px 12px',
+                                fontSize: '20px',
+                                border: '2px solid #06B6D4'
+                            }}
+                        >
+                            👁️
+                        </button>
+                        <button
+                            onClick={() => router.push('/lire')}
+                            style={{
+                                ...styles.secondaryButton,
+                                padding: isMobile ? '6px 10px' : '8px 12px',
+                                fontSize: '20px'
+                            }}
+                        >
+                            📖
+                        </button>
+                        <button
+                            onClick={() => router.push('/dashboard')}
+                            style={{
+                                ...styles.secondaryButton,
+                                padding: isMobile ? '6px 10px' : '8px 12px',
+                                fontSize: '20px'
+                            }}
+                        >
+                            🏠
+                        </button>
+                        <button
+                            onClick={() => {
+                                setScore({ bonnes: 0, total: 0 })
+                                setResultats({ reussis: [], rates: [] })
+                                demarrerDecoupage()
+                            }}
+                            style={{
+                                ...styles.secondaryButton,
+                                padding: isMobile ? '6px 10px' : '8px 12px',
+                                fontSize: '20px',
+                                border: '2px solid #06B6D4'
+                            }}
+                        >
+                            🔄
+                        </button>
+                    </div>
                 </div>
 
-                <div style={styles.resultatsBox}>
+                <div style={{
+                    ...styles.resultatsBox,
+                    paddingTop: isMobile ? '8px' : '32px'
+                }}>
                     <div style={{
                         display: 'flex',
                         justifyContent: 'center',
-                        marginBottom: '32px'
+                        marginBottom: isMobile ? '8px' : '32px'
                     }}>
                         <div style={{
                             display: 'inline-block',
-                            padding: '16px 32px',
+                            padding: isMobile ? '12px 20px' : '16px 32px',
                             backgroundColor: 'white',
                             border: '3px solid #06B6D4',
                             borderRadius: '12px'
                         }}>
-                            <h2 style={{ fontSize: '36px', fontWeight: 'bold', color: '#06B6D4', margin: 0 }}>
+                            <h2 style={{
+                                fontSize: isMobile ? '28px' : '36px',
+                                fontWeight: 'bold',
+                                color: '#06B6D4',
+                                margin: 0
+                            }}>
                                 {score.bonnes}/{score.total}
                             </h2>
                         </div>
