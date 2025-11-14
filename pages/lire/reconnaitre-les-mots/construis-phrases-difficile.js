@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
-import confetti from 'canvas-confetti'
 
 export default function ConstruisPhrasesDifficile() {
     const [user, setUser] = useState(null)
@@ -16,6 +15,9 @@ export default function ConstruisPhrasesDifficile() {
     const [isTranscribing, setIsTranscribing] = useState(false)
     const [visualFeedback, setVisualFeedback] = useState({ correct: false, incorrect: false })
     const [motsStatuts, setMotsStatuts] = useState([])
+
+    // Confettis
+    const [showConfetti, setShowConfetti] = useState(false)
 
     // Détection mobile
     const [isMobile, setIsMobile] = useState(false)
@@ -291,16 +293,13 @@ export default function ConstruisPhrasesDifficile() {
         }
     }
 
-    // Confettis si score parfait
+    // Confettis sur la page de résultats si score parfait
     useEffect(() => {
         if (etape === 'resultats' && score === phrases.length && phrases.length > 0) {
-            confetti({
-                particleCount: 100,
-                spread: 70,
-                origin: { y: 0.6 }
-            })
+            setShowConfetti(true)
+            setTimeout(() => setShowConfetti(false), 3000)
         }
-    }, [etape, score, phrases])
+    }, [etape])
 
     if (etape === 'chargement' || !phraseActuelle) {
         return (
@@ -328,6 +327,58 @@ export default function ConstruisPhrasesDifficile() {
                 justifyContent: 'center',
                 padding: '20px'
             }}>
+                {showConfetti && (
+                    <>
+                        <style dangerouslySetInnerHTML={{
+                            __html: `
+                                @keyframes confettiFall {
+                                    0% {
+                                        transform: translateY(-50px) rotate(0deg);
+                                        opacity: 1;
+                                    }
+                                    100% {
+                                        transform: translateY(100vh) rotate(360deg);
+                                        opacity: 0;
+                                    }
+                                }
+                            `
+                        }} />
+                        <div style={{
+                            position: 'fixed',
+                            top: 0,
+                            left: 0,
+                            width: '100%',
+                            height: '100%',
+                            pointerEvents: 'none',
+                            zIndex: 9999,
+                            overflow: 'hidden'
+                        }}>
+                            {[...Array(50)].map((_, i) => {
+                                const emojis = ['🎉', '🎊', '✨', '🌟', '⭐']
+                                const randomEmoji = emojis[Math.floor(Math.random() * emojis.length)]
+                                const randomLeft = Math.random() * 100
+                                const randomDuration = 2 + Math.random() * 2
+                                const randomDelay = Math.random() * 0.5
+
+                                return (
+                                    <div
+                                        key={i}
+                                        style={{
+                                            position: 'absolute',
+                                            left: `${randomLeft}%`,
+                                            top: '-50px',
+                                            fontSize: '40px',
+                                            animation: `confettiFall ${randomDuration}s linear ${randomDelay}s forwards`
+                                        }}
+                                    >
+                                        {randomEmoji}
+                                    </div>
+                                )
+                            })}
+                        </div>
+                    </>
+                )}
+
                 <div style={{
                     background: 'white',
                     borderRadius: '20px',

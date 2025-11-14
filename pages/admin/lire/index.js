@@ -52,6 +52,12 @@ export default function AdminDashboard() {
             color: '#059669'
         },
         {
+            title: '📝 Gestion Phrases Pré-générées',
+            description: 'Monitoring et gestion des phrases générées pour l\'exercice "Construis phrases"',
+            href: '/admin/lire/phrases-pregenerees',
+            color: '#8b5cf6'
+        },
+        {
             title: '📊 Statistiques d\'utilisation',
             description: 'Voir les statistiques d\'utilisation des exercices',
             href: '#',
