@@ -232,6 +232,13 @@ export default function QuestCeExercice() {
 
         // Enregistrer la validation pour afficher les bordures
         setReponseValidee({ correct, motChoisi })
+
+        // Passage automatique sur mobile si réponse correcte
+        if (isMobile && correct) {
+            setTimeout(() => {
+                questionSuivanteQuestCe()
+            }, 2000)
+        }
     }
 
     function questionSuivanteQuestCe() {
@@ -403,7 +410,7 @@ export default function QuestCeExercice() {
         title: {
             fontSize: isMobile ? '24px' : '32px',
             fontWeight: 'bold',
-            color: '#1e293b',
+            color: '#06B6D4',
             margin: 0,
             textAlign: 'center'
         },
@@ -421,20 +428,23 @@ export default function QuestCeExercice() {
         },
         consigne: {
             fontSize: '20px',
-            color: '#1e293b',
+            color: '#06B6D4',
             marginBottom: '16px',
-            backgroundColor: '#dbeafe',
+            backgroundColor: '#e0f2fe',
             padding: '16px',
             borderRadius: '12px',
-            border: '2px solid #3b82f6',
-            fontWeight: 'bold'
+            border: '2px solid #06B6D4',
+            fontWeight: 'bold',
+            minWidth: '400px',
+            textAlign: 'center'
         },
         phraseBox: {
             marginTop: '16px',
             marginBottom: '24px',
             fontSize: '24px',
             fontWeight: '600',
-            lineHeight: '1.4'
+            lineHeight: '1.4',
+            color: '#06B6D4'
         },
         motIllumine: {
             backgroundColor: '#fef08a',
@@ -454,7 +464,7 @@ export default function QuestCeExercice() {
         audioButton: {
             padding: '12px 24px',
             backgroundColor: 'white',
-            border: '3px solid #3b82f6',
+            border: '3px solid #06B6D4',
             borderRadius: '12px',
             fontSize: '20px',
             fontWeight: 'bold',
@@ -477,9 +487,9 @@ export default function QuestCeExercice() {
         },
         primaryButton: {
             padding: '12px 24px',
-            backgroundColor: '#3b82f6',
-            color: 'white',
-            border: 'none',
+            backgroundColor: 'white',
+            color: '#06B6D4',
+            border: '3px solid #06B6D4',
             borderRadius: '12px',
             fontSize: '18px',
             fontWeight: 'bold',
@@ -499,7 +509,8 @@ export default function QuestCeExercice() {
             fontSize: isMobile ? '18px' : '24px',
             fontWeight: 'bold',
             marginBottom: '12px',
-            color: '#1e293b'
+            color: '#1e293b',
+            textAlign: 'center'
         },
         motReussi: {
             padding: '8px 16px',
@@ -550,9 +561,6 @@ export default function QuestCeExercice() {
             <div style={styles.container}>
                 <div style={styles.header}>
                     <h1 style={styles.title}>🎉 Exercice terminé !</h1>
-                    <p style={styles.subtitle}>
-                        Score : {score.bonnes}/{score.total} ({pourcentage}%)
-                    </p>
                     <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', marginTop: '16px' }}>
                         <button
                             onClick={() => router.push(`/lire/reconnaitre-les-mots/exercices2?textes=${router.query.texte_ids}`)}
@@ -593,10 +601,41 @@ export default function QuestCeExercice() {
                         >
                             🏠
                         </button>
+                        <button
+                            onClick={() => demarrerQuestCe(groupesSens)}
+                            style={{
+                                padding: '8px 12px',
+                                backgroundColor: 'white',
+                                border: '2px solid #06B6D4',
+                                borderRadius: '8px',
+                                cursor: 'pointer',
+                                fontSize: '18px'
+                            }}
+                            title="Recommencer"
+                        >
+                            🔄
+                        </button>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'center', marginTop: '24px' }}>
+                        <div style={{
+                            padding: '20px',
+                            backgroundColor: 'white',
+                            border: '3px solid #06B6D4',
+                            borderRadius: '12px'
+                        }}>
+                            <p style={{
+                                fontSize: '36px',
+                                fontWeight: 'bold',
+                                color: '#06B6D4',
+                                margin: 0
+                            }}>
+                                Score : {score.bonnes}/{score.total}
+                            </p>
+                        </div>
                     </div>
                 </div>
 
-                <div style={styles.resultatsBox}>
+                <div style={{ width: '100%', maxWidth: '1200px', padding: isMobile ? '12px' : '24px' }}>
                     {resultats.reussis.length > 0 && (
                         <div style={{ marginBottom: '24px' }}>
                             <h2 style={styles.resultatsSectionTitle}>
@@ -637,6 +676,59 @@ export default function QuestCeExercice() {
                         </div>
                     )}
                 </div>
+
+                {/* Confettis de célébration sur score parfait */}
+                {showConfetti && (
+                    <>
+                        <style dangerouslySetInnerHTML={{
+                            __html: `
+                                @keyframes confetti-fall {
+                                    0% {
+                                        transform: translateY(0) rotate(0deg);
+                                        opacity: 1;
+                                    }
+                                    100% {
+                                        transform: translateY(100vh) rotate(720deg);
+                                        opacity: 0;
+                                    }
+                                }
+                            `
+                        }} />
+                        <div style={{
+                            position: 'fixed',
+                            top: 0,
+                            left: 0,
+                            width: '100vw',
+                            height: '100vh',
+                            pointerEvents: 'none',
+                            zIndex: 9999,
+                            overflow: 'hidden'
+                        }}>
+                            {[...Array(50)].map((_, i) => {
+                                const colors = ['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff']
+                                const duration = 2 + Math.random() * 2
+                                const delay = Math.random() * 0.5
+                                return (
+                                    <div
+                                        key={i}
+                                        style={{
+                                            position: 'absolute',
+                                            top: '-10px',
+                                            left: `${Math.random() * 100}%`,
+                                            width: '10px',
+                                            height: '10px',
+                                            backgroundColor: colors[Math.floor(Math.random() * 6)],
+                                            opacity: 0.8,
+                                            borderRadius: '50%',
+                                            animation: `confetti-fall ${duration}s linear forwards`,
+                                            animationDelay: `${delay}s`
+                                        }}
+                                    />
+                                )
+                            })}
+                        </div>
+                    </>
+                )}
             </div>
         )
     }
@@ -677,6 +769,22 @@ export default function QuestCeExercice() {
                                     title="Menu exercices"
                                 >
                                     ←
+                                </button>
+                                <button
+                                    onClick={() => router.push('/lire/reconnaitre-les-mots')}
+                                    style={{
+                                        padding: '8px 12px',
+                                        backgroundColor: 'white',
+                                        border: '2px solid #06B6D4',
+                                        borderRadius: '8px',
+                                        cursor: 'pointer',
+                                        fontSize: '20px',
+                                        display: 'flex',
+                                        alignItems: 'center'
+                                    }}
+                                    title="Reconnaître les mots"
+                                >
+                                    👁️
                                 </button>
                                 <button
                                     onClick={() => router.push('/lire')}
@@ -747,6 +855,20 @@ export default function QuestCeExercice() {
                                     ←
                                 </button>
                                 <button
+                                    onClick={() => router.push('/lire/reconnaitre-les-mots')}
+                                    style={{
+                                        padding: '8px 12px',
+                                        backgroundColor: 'white',
+                                        border: '2px solid #06B6D4',
+                                        borderRadius: '8px',
+                                        cursor: 'pointer',
+                                        fontSize: '18px'
+                                    }}
+                                    title="Reconnaître les mots"
+                                >
+                                    👁️
+                                </button>
+                                <button
                                     onClick={() => router.push('/lire')}
                                     style={{
                                         padding: '8px 12px',
@@ -803,13 +925,13 @@ export default function QuestCeExercice() {
                             marginTop: '16px',
                             marginBottom: '24px',
                             width: '100%',
-                            textAlign: 'left',
+                            textAlign: 'center',
                             fontSize: `${taillePoliceQuestCe}px`,
                             fontWeight: '600',
-                            lineHeight: '1.2',
-                            whiteSpace: 'nowrap',
-                            overflow: 'hidden',
-                            padding: '0 16px'
+                            lineHeight: '1.4',
+                            whiteSpace: 'normal',
+                            padding: '0 16px',
+                            color: '#06B6D4'
                         }}
                     >
                         {mots.map((mot, index) => (
@@ -829,24 +951,25 @@ export default function QuestCeExercice() {
                         ))}
                     </div>
                 ) : (
-                    <div style={styles.questionBox}>
-                        <p style={styles.consigne}>Le mot illuminé est :</p>
-                        <div style={styles.phraseBox}>
-                            {mots.map((mot, index) => (
-                                <span
-                                    key={index}
-                                    style={{
-                                        display: 'inline-block',
-                                        marginRight: '24px',
-                                        ...(mot === motActuel ? styles.motIllumine : {})
-                                    }}
-                                >
-                                    {mot}
-                                </span>
-                            ))}
+                    <>
+                        <p style={styles.consigne}>🔊 Écoute les sons et choisis le bon</p>
+                        <div style={styles.questionBox}>
+                            <div style={styles.phraseBox}>
+                                {mots.map((mot, index) => (
+                                    <span
+                                        key={index}
+                                        style={{
+                                            display: 'inline-block',
+                                            marginRight: '24px',
+                                            ...(mot === motActuel ? styles.motIllumine : {})
+                                        }}
+                                    >
+                                        {mot}
+                                    </span>
+                                ))}
+                            </div>
                         </div>
-                        <p style={styles.consigne}>🔊 Écoute les sons et choisis le bon :</p>
-                    </div>
+                    </>
                 )}
 
                 <div style={{
@@ -893,7 +1016,7 @@ export default function QuestCeExercice() {
                                     ...borderStyle
                                 }}
                             >
-                                🔊 {index + 1}
+                                🔊 <span style={{ color: '#06B6D4' }}>{index + 1}</span>
                             </button>
                         )
                     })}
@@ -912,12 +1035,17 @@ export default function QuestCeExercice() {
                             Valider
                         </button>
                     ) : (
-                        <button
-                            onClick={questionSuivanteQuestCe}
-                            style={styles.primaryButton}
-                        >
-                            Suivant ➡️
-                        </button>
+                        // Afficher le bouton Suivant uniquement si :
+                        // - Desktop OU
+                        // - Mobile avec réponse incorrecte
+                        (!isMobile || !reponseValidee.correct) && (
+                            <button
+                                onClick={questionSuivanteQuestCe}
+                                style={styles.primaryButton}
+                            >
+                                Suivant ➡️
+                            </button>
+                        )
                     )}
                 </div>
 
