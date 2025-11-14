@@ -281,7 +281,7 @@ export default function DecoupageExercice() {
             }))
         }
 
-        // Si correct, passage automatique après 2 sec
+        // Si correct, passage automatique après 4 sec
         if (correct) {
             setFeedback({ type: 'success', message: '✅ Parfait !' })
             setTimeout(() => {
@@ -291,7 +291,7 @@ export default function DecoupageExercice() {
                 const nextIndex = indexGroupe + 1
                 setIndexGroupe(nextIndex)
                 preparerDecoupage(nextIndex)
-            }, 2000)
+            }, 4000)
         }
         // Si incorrect, on attend que l'utilisateur clique sur "Suivant"
     }
@@ -445,7 +445,7 @@ export default function DecoupageExercice() {
         title: {
             fontSize: isMobile ? '28px' : '36px',
             fontWeight: 'bold',
-            color: '#1e293b',
+            color: '#06B6D4',
             marginBottom: '8px',
             textAlign: 'center'
         },
@@ -457,19 +457,19 @@ export default function DecoupageExercice() {
         consigne: {
             fontSize: '20px',
             fontWeight: '600',
-            color: '#1e293b',
+            color: '#06B6D4',
             textAlign: 'center',
             backgroundColor: '#dbeafe',
             padding: '16px',
             borderRadius: '8px',
-            border: '2px solid #3b82f6',
-            margin: 0,
-            marginBottom: '24px'
+            border: '2px solid #06B6D4',
+            width: 'fit-content',
+            margin: '0 auto 24px auto'
         },
         lettre: {
             display: 'inline-block',
-            fontWeight: '600',
-            color: '#333',
+            fontWeight: 'bold',
+            color: '#000',
             fontSize: '32px'
         },
         separationButton: {
@@ -500,10 +500,11 @@ export default function DecoupageExercice() {
         feedbackBox: {
             padding: '20px',
             borderRadius: '12px',
-            marginBottom: '24px',
             textAlign: 'center',
             fontSize: '20px',
-            fontWeight: '600'
+            fontWeight: '600',
+            width: 'fit-content',
+            margin: '0 auto 24px auto'
         },
         feedbackSuccess: {
             backgroundColor: '#d1fae5',
@@ -545,22 +546,23 @@ export default function DecoupageExercice() {
             transition: 'all 0.2s'
         },
         resultatsBox: {
-            backgroundColor: 'white',
+            backgroundColor: 'transparent',
             padding: '32px',
             borderRadius: '12px',
             maxWidth: '800px',
-            margin: '0 auto',
-            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
+            margin: '0 auto'
         },
         motReussi: {
             color: '#10b981',
             fontSize: '18px',
-            marginBottom: '8px'
+            marginBottom: '8px',
+            textAlign: 'center'
         },
         motRate: {
             color: '#ef4444',
             fontSize: '18px',
-            marginBottom: '8px'
+            marginBottom: '8px',
+            textAlign: 'center'
         }
     }
 
@@ -594,19 +596,55 @@ export default function DecoupageExercice() {
         return (
             <div style={styles.container}>
                 {showConfetti && (
-                    <div style={{
-                        position: 'fixed',
-                        top: 0,
-                        left: 0,
-                        width: '100%',
-                        height: '100%',
-                        pointerEvents: 'none',
-                        zIndex: 9999
-                    }}>
-                        <div style={{ fontSize: '80px', textAlign: 'center', marginTop: '20%' }}>
-                            🎉 🎊 ✨ 🌟 🎉
+                    <>
+                        <style dangerouslySetInnerHTML={{
+                            __html: `
+                                @keyframes confettiFall {
+                                    0% {
+                                        transform: translateY(-50px) rotate(0deg);
+                                        opacity: 1;
+                                    }
+                                    100% {
+                                        transform: translateY(100vh) rotate(360deg);
+                                        opacity: 0;
+                                    }
+                                }
+                            `
+                        }} />
+                        <div style={{
+                            position: 'fixed',
+                            top: 0,
+                            left: 0,
+                            width: '100%',
+                            height: '100%',
+                            pointerEvents: 'none',
+                            zIndex: 9999,
+                            overflow: 'hidden'
+                        }}>
+                            {[...Array(50)].map((_, i) => {
+                                const emojis = ['🎉', '🎊', '✨', '🌟', '⭐']
+                                const randomEmoji = emojis[Math.floor(Math.random() * emojis.length)]
+                                const randomLeft = Math.random() * 100
+                                const randomDuration = 2 + Math.random() * 2
+                                const randomDelay = Math.random() * 0.5
+
+                                return (
+                                    <div
+                                        key={i}
+                                        style={{
+                                            position: 'absolute',
+                                            left: `${randomLeft}%`,
+                                            top: '-50px',
+                                            fontSize: '40px',
+                                            animation: `confettiFall ${randomDuration}s linear ${randomDelay}s forwards`
+                                        }}
+                                    >
+                                        {randomEmoji}
+                                    </div>
+                                )
+                            })}
                         </div>
-                    </div>
+                    </>
                 )}
 
                 <div style={styles.header}>
@@ -620,6 +658,12 @@ export default function DecoupageExercice() {
                                 ←
                             </button>
                             <button
+                                onClick={() => router.push('/lire/reconnaitre-les-mots')}
+                                style={{ ...styles.secondaryButton, padding: '8px 12px', fontSize: '20px', border: '2px solid #06B6D4' }}
+                            >
+                                👁️
+                            </button>
+                            <button
                                 onClick={() => router.push('/lire')}
                                 style={{ ...styles.secondaryButton, padding: '8px 12px', fontSize: '20px' }}
                             >
@@ -631,22 +675,43 @@ export default function DecoupageExercice() {
                             >
                                 🏠
                             </button>
+                            <button
+                                onClick={() => {
+                                    setScore({ bonnes: 0, total: 0 })
+                                    setResultats({ reussis: [], rates: [] })
+                                    demarrerDecoupage()
+                                }}
+                                style={{ ...styles.secondaryButton, padding: '8px 12px', fontSize: '20px', border: '2px solid #06B6D4' }}
+                            >
+                                🔄
+                            </button>
                         </div>
                     )}
                 </div>
 
                 <div style={styles.resultatsBox}>
-                    <h2 style={{ fontSize: '32px', marginBottom: '24px', color: '#1e293b' }}>
-                        Score : {score.bonnes}/{score.total}
-                    </h2>
-                    <p style={{ fontSize: '24px', marginBottom: '32px', color: '#64748b' }}>
-                        {Math.round((score.bonnes / score.total) * 100)}% de réussite
-                    </p>
+                    <div style={{
+                        display: 'flex',
+                        justifyContent: 'center',
+                        marginBottom: '32px'
+                    }}>
+                        <div style={{
+                            display: 'inline-block',
+                            padding: '16px 32px',
+                            backgroundColor: 'white',
+                            border: '3px solid #06B6D4',
+                            borderRadius: '12px'
+                        }}>
+                            <h2 style={{ fontSize: '36px', fontWeight: 'bold', color: '#06B6D4', margin: 0 }}>
+                                {score.bonnes}/{score.total}
+                            </h2>
+                        </div>
+                    </div>
 
                     {resultats.reussis.length > 0 && (
                         <div style={{ marginBottom: '24px' }}>
-                            <h3 style={{ fontSize: '20px', color: '#10b981', marginBottom: '12px' }}>
-                                ✅ Phrases réussies ({resultats.reussis.length})
+                            <h3 style={{ fontSize: '20px', color: '#10b981', marginBottom: '12px', textAlign: 'center' }}>
+                                Phrases réussies ({resultats.reussis.length})
                             </h3>
                             {resultats.reussis.map((phrase, index) => (
                                 <p key={index} style={styles.motReussi}>• {phrase}</p>
@@ -656,33 +721,14 @@ export default function DecoupageExercice() {
 
                     {resultats.rates.length > 0 && (
                         <div style={{ marginBottom: '24px' }}>
-                            <h3 style={{ fontSize: '20px', color: '#ef4444', marginBottom: '12px' }}>
-                                ❌ Phrases à revoir ({resultats.rates.length})
+                            <h3 style={{ fontSize: '20px', color: '#ef4444', marginBottom: '12px', textAlign: 'center' }}>
+                                Phrases à revoir ({resultats.rates.length})
                             </h3>
                             {resultats.rates.map((phrase, index) => (
                                 <p key={index} style={styles.motRate}>• {phrase}</p>
                             ))}
                         </div>
                     )}
-
-                    <div style={styles.actions}>
-                        <button
-                            onClick={() => {
-                                setScore({ bonnes: 0, total: 0 })
-                                setResultats({ reussis: [], rates: [] })
-                                demarrerDecoupage()
-                            }}
-                            style={styles.primaryButton}
-                        >
-                            🔄 Recommencer
-                        </button>
-                        <button
-                            onClick={() => router.push(`/lire/reconnaitre-les-mots/exercices2?textes=${router.query.texte_ids}`)}
-                            style={styles.secondaryButton}
-                        >
-                            ← Menu exercices
-                        </button>
-                    </div>
                 </div>
             </div>
         )
@@ -711,6 +757,19 @@ export default function DecoupageExercice() {
                                     }}
                                 >
                                     ←
+                                </button>
+                                <button
+                                    onClick={() => router.push('/lire/reconnaitre-les-mots')}
+                                    style={{
+                                        padding: '8px 12px',
+                                        backgroundColor: 'white',
+                                        border: '2px solid #06B6D4',
+                                        borderRadius: '8px',
+                                        cursor: 'pointer',
+                                        fontSize: '20px'
+                                    }}
+                                >
+                                    👁️
                                 </button>
                                 <button
                                     onClick={() => router.push('/lire')}
@@ -785,12 +844,12 @@ export default function DecoupageExercice() {
                                 <button
                                     onClick={() => {
                                         quitterPleinEcran()
-                                        router.push('/lire/reconnaitre-les-mots-new')
+                                        router.push('/lire/reconnaitre-les-mots')
                                     }}
                                     style={{
                                         padding: '8px 12px',
                                         backgroundColor: 'white',
-                                        border: '2px solid #3b82f6',
+                                        border: '2px solid #06B6D4',
                                         borderRadius: '8px',
                                         cursor: 'pointer',
                                         fontSize: '20px'
@@ -866,13 +925,13 @@ export default function DecoupageExercice() {
                                         onClick={verifierDecoupage}
                                         style={{
                                             padding: '8px 16px',
-                                            backgroundColor: '#3b82f6',
-                                            color: 'white',
-                                            border: 'none',
+                                            backgroundColor: 'white',
+                                            color: '#06B6D4',
+                                            border: '3px solid #06B6D4',
                                             borderRadius: '8px',
                                             cursor: 'pointer',
                                             fontSize: '16px',
-                                            fontWeight: '600'
+                                            fontWeight: 'bold'
                                         }}
                                         title="Vérifier"
                                     >
@@ -884,13 +943,13 @@ export default function DecoupageExercice() {
                                             onClick={phraseSuivanteDecoupage}
                                             style={{
                                                 padding: '8px 16px',
-                                                backgroundColor: '#10b981',
-                                                color: 'white',
-                                                border: 'none',
+                                                backgroundColor: 'white',
+                                                color: '#06B6D4',
+                                                border: '3px solid #06B6D4',
                                                 borderRadius: '8px',
                                                 cursor: 'pointer',
                                                 fontSize: '16px',
-                                                fontWeight: '600'
+                                                fontWeight: 'bold'
                                             }}
                                             title="Suivant"
                                         >
@@ -912,8 +971,8 @@ export default function DecoupageExercice() {
                     </div>
                 )}
 
-                {!isMobile && (
-                    <p style={styles.consigne}>Clique entre les lettres pour séparer les mots :</p>
+                {!isMobile && !feedback && (
+                    <p style={styles.consigne}>Clique entre les lettres pour séparer les mots</p>
                 )}
 
                 <div style={{
@@ -927,6 +986,40 @@ export default function DecoupageExercice() {
 
                         // Si aucune séparation : affichage simple
                         if (separations.length === 0) {
+                            // Si validation incorrecte : encadrer tout en rouge
+                            if (decoupageValidation && !decoupageValidation.correct) {
+                                return (
+                                    <span style={{
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        backgroundColor: '#f1f5f9',
+                                        borderRadius: '6px',
+                                        padding: isMobile ? '4px 1px' : '4px 4px',
+                                        border: '3px solid #ef4444'
+                                    }}>
+                                        {lettres.map((lettre, index) => (
+                                            <span key={index} style={{ display: 'inline-flex', alignItems: 'center' }}>
+                                                <span style={{
+                                                    ...styles.lettre,
+                                                    ...(isMobile ? { fontSize: `${taillePoliceDecoupage}px` } : {})
+                                                }}>{lettre}</span>
+                                                {index < lettres.length - 1 && (
+                                                    <button
+                                                        onClick={() => toggleSeparation(index + 1)}
+                                                        style={{
+                                                            ...styles.separationButton,
+                                                            cursor: 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'24\' height=\'24\' viewBox=\'0 0 24 24\'%3E%3Ctext y=\'20\' font-size=\'20\'%3E✂️%3C/text%3E%3C/svg%3E") 12 12, crosshair'
+                                                        }}
+                                                        title="Cliquer pour couper"
+                                                    />
+                                                )}
+                                            </span>
+                                        ))}
+                                    </span>
+                                )
+                            }
+
+                            // Sinon affichage normal sans bordure
                             return lettres.map((lettre, index) => (
                                 <span key={index} style={{ display: 'inline-flex', alignItems: 'center' }}>
                                     <span style={{
@@ -1044,30 +1137,32 @@ export default function DecoupageExercice() {
                 {/* Afficher la bonne segmentation si réponse incorrecte */}
                 {decoupageValidation && !decoupageValidation.correct && (
                     <div style={{
-                        marginTop: '20px',
                         padding: '20px',
-                        backgroundColor: '#dcfce7',
+                        backgroundColor: 'white',
                         borderRadius: '12px',
-                        border: '2px solid #10b981'
+                        border: '3px solid #10b981',
+                        width: 'fit-content',
+                        margin: '20px auto'
                     }}>
-                        <p style={{
-                            fontSize: isMobile ? '16px' : '18px',
-                            fontWeight: 'bold',
-                            color: '#047857',
-                            marginBottom: '12px',
-                            textAlign: 'center'
-                        }}>
-                            ✅ Bonne segmentation :
-                        </p>
-                        <p style={{
+                        <div style={{
                             fontSize: isMobile ? '20px' : '24px',
                             fontWeight: 'bold',
-                            color: '#065f46',
                             textAlign: 'center',
                             lineHeight: '1.6'
                         }}>
-                            {decoupageValidation.motsAttendus.join(' - ')}
-                        </p>
+                            {decoupageValidation.motsAttendus.map((mot, index) => (
+                                <span key={index}>
+                                    <span style={{ color: '#000' }}>{mot}</span>
+                                    {index < decoupageValidation.motsAttendus.length - 1 && (
+                                        <span style={{
+                                            color: '#06B6D4',
+                                            margin: '0 8px',
+                                            fontSize: '28px'
+                                        }}> | </span>
+                                    )}
+                                </span>
+                            ))}
+                        </div>
                     </div>
                 )}
 
@@ -1077,7 +1172,17 @@ export default function DecoupageExercice() {
                             <>
                                 <button
                                     onClick={verifierDecoupage}
-                                    style={styles.primaryButton}
+                                    style={{
+                                        padding: '16px 32px',
+                                        backgroundColor: 'white',
+                                        color: '#06B6D4',
+                                        border: '3px solid #06B6D4',
+                                        borderRadius: '12px',
+                                        fontSize: '18px',
+                                        fontWeight: 'bold',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s'
+                                    }}
                                 >
                                     Vérifier
                                 </button>
@@ -1092,7 +1197,17 @@ export default function DecoupageExercice() {
                             !decoupageValidation.correct && (
                                 <button
                                     onClick={phraseSuivanteDecoupage}
-                                    style={styles.primaryButton}
+                                    style={{
+                                        padding: '16px 32px',
+                                        backgroundColor: 'white',
+                                        color: '#06B6D4',
+                                        border: '3px solid #06B6D4',
+                                        borderRadius: '12px',
+                                        fontSize: '18px',
+                                        fontWeight: 'bold',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s'
+                                    }}
                                 >
                                     Suivant ➡️
                                 </button>
