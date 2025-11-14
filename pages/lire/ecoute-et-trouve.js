@@ -24,6 +24,7 @@ export default function EcouteEtTrouve() {
     const [score, setScore] = useState(0)
     const [attempts, setAttempts] = useState(0)
     const [isPlaying, setIsPlaying] = useState(false)
+    const [isLoadingAudio, setIsLoadingAudio] = useState(false)
     const [currentAudio, setCurrentAudio] = useState(null)
     const [nbChoix, setNbChoix] = useState(8) // Nombre de mots affichés (4-12)
     const [visualFeedback, setVisualFeedback] = useState({
@@ -87,20 +88,14 @@ export default function EcouteEtTrouve() {
     // ==================== LECTURE AUTO AU DÉMARRAGE ====================
     useEffect(() => {
         if (etape === 'exercice' && currentMot) {
-            // Au premier démarrage, attendre que enregistrementsMap soit chargé
-            if (completedMots.length === 0 && Object.keys(enregistrementsMap).length === 0) {
-                console.log('⏳ Attente du chargement des enregistrements avant le premier audio...')
-                return
-            }
-
             const timer = setTimeout(() => {
-                console.log(`🎯 Lecture auto du mot - ${Object.keys(enregistrementsMap).length} enregistrements disponibles`)
+                console.log(`🎯 Lecture auto du mot`)
                 playAudio(currentMot.mot)
             }, 300)
 
             return () => clearTimeout(timer)
         }
-    }, [currentMot, etape, enregistrementsMap])
+    }, [currentMot, etape])
 
     const checkAuth = async () => {
         // Charger les voix disponibles
@@ -417,10 +412,27 @@ export default function EcouteEtTrouve() {
     }
 
     const playAudio = async (texte) => {
+        // ⭐ VERROU - Empêcher appels multiples pendant chargement
+        if (isLoadingAudio) {
+            console.log('⏸️ Audio déjà en cours de chargement, requête ignorée')
+            return
+        }
+
+        setIsLoadingAudio(true)
+
+        // ⭐ NETTOYAGE INCONDITIONNEL - Arrêter TOUT son en cours
+        if (currentAudio) {
+            currentAudio.pause()
+            currentAudio.currentTime = 0
+            setCurrentAudio(null)
+        }
+        window.speechSynthesis.cancel()
+
         if (isPlaying && currentAudio) {
             currentAudio.pause()
             setCurrentAudio(null)
             setIsPlaying(false)
+            setIsLoadingAudio(false)
             return
         }
 
@@ -444,7 +456,10 @@ export default function EcouteEtTrouve() {
                 console.log(`✅ Enregistrement personnalisé trouvé pour "${motNormalise}"`)
                 console.log(`🎵 URL:`, enregistrementsMap[motNormalise].audio_url)
                 const success = await playEnregistrement(enregistrementsMap[motNormalise])
-                if (success) return // Succès, on s'arrête là
+                if (success) {
+                    // Note: setIsLoadingAudio(false) sera appelé dans les callbacks de playEnregistrement
+                    return
+                }
                 console.log('⚠️ Échec enregistrement personnel, fallback ElevenLabs')
             }
 
@@ -466,7 +481,7 @@ export default function EcouteEtTrouve() {
                             'Authorization': `Bearer ${token}`
                         },
                         body: JSON.stringify({
-                            text: texte,
+                            text: `Le mot est : ${texte}`,
                             voice_id: selectedVoice
                         })
                     })
@@ -479,11 +494,13 @@ export default function EcouteEtTrouve() {
                     } else {
                         setTokenStatus('exhausted')
                         fallbackToWebSpeech(texte)
+                        // Note: setIsLoadingAudio(false) sera appelé dans les callbacks de fallbackToWebSpeech
                         return
                     }
                 } catch (error) {
                     setTokenStatus('exhausted')
                     fallbackToWebSpeech(texte)
+                    // Note: setIsLoadingAudio(false) sera appelé dans les callbacks de fallbackToWebSpeech
                     return
                 }
             } else {
@@ -491,6 +508,7 @@ export default function EcouteEtTrouve() {
                 // PRIORITÉ 3 : WEB SPEECH API (Paul/Julie, PAS Hortense)
                 // ========================================================
                 fallbackToWebSpeech(texte)
+                // Note: setIsLoadingAudio(false) sera appelé dans les callbacks de fallbackToWebSpeech
                 return
             }
 
@@ -499,11 +517,13 @@ export default function EcouteEtTrouve() {
 
             audio.onended = () => {
                 setIsPlaying(false)
+                setIsLoadingAudio(false)
                 setCurrentAudio(null)
             }
 
             audio.onerror = () => {
                 setIsPlaying(false)
+                setIsLoadingAudio(false)
                 setCurrentAudio(null)
                 fallbackToWebSpeech(texte)
             }
@@ -511,13 +531,14 @@ export default function EcouteEtTrouve() {
             await audio.play()
 
         } catch (error) {
+            setIsLoadingAudio(false)
             fallbackToWebSpeech(texte)
         }
     }
 
     const fallbackToWebSpeech = (texte) => {
         try {
-            const utterance = new SpeechSynthesisUtterance(texte)
+            const utterance = new SpeechSynthesisUtterance(`Le mot est : ${texte}`)
             utterance.lang = 'fr-FR'
             utterance.rate = 0.8
             utterance.pitch = 0.6
@@ -543,21 +564,25 @@ export default function EcouteEtTrouve() {
 
             utterance.onend = () => {
                 setIsPlaying(false)
+                setIsLoadingAudio(false)
             }
 
             utterance.onerror = () => {
                 setIsPlaying(false)
+                setIsLoadingAudio(false)
             }
 
             window.speechSynthesis.speak(utterance)
         } catch (error) {
             setIsPlaying(false)
+            setIsLoadingAudio(false)
         }
     }
 
     const playEnregistrement = async (enregistrement) => {
         if (!enregistrement || !enregistrement.audio_url) {
             console.warn('⚠️ Enregistrement invalide')
+            setIsLoadingAudio(false)
             return false
         }
 
@@ -568,12 +593,14 @@ export default function EcouteEtTrouve() {
 
             audio.onended = () => {
                 setIsPlaying(false)
+                setIsLoadingAudio(false)
                 setCurrentAudio(null)
             }
 
             audio.onerror = (error) => {
                 console.error('❌ Erreur lecture enregistrement:', error)
                 setIsPlaying(false)
+                setIsLoadingAudio(false)
                 setCurrentAudio(null)
             }
 
@@ -582,7 +609,33 @@ export default function EcouteEtTrouve() {
             return true
         } catch (error) {
             console.error('❌ Erreur playEnregistrement:', error)
+            setIsLoadingAudio(false)
             return false
+        }
+    }
+
+    const passerQuestionSuivante = (wasLastCorrect = false) => {
+        const currentIndex = shuffledMots.findIndex(m => m.id === currentMot.id)
+        if (currentIndex < shuffledMots.length - 1) {
+            // Passer au mot suivant
+            const nextMot = shuffledMots[currentIndex + 1]
+            setCurrentMot(nextMot)
+            updateDisplayedMots(nextMot, allMots)
+            playAudio(nextMot.mot)
+            // Reset feedback visuel
+            setVisualFeedback({ clickedMotId: null, correctMotId: null, isCorrect: null })
+        } else {
+            // Fin du jeu - calculer le score final
+            const finalTotal = shuffledMots.length
+            // Si la dernière question était correcte, ajouter +1 au score
+            const finalCorrect = wasLastCorrect ? resultats.reussis.length + 1 : resultats.reussis.length
+
+            setFinalScore({
+                correct: finalCorrect,
+                total: finalTotal
+            })
+            setEtape('resultats')
+            setVisualFeedback({ clickedMotId: null, correctMotId: null, isCorrect: null })
         }
     }
 
@@ -615,35 +668,13 @@ export default function EcouteEtTrouve() {
             isCorrect: isCorrect
         })
 
-        // Marquer le mot comme terminé dans TOUS les cas
-        setCompletedMots([...completedMots, currentMot.id])
-
-        // Délai conditionnel : 1.5s si bon, 3s si mauvais
-        const delai = isCorrect ? 1500 : 3000
-
-        setTimeout(() => {
-            const currentIndex = shuffledMots.findIndex(m => m.id === currentMot.id)
-            if (currentIndex < shuffledMots.length - 1) {
-                // Passer au mot suivant
-                const nextMot = shuffledMots[currentIndex + 1]
-                setCurrentMot(nextMot)
-                updateDisplayedMots(nextMot, allMots)
-                playAudio(nextMot.mot)
-                // Reset feedback visuel
-                setVisualFeedback({ clickedMotId: null, correctMotId: null, isCorrect: null })
-            } else {
-                // Fin du jeu - calculer le score final
-                const finalCorrect = isCorrect ? score + 1 : score
-                const finalTotal = shuffledMots.length
-
-                setFinalScore({
-                    correct: finalCorrect,
-                    total: finalTotal
-                })
-                setEtape('resultats') // ⭐ Gestion moderne
-                setVisualFeedback({ clickedMotId: null, correctMotId: null, isCorrect: null })
-            }
-        }, delai)
+        // ⭐ PASSAGE AUTO UNIQUEMENT SI BONNE RÉPONSE
+        if (isCorrect) {
+            setTimeout(() => {
+                passerQuestionSuivante(true)
+            }, 1500)
+        }
+        // Si mauvaise réponse : pas de passage auto, attendre clic sur bouton "Suivant"
     }
 
     const resetGame = () => {
@@ -714,7 +745,7 @@ export default function EcouteEtTrouve() {
                             <button
                                 onClick={() => {
                                     const texteIds = selectedTexteIds.join(',')
-                                    router.push(`/lire/reconnaitre-les-mots?etape=exercices&texte_ids=${texteIds}`)
+                                    router.push(`/lire/reconnaitre-les-mots/exercices2?textes=${texteIds}`)
                                 }}
                                 style={{
                                     padding: '8px 12px',
@@ -841,7 +872,7 @@ export default function EcouteEtTrouve() {
                             <button
                                 onClick={() => {
                                     const texteIds = selectedTexteIds.join(',')
-                                    router.push(`/lire/reconnaitre-les-mots?etape=exercices&texte_ids=${texteIds}`)
+                                    router.push(`/lire/reconnaitre-les-mots/exercices2?textes=${texteIds}`)
                                 }}
                                 style={{
                                     padding: '8px 12px',
@@ -961,7 +992,7 @@ export default function EcouteEtTrouve() {
                             marginBottom: '40px',
                             color: '#06b6d4'
                         }}>
-                            🎯 Écoute et trouve - Reconnaissance des mots
+                            🎯 Écoute et trouve
                         </h1>
 
                         <div style={{ marginBottom: '40px' }}>
@@ -999,10 +1030,10 @@ export default function EcouteEtTrouve() {
                         <button
                             onClick={() => demarrerExercice(allMots)}
                             style={{
-                                backgroundColor: '#10b981',
-                                color: 'white',
+                                backgroundColor: 'white',
+                                border: '3px solid #10b981',
+                                color: '#10b981',
                                 padding: '16px 40px',
-                                border: 'none',
                                 borderRadius: '12px',
                                 fontSize: '18px',
                                 fontWeight: 'bold',
@@ -1012,14 +1043,16 @@ export default function EcouteEtTrouve() {
                             }}
                             onMouseEnter={(e) => {
                                 e.target.style.transform = 'scale(1.05)'
-                                e.target.style.backgroundColor = '#059669'
+                                e.target.style.borderColor = '#059669'
+                                e.target.style.color = '#059669'
                             }}
                             onMouseLeave={(e) => {
                                 e.target.style.transform = 'scale(1)'
-                                e.target.style.backgroundColor = '#10b981'
+                                e.target.style.borderColor = '#10b981'
+                                e.target.style.color = '#10b981'
                             }}
                         >
-                            🚀 Démarrer l'exercice
+                            Commencer
                         </button>
                     </div>
                 )}
@@ -1031,6 +1064,29 @@ export default function EcouteEtTrouve() {
                             padding: '20px',
                             marginBottom: '20px'
                         }}>
+                            {/* Consigne */}
+                            <div style={{
+                                width: '100%',
+                                maxWidth: '1200px',
+                                padding: '24px',
+                                textAlign: 'center'
+                            }}>
+                                <p style={{
+                                    fontSize: '20px',
+                                    color: '#06B6D4',
+                                    marginBottom: '16px',
+                                    backgroundColor: '#dbeafe',
+                                    padding: '16px',
+                                    borderRadius: '12px',
+                                    border: '2px solid #06B6D4',
+                                    fontWeight: 'bold',
+                                    display: 'inline-block',
+                                    minWidth: isMobile ? '280px' : '400px'
+                                }}>
+                                    🔊 Écoute et clique sur le bon mot
+                                </p>
+                            </div>
+
                             {/* Étiquettes des mots */}
                             <div style={{
                                 display: 'grid',
@@ -1074,7 +1130,7 @@ export default function EcouteEtTrouve() {
                                         <button
                                             key={mot.id}
                                             onClick={() => handleMotClick(mot)}
-                                            disabled={completedMots.includes(mot.id) || isPlaying}
+                                            disabled={visualFeedback.isCorrect !== null || isPlaying}
                                             style={buttonStyle}
                                             onMouseEnter={(e) => {
                                                 if (!isMobile) {
@@ -1094,6 +1150,48 @@ export default function EcouteEtTrouve() {
                                     )
                                 })}
                             </div>
+
+                            {/* Bouton Suivant - uniquement si réponse incorrecte */}
+                            {visualFeedback.isCorrect === false && (
+                                <div style={{
+                                    display: 'flex',
+                                    justifyContent: 'center',
+                                    marginTop: '30px'
+                                }}>
+                                    <button
+                                        onClick={() => passerQuestionSuivante(false)}
+                                        style={{
+                                            padding: isMobile ? '12px 24px' : '16px 32px',
+                                            backgroundColor: 'white',
+                                            border: '3px solid #06B6D4',
+                                            borderRadius: '12px',
+                                            fontSize: isMobile ? '16px' : '18px',
+                                            fontWeight: 'bold',
+                                            color: '#06B6D4',
+                                            cursor: 'pointer',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '8px',
+                                            transition: 'all 0.3s'
+                                        }}
+                                        onMouseEnter={(e) => {
+                                            if (!isMobile) {
+                                                e.target.style.transform = 'scale(1.05)'
+                                                e.target.style.boxShadow = '0 4px 6px rgba(0,0,0,0.1)'
+                                            }
+                                        }}
+                                        onMouseLeave={(e) => {
+                                            if (!isMobile) {
+                                                e.target.style.transform = 'scale(1)'
+                                                e.target.style.boxShadow = 'none'
+                                            }
+                                        }}
+                                    >
+                                        Suivant
+                                        <span style={{ color: '#3b82f6', fontSize: '20px' }}>➡️</span>
+                                    </button>
+                                </div>
+                            )}
                         </div>
 
                     </>
@@ -1112,7 +1210,7 @@ export default function EcouteEtTrouve() {
                                     color: '#06b6d4',
                                     textAlign: 'center'
                                 }}>
-                                    📊 Résultats
+                                    🎯 Écoute et trouve - Résultats
                                 </h1>
 
                                 {/* 5 icônes : ← 👁️ 📖 🏠 🔄 */}
@@ -1120,7 +1218,7 @@ export default function EcouteEtTrouve() {
                                     <button
                                         onClick={() => {
                                             const texteIds = selectedTexteIds.join(',')
-                                            router.push(`/lire/reconnaitre-les-mots?etape=exercices&texte_ids=${texteIds}`)
+                                            router.push(`/lire/reconnaitre-les-mots/exercices2?textes=${texteIds}`)
                                         }}
                                         style={{
                                             padding: '8px 12px',
@@ -1205,13 +1303,13 @@ export default function EcouteEtTrouve() {
                                 {/* Score intégré sous les icônes */}
                                 <div style={{ display: 'flex', justifyContent: 'center', marginTop: '12px', marginBottom: '20px' }}>
                                     <div style={{
-                                        border: '3px solid #3b82f6',
+                                        border: '3px solid #06b6d4',
                                         borderRadius: '12px',
                                         padding: '8px 20px',
                                         backgroundColor: 'white',
                                         fontSize: '24px',
                                         fontWeight: 'bold',
-                                        color: '#1e293b',
+                                        color: '#06b6d4',
                                         display: 'flex',
                                         alignItems: 'center',
                                         gap: '8px'
@@ -1223,27 +1321,105 @@ export default function EcouteEtTrouve() {
                                 </div>
                             </div>
                         ) : (
-                            // VERSION DESKTOP - score inline with title
-                            <div style={{ width: '100%', marginBottom: '20px' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
-                                    <div style={{ flex: 1 }}>
-                                        <h1 style={{
-                                            fontSize: '28px',
-                                            fontWeight: 'bold',
-                                            color: '#06b6d4'
-                                        }}>
-                                            📊 Résultats
-                                        </h1>
-                                    </div>
-                                    {/* Score pour desktop */}
+                            // VERSION DESKTOP
+                            <div style={{ width: '100%' }}>
+                                <h1 style={{
+                                    fontSize: '28px',
+                                    fontWeight: 'bold',
+                                    marginBottom: '20px',
+                                    color: '#06b6d4',
+                                    textAlign: 'center'
+                                }}>
+                                    🎯 Écoute et trouve - Résultats
+                                </h1>
+
+                                {/* 5 icônes : ← 👁️ 📖 🏠 🔄 */}
+                                <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', marginBottom: '20px' }}>
+                                    <button
+                                        onClick={() => {
+                                            const texteIds = selectedTexteIds.join(',')
+                                            router.push(`/lire/reconnaitre-les-mots/exercices2?textes=${texteIds}`)
+                                        }}
+                                        style={{
+                                            padding: '10px 16px',
+                                            backgroundColor: 'white',
+                                            border: '2px solid #64748b',
+                                            borderRadius: '8px',
+                                            cursor: 'pointer',
+                                            fontSize: '24px'
+                                        }}
+                                        title="Menu exercices"
+                                    >
+                                        ←
+                                    </button>
+                                    <button
+                                        onClick={() => router.push('/lire/reconnaitre-les-mots')}
+                                        style={{
+                                            padding: '10px 16px',
+                                            backgroundColor: 'white',
+                                            border: '2px solid #3b82f6',
+                                            borderRadius: '8px',
+                                            cursor: 'pointer',
+                                            fontSize: '24px'
+                                        }}
+                                        title="Sélection des textes"
+                                    >
+                                        👁️
+                                    </button>
+                                    <button
+                                        onClick={() => router.push('/lire')}
+                                        style={{
+                                            padding: '10px 16px',
+                                            backgroundColor: 'white',
+                                            border: '2px solid #10b981',
+                                            borderRadius: '8px',
+                                            cursor: 'pointer',
+                                            fontSize: '24px'
+                                        }}
+                                        title="Menu Lire"
+                                    >
+                                        📖
+                                    </button>
+                                    <button
+                                        onClick={() => router.push('/dashboard')}
+                                        style={{
+                                            padding: '10px 16px',
+                                            backgroundColor: 'white',
+                                            border: '2px solid #8b5cf6',
+                                            borderRadius: '8px',
+                                            cursor: 'pointer',
+                                            fontSize: '24px'
+                                        }}
+                                        title="Accueil"
+                                    >
+                                        🏠
+                                    </button>
+                                    <button
+                                        onClick={restartGame}
+                                        style={{
+                                            padding: '10px 16px',
+                                            backgroundColor: 'white',
+                                            border: '2px solid #f59e0b',
+                                            borderRadius: '8px',
+                                            cursor: 'pointer',
+                                            fontSize: '24px'
+                                        }}
+                                        title="Recommencer"
+                                    >
+                                        🔄
+                                    </button>
+                                </div>
+
+                                {/* Score centré */}
+                                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '30px' }}>
                                     <div style={{
-                                        border: '3px solid #3b82f6',
+                                        border: '3px solid #06b6d4',
                                         borderRadius: '12px',
-                                        padding: '8px 20px',
+                                        padding: '12px 30px',
                                         backgroundColor: 'white',
                                         fontSize: '32px',
                                         fontWeight: 'bold',
-                                        color: '#1e293b',
+                                        color: '#06b6d4',
                                         display: 'flex',
                                         alignItems: 'center',
                                         gap: '8px'
@@ -1285,7 +1461,8 @@ export default function EcouteEtTrouve() {
                                             marginBottom: '15px'
                                         }),
                                         color: '#10b981',
-                                        fontWeight: 'bold'
+                                        fontWeight: 'bold',
+                                        textAlign: 'center'
                                     }}>
                                         ✅ Mots réussis ({resultats.reussis.length})
                                     </h2>
@@ -1335,9 +1512,10 @@ export default function EcouteEtTrouve() {
                                             marginBottom: '15px'
                                         }),
                                         color: '#ef4444',
-                                        fontWeight: 'bold'
+                                        fontWeight: 'bold',
+                                        textAlign: 'center'
                                     }}>
-                                        ❌ Mots ratés ({resultats.rates.length})
+                                        ❌ Mots à revoir ({resultats.rates.length})
                                     </h2>
                                     <div style={{
                                         display: 'flex',
@@ -1370,48 +1548,6 @@ export default function EcouteEtTrouve() {
                                 </div>
                             )}
                         </div>
-
-                        {/* Boutons de navigation desktop uniquement */}
-                        {!isMobile && (
-                            <div style={{
-                                display: 'flex',
-                                gap: '15px',
-                                justifyContent: 'center',
-                                marginTop: '30px',
-                                flexWrap: 'wrap'
-                            }}>
-                                <button
-                                    onClick={restartGame}
-                                    style={{
-                                        backgroundColor: '#10b981',
-                                        color: 'white',
-                                        padding: '12px 24px',
-                                        border: 'none',
-                                        borderRadius: '8px',
-                                        fontSize: '16px',
-                                        fontWeight: 'bold',
-                                        cursor: 'pointer'
-                                    }}
-                                >
-                                    🔄 Recommencer
-                                </button>
-                                <button
-                                    onClick={() => router.push('/lire/reconnaitre-les-mots')}
-                                    style={{
-                                        backgroundColor: '#3b82f6',
-                                        color: 'white',
-                                        padding: '12px 24px',
-                                        border: 'none',
-                                        borderRadius: '8px',
-                                        fontSize: '16px',
-                                        fontWeight: 'bold',
-                                        cursor: 'pointer'
-                                    }}
-                                >
-                                    ← Menu exercices
-                                </button>
-                            </div>
-                        )}
                     </div>
                 )}
 
