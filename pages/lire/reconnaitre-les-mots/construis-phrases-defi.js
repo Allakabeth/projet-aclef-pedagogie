@@ -11,6 +11,8 @@ export default function ConstruisPhrasesDefi() {
     const [attempts, setAttempts] = useState(0)
     const [isPlaying, setIsPlaying] = useState(false)
     const [enregistrementsMap, setEnregistrementsMap] = useState({})
+    const [phrasesReussies, setPhrasesReussies] = useState([])
+    const [phrasesARevoir, setPhrasesARevoir] = useState([])
 
     // États pour la reconstruction
     const [motsDisponibles, setMotsDisponibles] = useState([])
@@ -30,6 +32,9 @@ export default function ConstruisPhrasesDefi() {
 
     // Confettis
     const [showConfetti, setShowConfetti] = useState(false)
+
+    // État de rechargement (anti-spam bouton recommencer)
+    const [isRestarting, setIsRestarting] = useState(false)
 
     // Détection mobile
     const [isMobile, setIsMobile] = useState(false)
@@ -322,6 +327,7 @@ export default function ConstruisPhrasesDefi() {
         setPhraseVisible(false)
         setMotsStatuts([])
         setAfficherBoutonSuivant(false)
+        setIsRestarting(false) // Libérer le verrou quand l'exercice démarre
 
         // Récupérer les mots de la phrase actuelle
         const motsPhrase = [...phrase.mots]
@@ -409,6 +415,7 @@ export default function ConstruisPhrasesDefi() {
 
         if (toutCorrect) {
             setScore(score + 1)
+            setPhrasesReussies([...phrasesReussies, phraseActuelle.texte])
             setVisualFeedback({ correct: true, incorrect: false })
             setAfficherBoutonSuivant(false)
 
@@ -434,6 +441,7 @@ export default function ConstruisPhrasesDefi() {
         setMotsStatuts([])
         setVisualFeedback({ correct: false, incorrect: false })
         setAfficherBoutonSuivant(false)
+        setPhrasesARevoir([...phrasesARevoir, phraseActuelle.texte])
         passerPhrase()
     }
 
@@ -476,21 +484,10 @@ export default function ConstruisPhrasesDefi() {
     if (!user) return null
 
     if (etape === 'resultats') {
-        const scorePercent = Math.round((score / phrases.length) * 100)
-        const parfait = score === phrases.length
-
         return (
-            <div style={{
-                minHeight: '100vh',
-                background: parfait
-                    ? 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%)'
-                    : 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                padding: '20px'
-            }}>
-                {showConfetti && (
+            <div style={{ minHeight: '100vh', background: 'white', padding: '15px' }}>
+                {/* Confettis sur score parfait */}
+                {showConfetti && score === phrases.length && (
                     <>
                         <style dangerouslySetInnerHTML={{
                             __html: `
@@ -542,82 +539,233 @@ export default function ConstruisPhrasesDefi() {
                     </>
                 )}
 
-                <div style={{
-                    background: 'white',
-                    borderRadius: '20px',
-                    padding: '40px',
-                    maxWidth: '500px',
-                    width: '100%',
-                    textAlign: 'center'
-                }}>
-                    <div style={{ fontSize: '64px', marginBottom: '20px' }}>
-                        {parfait ? '🏆' : '🎉'}
-                    </div>
+                <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
+                    {/* Titre */}
                     <h1 style={{
-                        fontSize: '28px',
+                        fontSize: isMobile ? '20px' : '28px',
                         fontWeight: 'bold',
-                        color: parfait ? '#fbbf24' : '#8b5cf6',
-                        marginBottom: '20px'
+                        color: '#8b5cf6',
+                        textAlign: 'center',
+                        marginBottom: isMobile ? '10px' : '15px'
                     }}>
-                        {parfait ? 'Parfait !' : 'Bravo !'}
+                        🎯 Mode Défi - Résultats
                     </h1>
-                    <p style={{
-                        fontSize: '18px',
-                        color: '#666',
-                        marginBottom: '10px'
-                    }}>
-                        Score: {score}/{phrases.length} ({scorePercent}%)
-                    </p>
-                    <p style={{
-                        fontSize: '14px',
-                        color: '#999',
-                        marginBottom: '30px'
-                    }}>
-                        Total de tentatives: {attempts}
-                    </p>
+
+                    {/* Barre d'icônes */}
                     <div style={{
                         display: 'flex',
-                        gap: '15px',
+                        gap: isMobile ? '8px' : '10px',
                         justifyContent: 'center',
-                        flexWrap: 'wrap'
+                        marginBottom: isMobile ? '15px' : '20px'
                     }}>
-                        <button
-                            onClick={() => {
-                                setScore(0)
-                                setAttempts(0)
-                                setPhraseIndex(0)
-                                demarrerPhrase(phrases[0])
-                                setEtape('exercice')
-                            }}
-                            style={{
-                                backgroundColor: '#8b5cf6',
-                                color: 'white',
-                                padding: '12px 24px',
-                                border: 'none',
-                                borderRadius: '8px',
-                                fontSize: '16px',
-                                fontWeight: 'bold',
-                                cursor: 'pointer'
-                            }}
-                        >
-                            🔄 Recommencer
-                        </button>
                         <button
                             onClick={() => router.push(`/lire/reconnaitre-les-mots/exercices2?textes=${router.query.texte_ids}`)}
                             style={{
-                                backgroundColor: '#6b7280',
-                                color: 'white',
-                                padding: '12px 24px',
-                                border: 'none',
+                                padding: '8px 16px',
+                                backgroundColor: 'white',
+                                border: '2px solid #64748b',
                                 borderRadius: '8px',
-                                fontSize: '16px',
-                                fontWeight: 'bold',
-                                cursor: 'pointer'
+                                cursor: 'pointer',
+                                fontSize: '20px'
                             }}
+                            title="Menu exercices"
                         >
-                            ← Retour aux exercices
+                            ←
+                        </button>
+                        <button
+                            onClick={() => router.push('/lire/reconnaitre-les-mots')}
+                            style={{
+                                padding: '8px 16px',
+                                backgroundColor: 'white',
+                                border: '2px solid #3b82f6',
+                                borderRadius: '8px',
+                                cursor: 'pointer',
+                                fontSize: '20px'
+                            }}
+                            title="Reconnaître les mots"
+                        >
+                            👁️
+                        </button>
+                        <button
+                            onClick={() => router.push('/lire')}
+                            style={{
+                                padding: '8px 16px',
+                                backgroundColor: 'white',
+                                border: '2px solid #10b981',
+                                borderRadius: '8px',
+                                cursor: 'pointer',
+                                fontSize: '20px'
+                            }}
+                            title="Menu Lire"
+                        >
+                            📖
+                        </button>
+                        <button
+                            onClick={() => router.push('/dashboard')}
+                            style={{
+                                padding: '8px 16px',
+                                backgroundColor: 'white',
+                                border: '2px solid #8b5cf6',
+                                borderRadius: '8px',
+                                cursor: 'pointer',
+                                fontSize: '20px'
+                            }}
+                            title="Tableau de bord"
+                        >
+                            🏠
+                        </button>
+                        <button
+                            onClick={async () => {
+                                if (isRestarting) return // Bloquer si déjà en cours
+
+                                setIsRestarting(true) // Activer le verrou
+
+                                const token = localStorage.getItem('token')
+                                const texteIdsArray = router.query.texte_ids.split(',').map(Number)
+
+                                const response = await fetch('/api/phrases/generer', {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/json',
+                                        'Authorization': `Bearer ${token}`
+                                    },
+                                    body: JSON.stringify({ texte_ids: texteIdsArray })
+                                })
+
+                                if (response.ok) {
+                                    const data = await response.json()
+                                    console.log('✅ Nouvelles phrases tirées au sort:', data.phrases.length)
+
+                                    setPhrases(data.phrases)
+                                    setPhraseIndex(0)
+                                    setScore(0)
+                                    setAttempts(0)
+                                    setPhrasesReussies([])
+                                    setPhrasesARevoir([])
+                                    demarrerPhrase(data.phrases[0], data.phrases)
+                                    setEtape('exercice')
+                                } else {
+                                    setIsRestarting(false) // Libérer si erreur
+                                }
+                            }}
+                            disabled={isRestarting}
+                            style={{
+                                padding: '8px 16px',
+                                backgroundColor: isRestarting ? '#d1d5db' : 'white',
+                                border: '2px solid #f59e0b',
+                                borderRadius: '8px',
+                                cursor: isRestarting ? 'not-allowed' : 'pointer',
+                                fontSize: '20px',
+                                opacity: isRestarting ? 0.6 : 1
+                            }}
+                            title="Recommencer"
+                        >
+                            {isRestarting ? '⏳' : '🔄'}
                         </button>
                     </div>
+
+                    {/* Score */}
+                    <div style={{
+                        textAlign: 'center',
+                        marginBottom: isMobile ? '20px' : '30px'
+                    }}>
+                        <div style={{
+                            display: 'inline-block',
+                            backgroundColor: 'white',
+                            border: '3px solid #8b5cf6',
+                            borderRadius: '12px',
+                            padding: isMobile ? '12px 24px' : '16px 32px'
+                        }}>
+                            <h2 style={{
+                                fontSize: isMobile ? '28px' : '36px',
+                                fontWeight: 'bold',
+                                color: '#8b5cf6',
+                                margin: 0
+                            }}>
+                                {score}/{phrases.length}
+                            </h2>
+                        </div>
+                    </div>
+
+                    {/* Phrases réussies */}
+                    {phrasesReussies.length > 0 && (
+                        <div style={{ marginBottom: '20px' }}>
+                            <h2 style={{
+                                fontSize: isMobile ? '16px' : '20px',
+                                fontWeight: 'bold',
+                                color: '#10b981',
+                                marginBottom: '10px',
+                                textAlign: 'center'
+                            }}>
+                                Phrases réussies ({phrasesReussies.length})
+                            </h2>
+                            <div style={{
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '6px',
+                                alignItems: 'center'
+                            }}>
+                                {phrasesReussies.map((phrase, idx) => (
+                                    <div
+                                        key={idx}
+                                        style={{
+                                            maxWidth: '600px',
+                                            width: '100%',
+                                            textAlign: 'center',
+                                            backgroundColor: '#f0fdf4',
+                                            border: '2px solid #10b981',
+                                            borderRadius: '8px',
+                                            padding: isMobile ? '8px 12px' : '10px 16px',
+                                            fontSize: isMobile ? '14px' : '16px',
+                                            color: '#333'
+                                        }}
+                                    >
+                                        {idx + 1}. {phrase}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Phrases à revoir */}
+                    {phrasesARevoir.length > 0 && (
+                        <div>
+                            <h2 style={{
+                                fontSize: isMobile ? '16px' : '20px',
+                                fontWeight: 'bold',
+                                color: '#f59e0b',
+                                marginBottom: '10px',
+                                textAlign: 'center'
+                            }}>
+                                Phrases à revoir ({phrasesARevoir.length})
+                            </h2>
+                            <div style={{
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '6px',
+                                alignItems: 'center'
+                            }}>
+                                {phrasesARevoir.map((phrase, idx) => (
+                                    <div
+                                        key={idx}
+                                        style={{
+                                            maxWidth: '600px',
+                                            width: '100%',
+                                            textAlign: 'center',
+                                            backgroundColor: '#fffbeb',
+                                            border: '2px solid #f59e0b',
+                                            borderRadius: '8px',
+                                            padding: isMobile ? '8px 12px' : '10px 16px',
+                                            fontSize: isMobile ? '14px' : '16px',
+                                            color: '#333'
+                                        }}
+                                    >
+                                        {idx + 1}. {phrase}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
         )
@@ -883,6 +1031,42 @@ export default function ConstruisPhrasesDefi() {
                                 ✅ Bravo ! C'est correct !
                             </p>
                         )}
+
+                        {visualFeedback.incorrect && (
+                            <div style={{ marginTop: '20px' }}>
+                                <p style={{
+                                    color: '#f59e0b',
+                                    fontWeight: 'bold',
+                                    fontSize: '16px',
+                                    marginBottom: '10px'
+                                }}>
+                                    Bonne phrase :
+                                </p>
+                                <div style={{
+                                    display: 'flex',
+                                    justifyContent: 'center',
+                                    gap: '8px',
+                                    flexWrap: 'wrap'
+                                }}>
+                                    {phraseActuelle.mots.map((mot, index) => (
+                                        <div
+                                            key={index}
+                                            style={{
+                                                background: '#f0fdf4',
+                                                color: '#10b981',
+                                                padding: '10px 20px',
+                                                borderRadius: '8px',
+                                                fontSize: isMobile ? '14px' : '16px',
+                                                fontWeight: 'bold',
+                                                border: '3px solid #10b981'
+                                            }}
+                                        >
+                                            {mot}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                     </div>
 
                     {/* Boutons Valider et Suivant */}
@@ -899,9 +1083,9 @@ export default function ConstruisPhrasesDefi() {
                                         verifierPhrase(motsSelectionnes)
                                     }
                                 }}
-                                disabled={motsSelectionnes.length === 0 || visualFeedback.correct || visualFeedback.incorrect}
+                                disabled={motsSelectionnes.length === 0 || visualFeedback.correct || visualFeedback.incorrect || isPlaying}
                                 style={{
-                                    background: (motsSelectionnes.length === 0 || visualFeedback.correct || visualFeedback.incorrect)
+                                    background: (motsSelectionnes.length === 0 || visualFeedback.correct || visualFeedback.incorrect || isPlaying)
                                         ? '#d1d5db'
                                         : 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
                                     color: 'white',
@@ -910,8 +1094,8 @@ export default function ConstruisPhrasesDefi() {
                                     borderRadius: '10px',
                                     fontSize: '18px',
                                     fontWeight: 'bold',
-                                    cursor: (motsSelectionnes.length === 0 || visualFeedback.correct || visualFeedback.incorrect) ? 'not-allowed' : 'pointer',
-                                    opacity: (motsSelectionnes.length === 0 || visualFeedback.correct || visualFeedback.incorrect) ? 0.5 : 1
+                                    cursor: (motsSelectionnes.length === 0 || visualFeedback.correct || visualFeedback.incorrect || isPlaying) ? 'not-allowed' : 'pointer',
+                                    opacity: (motsSelectionnes.length === 0 || visualFeedback.correct || visualFeedback.incorrect || isPlaying) ? 0.5 : 1
                                 }}
                             >
                                 ✓ Valider
