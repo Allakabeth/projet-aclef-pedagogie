@@ -9,6 +9,13 @@ export default function ConstruisPhrasesTranquille() {
     const [phraseIndex, setPhraseIndex] = useState(0)
     const [score, setScore] = useState(0)
     const [isPlaying, setIsPlaying] = useState(false)
+    const [isLoadingAudio, setIsLoadingAudio] = useState(false)
+    const [currentAudio, setCurrentAudio] = useState(null)
+    const [tokenStatus, setTokenStatus] = useState('unknown')
+    const [selectedVoice, setSelectedVoice] = useState('AfbuxQ9DVtS4azaxN1W7')
+    const [phrasesReussies, setPhrasesReussies] = useState([])
+    const [phrasesARevoir, setPhrasesARevoir] = useState([])
+    const [texteIds, setTexteIds] = useState('')
 
     // Confettis
     const [showConfetti, setShowConfetti] = useState(false)
@@ -17,6 +24,7 @@ export default function ConstruisPhrasesTranquille() {
     const [modeKaraoke, setModeKaraoke] = useState(false)
     const [motIllumineIndex, setMotIllumineIndex] = useState(-1)
     const [enregistrementsMap, setEnregistrementsMap] = useState({})
+    const [karaokeTermine, setKaraokeTermine] = useState(false)
 
     // Détection mobile
     const [isMobile, setIsMobile] = useState(false)
@@ -55,8 +63,9 @@ export default function ConstruisPhrasesTranquille() {
 
             // Charger les données via texte_ids
             if (router.query.texte_ids) {
+                setTexteIds(router.query.texte_ids)
                 await chargerPhrases(router.query.texte_ids)
-                await loadEnregistrements(router.query.texte_ids)
+                await loadEnregistrements()
             } else {
                 alert('Aucun texte sélectionné. Retournez au menu des exercices.')
                 router.push('/lire/reconnaitre-les-mots/exercices2')
@@ -92,10 +101,10 @@ export default function ConstruisPhrasesTranquille() {
                 setPhraseActuelle(data.phrases[0])
                 setEtape('exercice')
 
-                // Afficher les stats OpenRouter si disponibles
+                // Logger les stats OpenRouter dans la console
                 if (data.openrouter_stats) {
                     const { remaining, limit } = data.openrouter_stats
-                    alert(`Mode Facile ✅\n${data.phrases.length} phrases générées\n\n📊 Requêtes restantes aujourd'hui : ${remaining}/${limit}`)
+                    console.log(`📊 Stats OpenRouter: ${remaining}/${limit} requêtes restantes`)
                 }
             } else {
                 const error = await response.json()
@@ -117,96 +126,279 @@ export default function ConstruisPhrasesTranquille() {
     }
 
     // Charger les enregistrements vocaux personnalisés
-    const loadEnregistrements = async (texteIds) => {
+    const loadEnregistrements = async () => {
         try {
-            const response = await fetch(`/api/enregistrements-mots/list?texte_ids=${texteIds}`)
-            const data = await response.json()
+            const token = localStorage.getItem('token')
+            const response = await fetch('/api/enregistrements-mots/list', {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            })
 
-            if (data.success && data.enregistrementsMap) {
-                // Normaliser les clés
+            if (response.ok) {
+                const data = await response.json()
+                console.log(`🎤 ${data.count} enregistrement(s) vocal(aux) chargé(s)`)
+
+                // ⚠️ IMPORTANT: Normaliser les clés pour correspondre à playAudio()
                 const mapNormalise = {}
-                Object.entries(data.enregistrementsMap).forEach(([mot, enreg]) => {
-                    const motNormalise = mot.toLowerCase().trim()
+                Object.entries(data.enregistrementsMap || {}).forEach(([mot, enreg]) => {
+                    const motNormalise = mot
+                        .toLowerCase()
+                        .trim()
                         .replace(/^[.,;:!?¡¿'"«»\-—]+/, '')
                         .replace(/[.,;:!?¡¿'"«»\-—]+$/, '')
                     mapNormalise[motNormalise] = enreg
                 })
+
+                console.log('📋 Enregistrements normalisés:', Object.keys(mapNormalise))
                 setEnregistrementsMap(mapNormalise)
-                console.log('✅ Enregistrements chargés:', Object.keys(mapNormalise).length)
+            } else {
+                console.error('Erreur chargement enregistrements vocaux')
             }
         } catch (error) {
             console.error('Erreur chargement enregistrements vocaux:', error)
         }
     }
 
-    // Fonction de lecture audio avec priorités : 1) Voix perso, 2) ElevenLabs, 3) Web Speech
-    const lireTTS = async (texte, onEnded = null) => {
-        // Normalisation du texte (suppression ponctuation)
-        const motNormalise = texte
-            .toLowerCase()
-            .trim()
-            .replace(/^[.,;:!?¡¿'"«»\-—]+/, '')
-            .replace(/[.,;:!?¡¿'"«»\-—]+$/, '')
+    // ========================================================
+    // SYSTÈME AUDIO AVEC CACHE ET PRIORITÉS
+    // ========================================================
 
-        // PRIORITÉ 1 : Voix personnalisée de l'apprenant
-        if (enregistrementsMap[motNormalise]) {
-            try {
-                const audio = new Audio(enregistrementsMap[motNormalise].audio_url)
-                if (onEnded) audio.addEventListener('ended', onEnded)
-                await audio.play()
-                return audio
-            } catch (err) {
-                console.error('Erreur lecture voix perso:', err)
-                // Fallback sur ElevenLabs
-            }
-        }
-
-        // PRIORITÉ 2 : ElevenLabs
-        return await lireTTSElevenLabs(texte, onEnded)
+    // Gestion du cache ElevenLabs dans localStorage
+    const getCachedAudio = (text, voiceId) => {
+        const normalizedText = text.trim().toLowerCase().replace(/[^\w\s]/g, '')
+        const key = `elevenlabs_${voiceId}_${btoa(normalizedText).substring(0, 50)}`
+        return localStorage.getItem(key)
     }
 
-    const lireTTSElevenLabs = async (texte, onEnded = null) => {
+    const setCachedAudio = (text, voiceId, audioData) => {
         try {
-            const token = localStorage.getItem('token')
-            const response = await fetch('/api/speech/elevenlabs', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({ text: texte })
-            })
+            const normalizedText = text.trim().toLowerCase().replace(/[^\w\s]/g, '')
+            const key = `elevenlabs_${voiceId}_${btoa(normalizedText).substring(0, 50)}`
+            localStorage.setItem(key, audioData)
+        } catch (error) {
+            cleanOldCache()
+        }
+    }
 
-            if (response.ok) {
-                const data = await response.json()
-                const audio = new Audio(data.audio)
-                if (onEnded) audio.addEventListener('ended', onEnded)
-                await audio.play()
-                return audio
-            } else {
-                // Quota dépassé → Fallback Web Speech
-                return lireTTSFallback(texte, onEnded)
+    const cleanOldCache = () => {
+        try {
+            const keys = Object.keys(localStorage)
+            const elevenLabsKeys = keys.filter(key => key.startsWith('elevenlabs_'))
+            if (elevenLabsKeys.length > 100) {
+                elevenLabsKeys.slice(0, 20).forEach(key => {
+                    localStorage.removeItem(key)
+                })
             }
         } catch (error) {
-            return lireTTSFallback(texte, onEnded)
+            console.error('Erreur nettoyage cache:', error)
         }
     }
 
-    const lireTTSFallback = (texte, onEnded = null) => {
-        // PRIORITÉ 3 : Web Speech API du navigateur
-        if ('speechSynthesis' in window) {
-            window.speechSynthesis.cancel()
-            const voices = window.speechSynthesis.getVoices()
-            const frenchVoice = voices.find(v => v.lang.startsWith('fr'))
-
-            const utterance = new SpeechSynthesisUtterance(texte)
+    // PRIORITÉ 3 : Web Speech API (Paul/Julie, PAS Hortense)
+    const fallbackToWebSpeech = (texte, onEnded = null) => {
+        try {
+            const utterance = new SpeechSynthesisUtterance(`Le mot est : ${texte}`)
             utterance.lang = 'fr-FR'
-            if (frenchVoice) utterance.voice = frenchVoice
+            utterance.rate = 0.8
+            utterance.pitch = 0.6
 
-            if (onEnded) utterance.addEventListener('end', onEnded)
+            const voices = window.speechSynthesis.getVoices()
+            // Exclure explicitement Hortense et chercher une voix masculine
+            const voixMasculine = voices.find(voice =>
+                voice.lang.includes('fr') &&
+                !voice.name.toLowerCase().includes('hortense') &&
+                (voice.name.toLowerCase().includes('male') ||
+                 voice.name.toLowerCase().includes('homme') ||
+                 voice.name.toLowerCase().includes('thomas') ||
+                 voice.name.toLowerCase().includes('paul') ||
+                 voice.name.toLowerCase().includes('pierre'))
+            ) || voices.find(voice =>
+                voice.lang.includes('fr') &&
+                !voice.name.toLowerCase().includes('hortense')
+            )
+
+            if (voixMasculine) {
+                utterance.voice = voixMasculine
+            }
+
+            utterance.onend = () => {
+                setIsPlaying(false)
+                setIsLoadingAudio(false)
+                if (onEnded) onEnded()
+            }
+
+            utterance.onerror = () => {
+                setIsPlaying(false)
+                setIsLoadingAudio(false)
+            }
 
             window.speechSynthesis.speak(utterance)
-            return utterance
+        } catch (error) {
+            setIsPlaying(false)
+            setIsLoadingAudio(false)
+        }
+    }
+
+    // PRIORITÉ 1 : Enregistrement personnel
+    const playEnregistrement = async (enregistrement, onEnded = null) => {
+        if (!enregistrement || !enregistrement.audio_url) {
+            console.warn('⚠️ Enregistrement invalide')
+            setIsLoadingAudio(false)
+            return false
+        }
+
+        try {
+            console.log('🎵 Lecture enregistrement personnel:', enregistrement.mot)
+            const audio = new Audio(enregistrement.audio_url)
+            setCurrentAudio(audio)
+
+            audio.onended = () => {
+                setIsPlaying(false)
+                setIsLoadingAudio(false)
+                setCurrentAudio(null)
+                if (onEnded) onEnded()
+            }
+
+            audio.onerror = (err) => {
+                console.error('Erreur lecture audio:', err)
+                setIsPlaying(false)
+                setIsLoadingAudio(false)
+                setCurrentAudio(null)
+                return false
+            }
+
+            await audio.play()
+            return true
+        } catch (error) {
+            console.error('Erreur playEnregistrement:', error)
+            setIsLoadingAudio(false)
+            return false
+        }
+    }
+
+    // Fonction principale de lecture audio avec verrou et priorités
+    const playAudio = async (texte, onEnded = null) => {
+        // ⭐ VERROU - Empêcher appels multiples pendant chargement
+        if (isLoadingAudio) {
+            console.log('⏸️ Audio déjà en cours de chargement, requête ignorée')
+            return
+        }
+
+        setIsLoadingAudio(true)
+
+        // ⭐ NETTOYAGE INCONDITIONNEL - Arrêter TOUT son en cours
+        if (currentAudio) {
+            currentAudio.pause()
+            currentAudio.currentTime = 0
+            setCurrentAudio(null)
+        }
+        window.speechSynthesis.cancel()
+
+        if (isPlaying && currentAudio) {
+            currentAudio.pause()
+            setCurrentAudio(null)
+            setIsPlaying(false)
+            setIsLoadingAudio(false)
+            return
+        }
+
+        setIsPlaying(true)
+
+        try {
+            // Normaliser le mot pour chercher dans enregistrementsMap
+            const motNormalise = texte
+                .toLowerCase()
+                .trim()
+                .replace(/^[.,;:!?¡¿'"«»\-—]+/, '')
+                .replace(/[.,;:!?¡¿'"«»\-—]+$/, '')
+
+            console.log(`🔍 Recherche enregistrement pour "${motNormalise}"`)
+
+            // ========================================================
+            // PRIORITÉ 1 : VOIX PERSONNALISÉE
+            // ========================================================
+            if (enregistrementsMap[motNormalise]) {
+                console.log(`✅ Enregistrement personnalisé trouvé pour "${motNormalise}"`)
+                const success = await playEnregistrement(enregistrementsMap[motNormalise], onEnded)
+                if (success) {
+                    return
+                }
+                console.log('⚠️ Échec enregistrement personnel, fallback ElevenLabs')
+            }
+
+            // ========================================================
+            // PRIORITÉ 2 : ELEVENLABS AVEC CACHE
+            // ========================================================
+            const cachedAudio = getCachedAudio(texte, selectedVoice)
+            let audioData = null
+
+            if (cachedAudio) {
+                audioData = cachedAudio
+            } else if (tokenStatus !== 'exhausted') {
+                try {
+                    const token = localStorage.getItem('token')
+                    const response = await fetch('/api/speech/elevenlabs', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify({
+                            text: `Le mot est : ${texte}`,
+                            voice_id: selectedVoice
+                        })
+                    })
+
+                    if (response.ok) {
+                        const data = await response.json()
+                        audioData = data.audio
+                        setCachedAudio(texte, selectedVoice, audioData)
+                        setTokenStatus('available')
+                    } else {
+                        setTokenStatus('exhausted')
+                        fallbackToWebSpeech(texte, onEnded)
+                        return
+                    }
+                } catch (error) {
+                    setTokenStatus('exhausted')
+                    fallbackToWebSpeech(texte, onEnded)
+                    return
+                }
+            } else {
+                // ========================================================
+                // PRIORITÉ 3 : WEB SPEECH API (Paul/Julie, PAS Hortense)
+                // ========================================================
+                fallbackToWebSpeech(texte, onEnded)
+                return
+            }
+
+            // Lecture audio ElevenLabs
+            if (audioData) {
+                const audio = new Audio(audioData)
+                setCurrentAudio(audio)
+
+                audio.onended = () => {
+                    setIsPlaying(false)
+                    setIsLoadingAudio(false)
+                    setCurrentAudio(null)
+                    if (onEnded) onEnded()
+                }
+
+                audio.onerror = () => {
+                    setIsPlaying(false)
+                    setIsLoadingAudio(false)
+                    setCurrentAudio(null)
+                    fallbackToWebSpeech(texte, onEnded)
+                }
+
+                await audio.play()
+            }
+        } catch (error) {
+            console.error('Erreur playAudio:', error)
+            setIsPlaying(false)
+            setIsLoadingAudio(false)
+            fallbackToWebSpeech(texte, onEnded)
         }
     }
 
@@ -215,6 +407,7 @@ export default function ConstruisPhrasesTranquille() {
         if (!phraseActuelle) return
 
         setModeKaraoke(true)
+        setKaraokeTermine(false)
 
         // Filtrer les mots (supprimer ponctuation isolée)
         const mots = phraseActuelle.texte
@@ -232,14 +425,16 @@ export default function ConstruisPhrasesTranquille() {
 
                 // Gestion selon type d'appareil
                 if (isMobile) {
-                    // Mobile : passage automatique après 200ms
+                    // Mobile : passage automatique après 3 secondes
                     setTimeout(() => {
                         setModeKaraoke(false)
-                        phraseReussie() // Passe à la phrase suivante
-                    }, 200)
+                        setKaraokeTermine(false)
+                        passerPhrase() // Passe à la phrase suivante (phrase à revoir)
+                    }, 3000)
                 } else {
-                    // Desktop : retour à l'affichage normal
+                    // Desktop : afficher l'icône flèche pour passer à la phrase suivante
                     setModeKaraoke(false)
+                    setKaraokeTermine(true)
                 }
                 return
             }
@@ -251,7 +446,7 @@ export default function ConstruisPhrasesTranquille() {
                 setTimeout(lireMotSuivant, 300) // Délai entre mots
             }
 
-            lireTTS(mots[index], onAudioEnded)
+            playAudio(mots[index], onAudioEnded)
         }
 
         lireMotSuivant()
@@ -259,6 +454,7 @@ export default function ConstruisPhrasesTranquille() {
 
     const phraseReussie = () => {
         setScore(score + 1)
+        setPhrasesReussies([...phrasesReussies, phraseActuelle.texte])
 
         // Passer à la phrase suivante
         const nextIndex = phraseIndex + 1
@@ -266,6 +462,7 @@ export default function ConstruisPhrasesTranquille() {
             setPhraseIndex(nextIndex)
             setPhraseActuelle(phrases[nextIndex])
             setModeKaraoke(false)
+            setKaraokeTermine(false)
         } else {
             // Fin du jeu
             setEtape('resultats')
@@ -274,11 +471,14 @@ export default function ConstruisPhrasesTranquille() {
 
     const passerPhrase = () => {
         // Passer à la phrase suivante sans compter le point
+        setPhrasesARevoir([...phrasesARevoir, phraseActuelle.texte])
+
         const nextIndex = phraseIndex + 1
         if (nextIndex < phrases.length) {
             setPhraseIndex(nextIndex)
             setPhraseActuelle(phrases[nextIndex])
             setModeKaraoke(false)
+            setKaraokeTermine(false)
         } else {
             // Fin du jeu
             setEtape('resultats')
@@ -311,134 +511,263 @@ export default function ConstruisPhrasesTranquille() {
 
     if (etape === 'resultats') {
         return (
-            <div style={{
-                minHeight: '100vh',
-                background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                padding: '20px'
-            }}>
-                {showConfetti && (
-                    <>
-                        <style dangerouslySetInnerHTML={{
-                            __html: `
-                                @keyframes confettiFall {
-                                    0% {
-                                        transform: translateY(-50px) rotate(0deg);
-                                        opacity: 1;
-                                    }
-                                    100% {
-                                        transform: translateY(100vh) rotate(360deg);
-                                        opacity: 0;
-                                    }
-                                }
-                            `
-                        }} />
-                        <div style={{
-                            position: 'fixed',
-                            top: 0,
-                            left: 0,
-                            width: '100%',
-                            height: '100%',
-                            pointerEvents: 'none',
-                            zIndex: 9999,
-                            overflow: 'hidden'
-                        }}>
-                            {[...Array(50)].map((_, i) => {
-                                const emojis = ['🎉', '🎊', '✨', '🌟', '⭐']
-                                const randomEmoji = emojis[Math.floor(Math.random() * emojis.length)]
-                                const randomLeft = Math.random() * 100
-                                const randomDuration = 2 + Math.random() * 2
-                                const randomDelay = Math.random() * 0.5
-
-                                return (
-                                    <div
-                                        key={i}
-                                        style={{
-                                            position: 'absolute',
-                                            left: `${randomLeft}%`,
-                                            top: '-50px',
-                                            fontSize: '40px',
-                                            animation: `confettiFall ${randomDuration}s linear ${randomDelay}s forwards`
-                                        }}
-                                    >
-                                        {randomEmoji}
-                                    </div>
-                                )
-                            })}
-                        </div>
-                    </>
-                )}
-
-                <div style={{
-                    background: 'white',
-                    borderRadius: '20px',
-                    padding: '40px',
-                    maxWidth: '500px',
-                    width: '100%',
-                    textAlign: 'center'
-                }}>
-                    <div style={{ fontSize: '64px', marginBottom: '20px' }}>
-                        {score === phrases.length ? '🎉' : '👏'}
-                    </div>
+            <div style={{ minHeight: '100vh', background: 'white', padding: '15px' }}>
+                <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
+                    {/* Titre + icônes de navigation */}
                     <h1 style={{
-                        fontSize: '28px',
+                        fontSize: isMobile ? '20px' : '28px',
                         fontWeight: 'bold',
-                        color: '#10b981',
-                        marginBottom: '20px'
+                        color: '#14b8a6',
+                        textAlign: 'center',
+                        marginBottom: isMobile ? '10px' : '15px'
                     }}>
-                        {score === phrases.length ? 'Parfait !' : 'Bravo !'}
+                        📊 Résultats
                     </h1>
-                    <p style={{
-                        fontSize: '18px',
-                        color: '#666',
-                        marginBottom: '30px'
-                    }}>
-                        Vous avez lu {score} phrase{score > 1 ? 's' : ''} sur {phrases.length} !
-                    </p>
+
+                    {/* Barre d'icônes */}
                     <div style={{
                         display: 'flex',
-                        gap: '15px',
+                        gap: isMobile ? '8px' : '10px',
                         justifyContent: 'center',
-                        flexWrap: 'wrap'
+                        marginBottom: isMobile ? '15px' : '20px'
                     }}>
                         <button
-                            onClick={() => {
-                                setScore(0)
-                                setPhraseIndex(0)
-                                setPhraseActuelle(phrases[0])
-                                setEtape('exercice')
-                            }}
+                            onClick={() => router.push(`/lire/reconnaitre-les-mots/exercices2?textes=${texteIds}`)}
                             style={{
-                                backgroundColor: '#10b981',
-                                color: 'white',
-                                padding: '12px 24px',
-                                border: 'none',
+                                padding: '8px 16px',
+                                backgroundColor: 'white',
+                                border: '2px solid #64748b',
                                 borderRadius: '8px',
-                                fontSize: '16px',
-                                fontWeight: 'bold',
-                                cursor: 'pointer'
+                                cursor: 'pointer',
+                                fontSize: '20px'
                             }}
+                            title="Menu exercices"
                         >
-                            🔄 Recommencer
+                            ←
                         </button>
                         <button
-                            onClick={() => router.push(`/lire/reconnaitre-les-mots/exercices2?textes=${router.query.texte_ids}`)}
+                            onClick={() => router.push('/lire/reconnaitre-les-mots')}
                             style={{
-                                backgroundColor: '#6b7280',
-                                color: 'white',
-                                padding: '12px 24px',
-                                border: 'none',
+                                padding: '8px 16px',
+                                backgroundColor: 'white',
+                                border: '2px solid #3b82f6',
                                 borderRadius: '8px',
-                                fontSize: '16px',
-                                fontWeight: 'bold',
-                                cursor: 'pointer'
+                                cursor: 'pointer',
+                                fontSize: '20px'
                             }}
+                            title="Reconnaître les mots"
                         >
-                            ← Retour aux exercices
+                            👁️
+                        </button>
+                        <button
+                            onClick={() => router.push('/lire')}
+                            style={{
+                                padding: '8px 16px',
+                                backgroundColor: 'white',
+                                border: '2px solid #10b981',
+                                borderRadius: '8px',
+                                cursor: 'pointer',
+                                fontSize: '20px'
+                            }}
+                            title="Menu Lire"
+                        >
+                            📖
+                        </button>
+                        <button
+                            onClick={() => router.push('/dashboard')}
+                            style={{
+                                padding: '8px 16px',
+                                backgroundColor: 'white',
+                                border: '2px solid #8b5cf6',
+                                borderRadius: '8px',
+                                cursor: 'pointer',
+                                fontSize: '20px'
+                            }}
+                            title="Tableau de bord"
+                        >
+                            🏠
+                        </button>
+                        <button
+                            onClick={async () => {
+                                const response = await fetch(`/api/phrases/generer?texte_ids=${texteIds}&mode=facile`)
+                                if (response.ok) {
+                                    const data = await response.json()
+                                    console.log('✅ Nouvelles phrases tirées au sort:', data.phrases.length)
+
+                                    if (data.openrouter_stats) {
+                                        const { remaining, limit } = data.openrouter_stats
+                                        console.log(`📊 Stats OpenRouter: ${remaining}/${limit} requêtes restantes`)
+                                    }
+
+                                    setPhrases(data.phrases)
+                                    setPhraseActuelle(data.phrases[0])
+                                    setScore(0)
+                                    setPhraseIndex(0)
+                                    setPhrasesReussies([])
+                                    setPhrasesARevoir([])
+                                    setEtape('exercice')
+                                }
+                            }}
+                            style={{
+                                padding: '8px 16px',
+                                backgroundColor: 'white',
+                                border: '2px solid #14b8a6',
+                                borderRadius: '8px',
+                                cursor: 'pointer',
+                                fontSize: '20px'
+                            }}
+                            title="Recommencer"
+                        >
+                            🔄
                         </button>
                     </div>
+
+                    {/* Score */}
+                    <div style={{
+                        textAlign: 'center',
+                        marginBottom: '20px'
+                    }}>
+                        <div style={{
+                            fontSize: isMobile ? '24px' : '32px',
+                            fontWeight: 'bold',
+                            color: '#14b8a6'
+                        }}>
+                            {score}/{phrases.length} phrases lues
+                        </div>
+                    </div>
+
+                    {/* Phrases réussies */}
+                    {phrasesReussies.length > 0 && (
+                        <div style={{ marginBottom: '20px' }}>
+                            <h2 style={{
+                                fontSize: isMobile ? '16px' : '20px',
+                                fontWeight: 'bold',
+                                color: '#10b981',
+                                marginBottom: '10px',
+                                textAlign: 'center'
+                            }}>
+                                Phrases réussies ({phrasesReussies.length})
+                            </h2>
+                            <div style={{
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '6px',
+                                alignItems: 'center'
+                            }}>
+                                {phrasesReussies.map((phrase, idx) => (
+                                    <div
+                                        key={idx}
+                                        style={{
+                                            padding: '8px 12px',
+                                            background: '#f0fdf4',
+                                            border: '2px solid #10b981',
+                                            borderRadius: '8px',
+                                            fontSize: isMobile ? '13px' : '15px',
+                                            color: '#333',
+                                            textAlign: 'center',
+                                            maxWidth: '600px',
+                                            width: '100%'
+                                        }}
+                                    >
+                                        {idx + 1}. {phrase}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Phrases à revoir */}
+                    {phrasesARevoir.length > 0 && (
+                        <div style={{ marginBottom: '20px' }}>
+                            <h2 style={{
+                                fontSize: isMobile ? '16px' : '20px',
+                                fontWeight: 'bold',
+                                color: '#f59e0b',
+                                marginBottom: '10px',
+                                textAlign: 'center'
+                            }}>
+                                Phrases à revoir ({phrasesARevoir.length})
+                            </h2>
+                            <div style={{
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '6px',
+                                alignItems: 'center'
+                            }}>
+                                {phrasesARevoir.map((phrase, idx) => (
+                                    <div
+                                        key={idx}
+                                        style={{
+                                            padding: '8px 12px',
+                                            background: '#fffbeb',
+                                            border: '2px solid #f59e0b',
+                                            borderRadius: '8px',
+                                            fontSize: isMobile ? '13px' : '15px',
+                                            color: '#333',
+                                            textAlign: 'center',
+                                            maxWidth: '600px',
+                                            width: '100%'
+                                        }}
+                                    >
+                                        {idx + 1}. {phrase}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Canvas confettis si score parfait */}
+                    {showConfetti && score === phrases.length && (
+                        <>
+                            <style dangerouslySetInnerHTML={{
+                                __html: `
+                                    @keyframes confetti-fall {
+                                        0% {
+                                            transform: translateY(0) rotate(0deg);
+                                            opacity: 1;
+                                        }
+                                        100% {
+                                            transform: translateY(100vh) rotate(720deg);
+                                            opacity: 0;
+                                        }
+                                    }
+                                `
+                            }} />
+                            <div style={{
+                                position: 'fixed',
+                                top: 0,
+                                left: 0,
+                                width: '100vw',
+                                height: '100vh',
+                                pointerEvents: 'none',
+                                zIndex: 9999,
+                                overflow: 'hidden'
+                            }}>
+                                {[...Array(50)].map((_, i) => {
+                                    const colors = ['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff']
+                                    const duration = 2 + Math.random() * 2
+                                    const delay = Math.random() * 0.5
+                                    return (
+                                        <div
+                                            key={i}
+                                            style={{
+                                                position: 'absolute',
+                                                top: '-10px',
+                                                left: `${Math.random() * 100}%`,
+                                                width: '10px',
+                                                height: '10px',
+                                                backgroundColor: colors[Math.floor(Math.random() * 6)],
+                                                opacity: 0.8,
+                                                borderRadius: '50%',
+                                                animation: `confetti-fall ${duration}s linear forwards`,
+                                                animationDelay: `${delay}s`
+                                            }}
+                                        />
+                                    )
+                                })}
+                            </div>
+                        </>
+                    )}
                 </div>
             </div>
         )
@@ -550,7 +879,42 @@ export default function ConstruisPhrasesTranquille() {
                     >
                         🏠
                     </button>
+                    {karaokeTermine && !isMobile && (
+                        <button
+                            onClick={() => {
+                                setKaraokeTermine(false)
+                                passerPhrase()
+                            }}
+                            style={{
+                                padding: '8px 16px',
+                                backgroundColor: 'white',
+                                border: '2px solid #f59e0b',
+                                borderRadius: '8px',
+                                cursor: 'pointer',
+                                fontSize: '20px',
+                                display: 'flex',
+                                alignItems: 'center'
+                            }}
+                            title="Phrase suivante"
+                        >
+                            →
+                        </button>
+                    )}
                 </div>
+
+                {/* Consigne */}
+                <p style={{
+                    marginTop: '20px',
+                    marginBottom: '20px',
+                    color: '#666',
+                    fontSize: isMobile ? '14px' : '16px',
+                    opacity: 0.8,
+                    textAlign: 'center',
+                    maxWidth: '800px',
+                    margin: '20px auto'
+                }}>
+                    Lisez la phrase, écoutez-la, puis cliquez "J'ai réussi !" ou "C'est difficile !"
+                </p>
 
                 {/* La phrase */}
                 <div style={{
@@ -657,40 +1021,6 @@ export default function ConstruisPhrasesTranquille() {
                         C'est difficile
                     </button>
                 </div>
-
-                {!isMobile && (
-                    <button
-                        onClick={passerPhrase}
-                        style={{
-                            background: 'transparent',
-                            color: '#6b7280',
-                            padding: '10px 20px',
-                            border: '2px solid #d1d5db',
-                            borderRadius: '8px',
-                            fontSize: '14px',
-                            fontWeight: 'bold',
-                            cursor: 'pointer',
-                            display: 'block',
-                            margin: '0 auto 30px auto'
-                        }}
-                    >
-                        ⏭️ Passer cette phrase
-                    </button>
-                )}
-
-                {!isMobile && (
-                    <p style={{
-                        marginTop: '30px',
-                        color: '#666',
-                        fontSize: '14px',
-                        opacity: 0.8,
-                        textAlign: 'center',
-                        maxWidth: '800px',
-                        margin: '0 auto'
-                    }}>
-                        Lisez la phrase, écoutez-la, puis cliquez "J'ai réussi !" ou "C'est difficile !"
-                    </p>
-                )}
             </div>
         </div>
     )
