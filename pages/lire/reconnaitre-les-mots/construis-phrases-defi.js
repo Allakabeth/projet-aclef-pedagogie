@@ -283,7 +283,7 @@ export default function ConstruisPhrasesDefi() {
     }
 
     const lirePhrase = (phrase = phraseActuelle, enregMap = null) => {
-        if (isPlaying || !phrase) return
+        if (isPlaying || !phrase || !phrase.mots) return
 
         setIsPlaying(true)
 
@@ -768,7 +768,7 @@ export default function ConstruisPhrasesDefi() {
                         🏠
                     </button>
                     <button
-                        onClick={lirePhrase}
+                        onClick={() => lirePhrase()}
                         disabled={isPlaying}
                         style={{
                             padding: '8px 16px',

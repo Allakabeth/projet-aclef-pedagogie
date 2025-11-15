@@ -308,7 +308,11 @@ export default async function handler(req, res) {
             // Formater la réponse
             const formattedPhrases = selectedPhrases.map(p => ({
                 texte: p.phrase,
-                mots: p.mots
+                mots: p.phrase
+                    .replace(/[.,;:!?¡¿'"«»\-—]+/g, '') // Supprimer ponctuation
+                    .trim()
+                    .split(/\s+/) // Découper en mots
+                    .filter(mot => mot.length > 0) // Éliminer vides
             }))
 
             console.log(`📊 Retour de ${formattedPhrases.length} phrases (depuis cache)`)
@@ -335,8 +339,16 @@ export default async function handler(req, res) {
             .select('contenu')
             .in('id', texteIdsNormalises)
 
+        // Récupérer AUSSI les groupes de sens (qui sont des phrases fragmentées)
+        const { data: groupesSensOriginaux, error: groupesSensError } = await supabaseAdmin
+            .from('groupes_sens')
+            .select('contenu')
+            .in('texte_reference_id', texteIdsNormalises)
+
         // Extraire toutes les phrases des textes originaux (à exclure)
         const phrasesOriginalesSet = new Set()
+
+        // 1. Ajouter les phrases du texte complet
         if (textesOriginaux) {
             textesOriginaux.forEach(texte => {
                 if (texte.contenu) {
@@ -361,8 +373,28 @@ export default async function handler(req, res) {
                     })
                 }
             })
-            console.log(`🚫 ${phrasesOriginalesSet.size} phrases originales à exclure`)
         }
+
+        // 2. Ajouter les groupes de sens (G1, G2, G3...)
+        if (groupesSensOriginaux) {
+            groupesSensOriginaux.forEach(groupe => {
+                if (groupe.contenu) {
+                    // Normaliser de la même façon
+                    const phraseNorm = groupe.contenu
+                        .toLowerCase()
+                        .normalize("NFD")                           // Décomposer les accents
+                        .replace(/[\u0300-\u036f]/g, "")            // Supprimer les accents
+                        .replace(/[.,;:!?¡¿'\"«»\-—()]/g, '')       // Supprimer ponctuation
+                        .replace(/\s+/g, ' ')                       // Normaliser espaces multiples en un seul
+                        .trim()
+                    if (phraseNorm.length > 0) {
+                        phrasesOriginalesSet.add(phraseNorm)
+                    }
+                }
+            })
+        }
+
+        console.log(`🚫 ${phrasesOriginalesSet.size} phrases originales à exclure (textes + groupes de sens)`)
 
         // 6b. Récupérer les groupes_sens pour extraire les mots
         const { data: groupes, error: groupesError } = await supabaseAdmin
@@ -469,7 +501,11 @@ export default async function handler(req, res) {
         // Formater la réponse
         const formattedPhrases = selectedPhrases.map(p => ({
             texte: p.texte,
-            mots: p.mots
+            mots: p.texte
+                .replace(/[.,;:!?¡¿'"«»\-—]+/g, '') // Supprimer ponctuation
+                .trim()
+                .split(/\s+/) // Découper en mots
+                .filter(mot => mot.length > 0) // Éliminer vides
         }))
 
         console.log(`📊 Retour de ${formattedPhrases.length} phrases (nouvellement générées)`)

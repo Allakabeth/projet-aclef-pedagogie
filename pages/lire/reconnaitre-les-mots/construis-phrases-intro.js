@@ -7,6 +7,7 @@ export default function ConstruisPhrasesIntro() {
     const [isMobile, setIsMobile] = useState(false)
     const [nbMotsIntrus, setNbMotsIntrus] = useState(8)
     const [mots, setMots] = useState([])
+    const [openRouterStats, setOpenRouterStats] = useState(null)
     const router = useRouter()
 
     useEffect(() => {
@@ -51,6 +52,9 @@ export default function ConstruisPhrasesIntro() {
         }
 
         setIsLoading(false)
+
+        // Charger les stats OpenRouter
+        loadOpenRouterStats()
     }
 
     const loadMotsForTextes = async (texteIds) => {
@@ -67,6 +71,30 @@ export default function ConstruisPhrasesIntro() {
         } catch (error) {
             console.error('Erreur chargement mots:', error)
             alert('Erreur lors du chargement des mots.')
+        }
+    }
+
+    const loadOpenRouterStats = async () => {
+        try {
+            const response = await fetch('/api/openrouter/stats')
+            const data = await response.json()
+
+            if (data.success) {
+                // Récupérer le compteur quotidien depuis localStorage
+                const today = new Date().toISOString().split('T')[0]
+                const counter = JSON.parse(localStorage.getItem('openrouter_daily_counter') || '{}')
+
+                // Réinitialiser si nouvelle journée
+                const dailyCount = (counter.date === today) ? (counter.count || 0) : 0
+
+                setOpenRouterStats({
+                    ...data.stats,
+                    daily_requests: dailyCount,
+                    daily_limit: data.daily_limit || 1000
+                })
+            }
+        } catch (error) {
+            console.error('Erreur chargement stats OpenRouter:', error)
         }
     }
 
@@ -110,7 +138,7 @@ export default function ConstruisPhrasesIntro() {
                 <h1 style={{
                     fontSize: isMobile ? '20px' : '28px',
                     fontWeight: 'bold',
-                    color: '#10b981',
+                    color: '#06B6D4',
                     textAlign: 'center',
                     marginBottom: isMobile ? '10px' : '15px'
                 }}>
@@ -195,10 +223,22 @@ export default function ConstruisPhrasesIntro() {
                     textAlign: 'center',
                     fontSize: isMobile ? '13px' : '15px',
                     color: '#666',
-                    marginBottom: isMobile ? '12px' : '20px'
+                    marginBottom: isMobile ? '4px' : '6px'
                 }}>
                     {mots.length} mots chargés
                 </p>
+
+                {/* Stats OpenRouter */}
+                {openRouterStats && (
+                    <p style={{
+                        textAlign: 'center',
+                        fontSize: isMobile ? '12px' : '14px',
+                        color: '#666',
+                        marginBottom: isMobile ? '12px' : '20px'
+                    }}>
+                        {openRouterStats.daily_requests || 0}/{openRouterStats.daily_limit || 1000} requêtes aujourd'hui
+                    </p>
+                )}
 
                 {/* Choix du mode */}
                 <div style={{

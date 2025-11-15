@@ -16,6 +16,8 @@ export default function ConstruisPhrasesTranquille() {
     const [phrasesReussies, setPhrasesReussies] = useState([])
     const [phrasesARevoir, setPhrasesARevoir] = useState([])
     const [texteIds, setTexteIds] = useState('')
+    const [loadingError, setLoadingError] = useState(null)
+    const [retryCount, setRetryCount] = useState(0)
 
     // Confettis
     const [showConfetti, setShowConfetti] = useState(false)
@@ -100,6 +102,23 @@ export default function ConstruisPhrasesTranquille() {
                 setPhrases(data.phrases)
                 setPhraseActuelle(data.phrases[0])
                 setEtape('exercice')
+                setLoadingError(null)  // Réinitialiser l'erreur
+
+                // Incrémenter le compteur localStorage si nouvelles phrases générées
+                if (data.source !== 'cache') {
+                    const today = new Date().toISOString().split('T')[0]
+                    const counter = JSON.parse(localStorage.getItem('openrouter_daily_counter') || '{}')
+
+                    if (counter.date === today) {
+                        counter.count = (counter.count || 0) + 1
+                    } else {
+                        counter.date = today
+                        counter.count = 1
+                    }
+
+                    localStorage.setItem('openrouter_daily_counter', JSON.stringify(counter))
+                    console.log(`📊 Compteur requêtes: ${counter.count}/1000`)
+                }
 
                 // Logger les stats OpenRouter dans la console
                 if (data.openrouter_stats) {
@@ -109,19 +128,21 @@ export default function ConstruisPhrasesTranquille() {
             } else {
                 const error = await response.json()
 
-                // Afficher le message d'erreur détaillé pour les phrases non générées
-                if (error.error === 'Phrases non générées') {
-                    alert(error.message)
+                // Afficher le message d'erreur visuel au lieu d'un popup
+                if (response.status === 503) {
+                    setLoadingError('⚠️ Serveur surchargé. Veuillez réessayer dans quelques instants.')
+                } else if (error.error === 'Phrases non générées') {
+                    setLoadingError(error.message || 'Impossible de générer les phrases.')
                 } else {
-                    alert(error.error || 'Erreur lors du chargement des phrases')
+                    setLoadingError(error.error || 'Erreur lors du chargement des phrases.')
                 }
 
-                router.push('/lire/reconnaitre-les-mots/construis-phrases-intro?texte_ids=' + texteIds)
+                setEtape('intro')
             }
         } catch (error) {
             console.error('Erreur chargement phrases:', error)
-            alert('Erreur lors du chargement des phrases')
-            router.push('/lire/reconnaitre-les-mots/construis-phrases-intro?texte_ids=' + texteIds)
+            setLoadingError('Erreur de connexion. Veuillez réessayer.')
+            setEtape('intro')
         }
     }
 
@@ -804,6 +825,44 @@ export default function ConstruisPhrasesTranquille() {
                 }}>
                     😌 Mode Tranquille
                 </h1>
+
+                {/* Message d'erreur visuel */}
+                {loadingError && (
+                    <div style={{
+                        background: '#fef3c7',
+                        border: '2px solid #f59e0b',
+                        padding: isMobile ? '12px' : '15px',
+                        borderRadius: '8px',
+                        marginBottom: '20px',
+                        textAlign: 'center'
+                    }}>
+                        <p style={{
+                            fontSize: isMobile ? '16px' : '18px',
+                            marginBottom: '8px',
+                            fontWeight: 'bold',
+                            color: '#f59e0b'
+                        }}>
+                            ⚠️ Serveur surchargé. Veuillez réessayer.
+                        </p>
+                        <p style={{
+                            fontSize: isMobile ? '13px' : '14px',
+                            color: '#666',
+                            marginBottom: '0'
+                        }}>
+                            {loadingError}
+                        </p>
+                        {retryCount > 0 && (
+                            <p style={{
+                                fontSize: isMobile ? '12px' : '13px',
+                                color: '#888',
+                                marginTop: '8px',
+                                marginBottom: '0'
+                            }}>
+                                Tentative {retryCount}/5
+                            </p>
+                        )}
+                    </div>
+                )}
 
                 {/* Phrase et Score */}
                 <div style={{

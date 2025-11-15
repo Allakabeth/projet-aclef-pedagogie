@@ -16,6 +16,10 @@ export default function ConstruisPhrasesDifficile() {
     const [visualFeedback, setVisualFeedback] = useState({ correct: false, incorrect: false })
     const [motsStatuts, setMotsStatuts] = useState([])
 
+    // États pour les erreurs et compteur
+    const [loadingError, setLoadingError] = useState(null)
+    const [retryCount, setRetryCount] = useState(0)
+
     // Confettis
     const [showConfetti, setShowConfetti] = useState(false)
 
@@ -92,27 +96,42 @@ export default function ConstruisPhrasesDifficile() {
                 setPhraseActuelle(data.phrases[0])
                 setEtape('exercice')
 
-                // Afficher les stats OpenRouter si disponibles
-                if (data.openrouter_stats) {
-                    const { remaining, limit } = data.openrouter_stats
-                    alert(`Mode Difficile ✅\n${data.phrases.length} phrases générées\n\n📊 Requêtes restantes aujourd'hui : ${remaining}/${limit}`)
+                // Incrémenter le compteur localStorage si nouvelles phrases générées
+                if (data.source !== 'cache') {
+                    const today = new Date().toISOString().split('T')[0]
+                    const counter = JSON.parse(localStorage.getItem('openrouter_daily_counter') || '{}')
+
+                    if (counter.date === today) {
+                        counter.count = (counter.count || 0) + 1
+                    } else {
+                        counter.date = today
+                        counter.count = 1
+                    }
+
+                    localStorage.setItem('openrouter_daily_counter', JSON.stringify(counter))
+                    console.log(`📊 Compteur requêtes: ${counter.count}/1000`)
                 }
+
+                // Réinitialiser l'erreur
+                setLoadingError(null)
             } else {
                 const error = await response.json()
 
-                // Afficher le message d'erreur détaillé pour les phrases non générées
-                if (error.error === 'Phrases non générées') {
-                    alert(error.message)
+                // Afficher le message d'erreur visuel au lieu d'un popup
+                if (response.status === 503) {
+                    setLoadingError('⚠️ Serveur surchargé. Veuillez réessayer dans quelques instants.')
+                } else if (error.error === 'Phrases non générées') {
+                    setLoadingError(error.message || 'Impossible de générer les phrases.')
                 } else {
-                    alert(error.error || 'Erreur lors du chargement des phrases')
+                    setLoadingError(error.error || 'Erreur lors du chargement des phrases.')
                 }
 
-                router.push('/lire/reconnaitre-les-mots/construis-phrases-intro?texte_ids=' + texteIds)
+                setEtape('intro')
             }
         } catch (error) {
             console.error('Erreur chargement phrases:', error)
-            alert('Erreur lors du chargement des phrases')
-            router.push('/lire/reconnaitre-les-mots/construis-phrases-intro?texte_ids=' + texteIds)
+            setLoadingError('Erreur lors du chargement des phrases. Veuillez réessayer.')
+            setEtape('intro')
         }
     }
 
@@ -491,6 +510,44 @@ export default function ConstruisPhrasesDifficile() {
                     }}>
                         🔥 Mode Difficile
                     </h1>
+
+                    {/* Message d'erreur visuel */}
+                    {loadingError && (
+                        <div style={{
+                            background: '#fef3c7',
+                            border: '2px solid #f59e0b',
+                            padding: isMobile ? '12px' : '15px',
+                            borderRadius: '8px',
+                            marginBottom: '20px',
+                            textAlign: 'center'
+                        }}>
+                            <p style={{
+                                fontSize: isMobile ? '16px' : '18px',
+                                marginBottom: '8px',
+                                fontWeight: 'bold',
+                                color: '#f59e0b'
+                            }}>
+                                ⚠️ Serveur surchargé. Veuillez réessayer.
+                            </p>
+                            <p style={{
+                                fontSize: isMobile ? '13px' : '14px',
+                                color: '#666',
+                                marginBottom: '0'
+                            }}>
+                                {loadingError}
+                            </p>
+                            {retryCount > 0 && (
+                                <p style={{
+                                    fontSize: isMobile ? '12px' : '13px',
+                                    color: '#888',
+                                    marginTop: '8px',
+                                    marginBottom: '0'
+                                }}>
+                                    Tentative {retryCount}/5
+                                </p>
+                            )}
+                        </div>
+                    )}
 
                     {/* LIGNE 2 : Phrase + Score */}
                     <div style={{
