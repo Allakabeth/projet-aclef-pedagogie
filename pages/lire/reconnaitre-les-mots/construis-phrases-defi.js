@@ -340,11 +340,14 @@ export default function ConstruisPhrasesDefi() {
             .flatMap(p => p.mots) // Récupérer tous les mots
             .filter(mot => !motsPhrase.includes(mot)) // Exclure les mots déjà dans la phrase
 
-        console.log('🔢 Nombre de mots intrus demandé:', nbMotsIntrus)
-        console.log('📚 Mots disponibles pour intrus:', autresMots.length)
+        // Dédupliquer les mots disponibles (garder uniques)
+        const motsUniques = [...new Set(autresMots)]
 
-        // Sélectionner aléatoirement des intrus
-        const motsIntrusCopie = [...autresMots]
+        console.log('🔢 Nombre de mots intrus demandé:', nbMotsIntrus)
+        console.log('📚 Mots disponibles pour intrus:', motsUniques.length, `(${autresMots.length} avant déduplication)`)
+
+        // Sélectionner aléatoirement des intrus (depuis les mots uniques)
+        const motsIntrusCopie = [...motsUniques]
         for (let i = 0; i < nbMotsIntrus && motsIntrusCopie.length > 0; i++) {
             const indexAleatoire = Math.floor(Math.random() * motsIntrusCopie.length)
             motsIntrus.push(motsIntrusCopie[indexAleatoire])
