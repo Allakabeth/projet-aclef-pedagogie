@@ -74,6 +74,41 @@ export default function PhrasesPregenerees() {
         loadCombinaisons(apprenant.user_id)
     }
 
+    const purgerCombinaison = async (texteIds, userId) => {
+        if (!confirm(`⚠️ Êtes-vous sûr de vouloir SUPPRIMER toutes les phrases pour les textes [${texteIds.join(', ')}] ?\n\nCette action est irréversible !`)) {
+            return
+        }
+
+        try {
+            const response = await fetch('/api/admin/phrases/purger', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    texte_ids: texteIds,
+                    user_id: userId
+                })
+            })
+
+            if (response.ok) {
+                alert('✅ Phrases supprimées avec succès')
+                // Recharger les données
+                loadStats()
+                loadApprenants()
+                if (selectedApprenant) {
+                    loadCombinaisons(selectedApprenant.user_id)
+                }
+            } else {
+                const data = await response.json()
+                alert(`❌ Erreur: ${data.error || 'Erreur lors de la suppression'}`)
+            }
+        } catch (error) {
+            console.error('Erreur purge:', error)
+            alert('❌ Erreur lors de la suppression')
+        }
+    }
+
     if (isLoading) {
         return (
             <div style={{
@@ -332,24 +367,87 @@ export default function PhrasesPregenerees() {
                                                         Textes [{combo.texte_ids.join(', ')}]
                                                     </span>
                                                 </div>
-                                                <div style={{
-                                                    background: '#10b981',
-                                                    color: 'white',
-                                                    padding: '4px 12px',
-                                                    borderRadius: '12px',
-                                                    fontSize: '13px',
-                                                    fontWeight: 'bold'
-                                                }}>
-                                                    {combo.nb_phrases} phrases
+                                                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                                    <div style={{
+                                                        background: '#10b981',
+                                                        color: 'white',
+                                                        padding: '4px 12px',
+                                                        borderRadius: '12px',
+                                                        fontSize: '13px',
+                                                        fontWeight: 'bold'
+                                                    }}>
+                                                        {combo.nb_phrases} phrases
+                                                    </div>
+                                                    <button
+                                                        onClick={() => purgerCombinaison(combo.texte_ids, selectedApprenant.user_id)}
+                                                        style={{
+                                                            background: '#dc2626',
+                                                            color: 'white',
+                                                            padding: '6px 12px',
+                                                            borderRadius: '6px',
+                                                            border: 'none',
+                                                            cursor: 'pointer',
+                                                            fontSize: '12px',
+                                                            fontWeight: 'bold',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            gap: '4px'
+                                                        }}
+                                                        onMouseEnter={(e) => e.currentTarget.style.background = '#b91c1c'}
+                                                        onMouseLeave={(e) => e.currentTarget.style.background = '#dc2626'}
+                                                    >
+                                                        🗑️ Purger
+                                                    </button>
                                                 </div>
                                             </div>
                                             <div style={{
                                                 fontSize: '13px',
-                                                color: '#666'
+                                                color: '#666',
+                                                marginBottom: '12px'
                                             }}>
                                                 Source: {combo.source || 'N/A'} •
                                                 Généré le {new Date(combo.created_at).toLocaleDateString('fr-FR')}
                                             </div>
+
+                                            {/* Liste des phrases */}
+                                            {combo.phrases && combo.phrases.length > 0 && (
+                                                <div style={{
+                                                    background: 'white',
+                                                    padding: '12px',
+                                                    borderRadius: '6px',
+                                                    maxHeight: '400px',
+                                                    overflowY: 'auto'
+                                                }}>
+                                                    <div style={{
+                                                        fontWeight: 'bold',
+                                                        marginBottom: '8px',
+                                                        color: '#374151',
+                                                        fontSize: '13px'
+                                                    }}>
+                                                        📝 Phrases générées :
+                                                    </div>
+                                                    {combo.phrases.map((phrase, pIdx) => (
+                                                        <div
+                                                            key={pIdx}
+                                                            style={{
+                                                                padding: '8px',
+                                                                marginBottom: '6px',
+                                                                background: '#f9fafb',
+                                                                borderRadius: '4px',
+                                                                borderLeft: '3px solid #8b5cf6',
+                                                                fontSize: '14px'
+                                                            }}
+                                                        >
+                                                            <div style={{ fontWeight: '500', marginBottom: '4px' }}>
+                                                                {pIdx + 1}. {phrase.phrase}
+                                                            </div>
+                                                            <div style={{ fontSize: '12px', color: '#666' }}>
+                                                                Mots ({phrase.mots.length}) : {phrase.mots.join(' • ')}
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
                                         </div>
                                     ))}
                                 </div>

@@ -128,6 +128,12 @@ export default function ConstruisPhrasesDefi() {
                     demarrerPhrase(data.phrases[0])
                 }
                 setEtape('exercice')
+
+                // Afficher les stats OpenRouter si disponibles
+                if (data.openrouter_stats) {
+                    const { remaining, limit } = data.openrouter_stats
+                    alert(`Mode Défi ✅\n${data.phrases.length} phrases générées\n\n📊 Requêtes restantes aujourd'hui : ${remaining}/${limit}`)
+                }
             } else {
                 const error = await response.json()
 

@@ -51,9 +51,38 @@ function validatePhrase(phrase, motsAutorisesNormalises) {
 }
 
 /**
- * Génère des phrases avec Gemini ou Groq (fallback)
+ * Récupère les stats OpenRouter (requêtes restantes)
  */
-async function genererPhrasesIA(motsUniques) {
+async function getOpenRouterStats() {
+    try {
+        const response = await fetch('https://openrouter.ai/api/v1/auth/key', {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`
+            }
+        })
+
+        if (!response.ok) {
+            console.warn('⚠️ Impossible de récupérer les stats OpenRouter')
+            return null
+        }
+
+        const data = await response.json()
+        return {
+            limit: data.data?.limit || 1000,
+            usage: data.data?.usage || 0,
+            remaining: (data.data?.limit || 1000) - (data.data?.usage || 0)
+        }
+    } catch (error) {
+        console.warn('⚠️ Erreur récupération stats OpenRouter:', error.message)
+        return null
+    }
+}
+
+/**
+ * Génère des phrases avec retry automatique en cas de rate-limit
+ */
+async function genererPhrasesIA(motsUniques, maxRetries = 5, tentativeActuelle = 1) {
     const nbMots = motsUniques.length
 
     // Adapter le nombre de phrases selon le vocabulaire
@@ -71,18 +100,29 @@ async function genererPhrasesIA(motsUniques) {
 
     const prompt = `Tu es un expert en pédagogie de la lecture française. [Seed: ${randomSeed}-${timestamp}]
 
-CONSIGNE : Crée exactement ${nbPhrasesCible} phrases SIMPLES et TRÈS VARIÉES ayant du SENS en français.
+CONSIGNE : Crée exactement ${nbPhrasesCible} phrases SIMPLES, COMPLÈTES et TRÈS VARIÉES ayant du SENS en français.
 
 MOTS DISPONIBLES (${nbMots} mots) :
 ${motsUniques.join(', ')}
 
-RÈGLES IMPORTANTES :
+RÈGLES STRICTES - PHRASES COMPLÈTES OBLIGATOIRES :
 1. Utilise UNIQUEMENT les mots de la liste ci-dessus
 2. Génère des phrases de toutes longueurs (3, 4, 5, 6, 7 mots MAXIMUM)
 3. VARIÉTÉ ABSOLUE : débuts différents, structures différentes
-4. Les phrases doivent avoir du SENS en français
-5. Pas de doublons
-6. Majuscule en début, ponctuation en fin (. ! ?)
+4. PHRASES COMPLÈTES UNIQUEMENT : sujet + verbe + complément (pas de phrases qui se terminent par "pour", "sur", "si", "de", "à", etc.)
+5. Chaque phrase doit avoir du SENS COMPLET en français (pas de phrases inachevées)
+6. Pas de doublons
+7. Majuscule en début, ponctuation en fin (. ! ?)
+
+EXEMPLES DE BONNES PHRASES :
+✅ "Le chat mange la souris." (phrase complète)
+✅ "Je vais au marché." (phrase complète)
+✅ "Un éléphant dort sous l'arbre." (phrase complète)
+
+EXEMPLES DE MAUVAISES PHRASES À ÉVITER :
+❌ "Je marche sur." (incomplète - se termine par "sur")
+❌ "Pour voir si." (incomplète - pas de sujet)
+❌ "Un éléphant va au marché pour." (incomplète - se termine par "pour")
 
 DISTRIBUTION SOUHAITÉE :
 ${nbMots < 10 ? '- ~10 phrases de chaque longueur (3,4,5)' : ''}
@@ -90,10 +130,10 @@ ${nbMots >= 10 && nbMots < 30 ? '- ~20 phrases de 3 mots\n- ~25 phrases de 4 mot
 ${nbMots >= 30 ? '- ~30 phrases de 3 mots\n- ~40 phrases de 4 mots\n- ~40 phrases de 5 mots\n- ~25 phrases de 6 mots\n- ~15 phrases de 7 mots' : ''}
 
 VARIÉTÉ OBLIGATOIRE - EXEMPLES DE STRUCTURES :
-- Sujet + Verbe + Complément
-- Questions
-- Exclamations
-- Complément en début de phrase
+- Sujet + Verbe + Complément (ex: "Le chat mange du poisson.")
+- Questions complètes (ex: "Où est le chat ?")
+- Exclamations complètes (ex: "Quel beau chat !")
+- Complément en début de phrase (ex: "Au marché, je vois un chat.")
 
 Réponds UNIQUEMENT avec le JSON suivant (pas de texte avant ou après) :
 {
@@ -107,23 +147,25 @@ Réponds UNIQUEMENT avec le JSON suivant (pas de texte avant ou après) :
     let phrases = []
     let source = 'unknown'
 
-    // GÉNÉRATION AVEC GROQ UNIQUEMENT
-    if (process.env.GROQ_API_KEY) {
+    // TENTATIVE 1: OpenRouter (Gemini 2.0 Flash Exp - gratuit, fonctionne bien)
+    if (process.env.OPENROUTER_API_KEY) {
         try {
-            console.log('🔄 Tentative avec Groq...')
+            console.log(`🌐 Génération avec OpenRouter (Gemini 2.0 Flash Exp) - Tentative ${tentativeActuelle}/${maxRetries}...`)
 
-            const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+            const openrouterResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
                 method: 'POST',
                 headers: {
-                    'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
+                    'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
+                    'HTTP-Referer': 'https://projet-aclef-pedagogie.vercel.app',
+                    'X-Title': 'ACLEF Pédagogie - Génération Phrases',
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    model: 'llama-3.3-70b-versatile',
+                    model: 'google/gemini-2.0-flash-exp:free',
                     messages: [
                         {
                             role: 'system',
-                            content: 'Tu es un expert en pédagogie de la lecture française. Tu génères des phrases simples et variées pour l\'apprentissage.'
+                            content: 'Tu es un expert en pédagogie de la lecture française. Tu génères des phrases simples, complètes et variées pour l\'apprentissage. JAMAIS de phrases incomplètes.'
                         },
                         {
                             role: 'user',
@@ -135,18 +177,27 @@ Réponds UNIQUEMENT avec le JSON suivant (pas de texte avant ou après) :
                 })
             })
 
-            if (!groqResponse.ok) {
-                // Détection quota dépassé
-                if (groqResponse.status === 429) {
+            if (!openrouterResponse.ok) {
+                const errorData = await openrouterResponse.json().catch(() => ({}))
+                console.error('❌ Erreur OpenRouter:', openrouterResponse.status, errorData)
+
+                // Détection quota dépassé - retry automatique
+                if (openrouterResponse.status === 429) {
+                    if (tentativeActuelle < maxRetries) {
+                        const delai = tentativeActuelle * 2000 // 2s, 4s, 6s, 8s, 10s
+                        console.log(`⏳ Rate-limit atteint, nouvelle tentative dans ${delai/1000}s...`)
+                        await new Promise(resolve => setTimeout(resolve, delai))
+                        return genererPhrasesIA(motsUniques, maxRetries, tentativeActuelle + 1)
+                    }
                     throw new Error('QUOTA_EXCEEDED')
                 }
-                throw new Error(`Groq API error: ${groqResponse.status}`)
+                throw new Error(`OpenRouter API error: ${openrouterResponse.status}`)
             }
 
-            const groqData = await groqResponse.json()
-            const groqText = groqData.choices[0]?.message?.content || ''
+            const openrouterData = await openrouterResponse.json()
+            const openrouterText = openrouterData.choices[0]?.message?.content || ''
 
-            const cleanedText = groqText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
+            const cleanedText = openrouterText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
             const parsed = JSON.parse(cleanedText)
 
             if (parsed.phrases && Array.isArray(parsed.phrases)) {
@@ -167,15 +218,11 @@ Réponds UNIQUEMENT avec le JSON suivant (pas de texte avant ou après) :
                     return true
                 })
 
-                source = 'groq'
-                console.log(`✅ ${phrases.length} phrases validées depuis Groq`)
+                source = 'openrouter-gemini'
+                console.log(`✅ ${phrases.length} phrases validées depuis OpenRouter (Gemini 2.0)`)
             }
-        } catch (groqError) {
-            console.error('❌ Erreur Groq:', groqError.message)
-            // Si quota dépassé, on propage l'erreur spécifique
-            if (groqError.message === 'QUOTA_EXCEEDED') {
-                throw groqError
-            }
+        } catch (openrouterError) {
+            console.error('❌ Erreur OpenRouter:', openrouterError.message)
         }
     }
 
@@ -266,19 +313,58 @@ export default async function handler(req, res) {
 
             console.log(`📊 Retour de ${formattedPhrases.length} phrases (depuis cache)`)
 
+            // Récupérer les stats OpenRouter
+            const stats = await getOpenRouterStats()
+
             return res.status(200).json({
                 success: true,
                 phrases: formattedPhrases,
                 total_disponibles: phrasesExistantes.length,
                 texte_ids: texteIdsNormalises,
-                source: 'cache'
+                source: 'cache',
+                openrouter_stats: stats
             })
         }
 
         // 6. Phrases n'existent pas → GÉNÉRER
         console.log(`⚠️ Aucune phrase en cache pour [${texteIdsNormalises.join(',')}] → Génération...`)
 
-        // 6a. Récupérer les groupes_sens pour extraire les mots
+        // 6a. Récupérer les textes originaux pour éviter de générer leurs phrases
+        const { data: textesOriginaux, error: textesError } = await supabaseAdmin
+            .from('textes_references')
+            .select('contenu')
+            .in('id', texteIdsNormalises)
+
+        // Extraire toutes les phrases des textes originaux (à exclure)
+        const phrasesOriginalesSet = new Set()
+        if (textesOriginaux) {
+            textesOriginaux.forEach(texte => {
+                if (texte.contenu) {
+                    // Découper le texte en phrases (par . ! ?)
+                    const phrases = texte.contenu
+                        .split(/[.!?]+/)
+                        .map(p => p.trim())
+                        .filter(p => p.length > 0)
+
+                    phrases.forEach(phrase => {
+                        // Normaliser ULTRA-STRICTEMENT : minuscules, sans ponctuation, sans espaces multiples
+                        const phraseNorm = phrase
+                            .toLowerCase()
+                            .normalize("NFD")                           // Décomposer les accents
+                            .replace(/[\u0300-\u036f]/g, "")            // Supprimer les accents
+                            .replace(/[.,;:!?¡¿'\"«»\-—()]/g, '')       // Supprimer ponctuation
+                            .replace(/\s+/g, ' ')                       // Normaliser espaces multiples en un seul
+                            .trim()
+                        if (phraseNorm.length > 0) {
+                            phrasesOriginalesSet.add(phraseNorm)
+                        }
+                    })
+                }
+            })
+            console.log(`🚫 ${phrasesOriginalesSet.size} phrases originales à exclure`)
+        }
+
+        // 6b. Récupérer les groupes_sens pour extraire les mots
         const { data: groupes, error: groupesError } = await supabaseAdmin
             .from('groupes_sens')
             .select('contenu')
@@ -292,7 +378,7 @@ export default async function handler(req, res) {
             })
         }
 
-        // 6b. Extraire mots uniques
+        // 6c. Extraire mots uniques
         const motsSet = new Set()
         groupes.forEach(groupe => {
             if (groupe.contenu) {
@@ -325,13 +411,32 @@ export default async function handler(req, res) {
             })
         }
 
-        // 6c. Générer les phrases avec l'IA
+        // 6d. Générer les phrases avec l'IA
         const { phrases: phrasesGenerees, source: sourceIA } = await genererPhrasesIA(motsUniques)
 
         console.log(`✅ ${phrasesGenerees.length} phrases générées avec ${sourceIA}`)
 
-        // 6d. Stocker en BDD pour réutilisation future
-        const phrasesAInserer = phrasesGenerees.map(p => ({
+        // 6e. Filtrer les phrases qui sont identiques aux phrases originales
+        const phrasesFiltrees = phrasesGenerees.filter(p => {
+            // Appliquer la MÊME normalisation ultra-stricte que pour les originales
+            const phraseNorm = p.texte
+                .toLowerCase()
+                .normalize("NFD")                           // Décomposer les accents
+                .replace(/[\u0300-\u036f]/g, "")            // Supprimer les accents
+                .replace(/[.,;:!?¡¿'\"«»\-—()]/g, '')       // Supprimer ponctuation
+                .replace(/\s+/g, ' ')                       // Normaliser espaces multiples en un seul
+                .trim()
+            const estOriginale = phrasesOriginalesSet.has(phraseNorm)
+            if (estOriginale) {
+                console.log(`🚫 Phrase originale exclue: "${p.texte}"`)
+            }
+            return !estOriginale
+        })
+
+        console.log(`📊 ${phrasesFiltrees.length} phrases après filtrage des originales (${phrasesGenerees.length - phrasesFiltrees.length} exclues)`)
+
+        // 6f. Stocker en BDD pour réutilisation future
+        const phrasesAInserer = phrasesFiltrees.map(p => ({
             texte_ids: texteIdsNormalises,
             phrase: p.texte,
             mots: p.mots,
@@ -352,8 +457,8 @@ export default async function handler(req, res) {
             console.log(`💾 ${inserted.length} phrases stockées en cache`)
         }
 
-        // 6e. Mélanger et sélectionner 10 phrases
-        const shuffled = [...phrasesGenerees]
+        // 6g. Mélanger et sélectionner 10 phrases
+        const shuffled = [...phrasesFiltrees]
         for (let i = shuffled.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
             [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
@@ -369,13 +474,17 @@ export default async function handler(req, res) {
 
         console.log(`📊 Retour de ${formattedPhrases.length} phrases (nouvellement générées)`)
 
+        // Récupérer les stats OpenRouter
+        const stats = await getOpenRouterStats()
+
         return res.status(200).json({
             success: true,
             phrases: formattedPhrases,
-            total_disponibles: phrasesGenerees.length,
+            total_disponibles: phrasesFiltrees.length,
             texte_ids: texteIdsNormalises,
             source: 'generated',
-            ia_source: sourceIA
+            ia_source: sourceIA,
+            openrouter_stats: stats
         })
 
     } catch (error) {
@@ -384,14 +493,15 @@ export default async function handler(req, res) {
         // Message personnalisé selon le type d'erreur
         if (error.message === 'QUOTA_EXCEEDED') {
             return res.status(503).json({
-                error: 'Plus de crédits disponibles actuellement pour générer de nouvelles phrases. Veuillez réessayer plus tard.'
+                error: 'Quota quotidien dépassé',
+                message: 'Le quota gratuit de génération de phrases est dépassé (50 générations/jour). Veuillez réessayer demain ou contacter l\'administrateur.'
             })
         }
 
         if (error.message === 'NO_PHRASES_GENERATED') {
             return res.status(503).json({
-                error: 'Service indisponible',
-                message: 'Le service de génération de phrases est temporairement indisponible. Veuillez réessayer plus tard.'
+                error: 'Quota quotidien dépassé',
+                message: 'Le quota gratuit de génération de phrases est dépassé. Les tentatives automatiques n\'ont pas réussi. Réessayez demain.'
             })
         }
 
