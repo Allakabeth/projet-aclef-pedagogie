@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/router'
 
 export default function ConstruisPhrasesDefi() {
@@ -10,6 +10,7 @@ export default function ConstruisPhrasesDefi() {
     const [score, setScore] = useState(0)
     const [attempts, setAttempts] = useState(0)
     const [isPlaying, setIsPlaying] = useState(false)
+    const [enregistrementsMap, setEnregistrementsMap] = useState({})
 
     // États pour la reconstruction
     const [motsDisponibles, setMotsDisponibles] = useState([])
@@ -19,7 +20,13 @@ export default function ConstruisPhrasesDefi() {
     const [nbMotsIntrus, setNbMotsIntrus] = useState(8)
     const [motsStatuts, setMotsStatuts] = useState([]) // Statut de chaque mot sélectionné
     const [afficherBoutonSuivant, setAfficherBoutonSuivant] = useState(false)
-    const [enregistrementsMap, setEnregistrementsMap] = useState({})
+
+    // États pour les erreurs et compteur
+    const [loadingError, setLoadingError] = useState(null)
+    const [retryCount, setRetryCount] = useState(0)
+
+    // Flag pour éviter de charger plusieurs fois
+    const isLoadingRef = useRef(false)
 
     // Confettis
     const [showConfetti, setShowConfetti] = useState(false)
@@ -40,10 +47,18 @@ export default function ConstruisPhrasesDefi() {
     }, [])
 
     useEffect(() => {
-        if (router.isReady) {
+        // Verrou pour éviter les appels multiples (React Strict Mode)
+        if (isLoadingRef.current) {
+            console.log('⏸️ Chargement déjà en cours, ignorer cet appel')
+            return
+        }
+
+        if (router.isReady && router.query.texte_ids) {
+            console.log('🔐 Verrou activé - Début du chargement')
+            isLoadingRef.current = true
             checkAuth()
         }
-    }, [router.isReady, router.query])
+    }, [router.isReady, router.query.texte_ids, router.query.nb_intrus])
 
     const checkAuth = async () => {
         // Vérifier l'authentification
@@ -66,8 +81,8 @@ export default function ConstruisPhrasesDefi() {
 
             // Charger les données via texte_ids
             if (router.query.texte_ids) {
-                await chargerPhrases(router.query.texte_ids)
-                await loadEnregistrements(router.query.texte_ids)
+                const enregMap = await loadEnregistrements()
+                await chargerPhrases(router.query.texte_ids, enregMap)
             } else {
                 alert('Aucun texte sélectionné. Retournez au menu des exercices.')
                 router.push('/lire/reconnaitre-les-mots/exercices2')
@@ -80,30 +95,40 @@ export default function ConstruisPhrasesDefi() {
         }
     }
 
-    // Charger les enregistrements vocaux personnalisés
-    const loadEnregistrements = async (texteIds) => {
+    const loadEnregistrements = async () => {
         try {
-            const response = await fetch(`/api/enregistrements-mots/list?texte_ids=${texteIds}`)
-            const data = await response.json()
+            const token = localStorage.getItem('token')
+            const response = await fetch('/api/enregistrements-mots/list', {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            })
 
-            if (data.success && data.enregistrementsMap) {
+            if (response.ok) {
+                const data = await response.json()
+                console.log(`🎤 ${data.count || 0} enregistrement(s) vocal(aux) chargé(s)`)
+                console.log(`📦 Data reçue:`, data)
+
                 // Normaliser les clés
                 const mapNormalise = {}
-                Object.entries(data.enregistrementsMap).forEach(([mot, enreg]) => {
+                Object.entries(data.enregistrementsMap || {}).forEach(([mot, enreg]) => {
                     const motNormalise = mot.toLowerCase().trim()
                         .replace(/^[.,;:!?¡¿'"«»\-—]+/, '')
                         .replace(/[.,;:!?¡¿'"«»\-—]+$/, '')
+                    console.log(`📝 Normalisation: "${mot}" → "${motNormalise}"`)
                     mapNormalise[motNormalise] = enreg
                 })
+                console.log(`✅ Map finale:`, Object.keys(mapNormalise))
                 setEnregistrementsMap(mapNormalise)
-                console.log('✅ Enregistrements chargés:', Object.keys(mapNormalise).length)
+                return mapNormalise
             }
         } catch (error) {
             console.error('Erreur chargement enregistrements vocaux:', error)
         }
+        return {}
     }
 
-    const chargerPhrases = async (texteIds) => {
+    const chargerPhrases = async (texteIds, enregMap = null) => {
         try {
             // Convertir texte_ids en tableau de nombres
             const texteIdsArray = texteIds.split(',').map(Number)
@@ -122,93 +147,60 @@ export default function ConstruisPhrasesDefi() {
             if (response.ok) {
                 const data = await response.json()
                 console.log('✅ Phrases chargées:', data.phrases.length)
+
+                // Mettre à jour le state avec toutes les phrases
                 setPhrases(data.phrases)
-                // Démarrer la première phrase
+
+                // Démarrer la première phrase AVANT de changer l'étape
+                // On passe toutes les phrases pour avoir accès aux mots intrus
                 if (data.phrases.length > 0) {
-                    demarrerPhrase(data.phrases[0])
+                    console.log('🚀 Démarrage de la phrase:', data.phrases[0].texte)
+                    demarrerPhrase(data.phrases[0], data.phrases, enregMap)
                 }
+
+                // Changer l'étape EN DERNIER
                 setEtape('exercice')
 
-                // Afficher les stats OpenRouter si disponibles
-                if (data.openrouter_stats) {
-                    const { remaining, limit } = data.openrouter_stats
-                    alert(`Mode Défi ✅\n${data.phrases.length} phrases générées\n\n📊 Requêtes restantes aujourd'hui : ${remaining}/${limit}`)
+                // Incrémenter le compteur localStorage si nouvelles phrases générées
+                if (data.source !== 'cache') {
+                    const today = new Date().toISOString().split('T')[0]
+                    const counter = JSON.parse(localStorage.getItem('openrouter_daily_counter') || '{}')
+
+                    if (counter.date === today) {
+                        counter.count = (counter.count || 0) + 1
+                    } else {
+                        counter.date = today
+                        counter.count = 1
+                    }
+
+                    localStorage.setItem('openrouter_daily_counter', JSON.stringify(counter))
+                    console.log(`📊 Compteur requêtes: ${counter.count}/1000`)
                 }
+
+                // Réinitialiser l'erreur
+                setLoadingError(null)
             } else {
                 const error = await response.json()
 
-                // Afficher le message d'erreur détaillé pour les phrases non générées
-                if (error.error === 'Phrases non générées') {
-                    alert(error.message)
+                // Afficher le message d'erreur visuel au lieu d'un popup
+                if (response.status === 503) {
+                    setLoadingError('⚠️ Serveur surchargé. Veuillez réessayer dans quelques instants.')
+                } else if (error.error === 'Phrases non générées') {
+                    setLoadingError(error.message || 'Impossible de générer les phrases.')
                 } else {
-                    alert(error.error || 'Erreur lors du chargement des phrases')
+                    setLoadingError(error.error || 'Erreur lors du chargement des phrases.')
                 }
 
-                router.push('/lire/reconnaitre-les-mots/construis-phrases-intro?texte_ids=' + texteIds)
+                setEtape('intro')
             }
         } catch (error) {
             console.error('Erreur chargement phrases:', error)
-            alert('Erreur lors du chargement des phrases')
-            router.push('/lire/reconnaitre-les-mots/construis-phrases-intro?texte_ids=' + texteIds)
+            setLoadingError('Erreur lors du chargement des phrases. Veuillez réessayer.')
+            setEtape('intro')
         }
     }
 
-    const demarrerPhrase = (phrase) => {
-        setPhraseActuelle(phrase)
-        setMotsSelectionnes([])
-        setVisualFeedback({ correct: false, incorrect: false })
-        setPhraseVisible(false)
-        setMotsStatuts([])
-        setAfficherBoutonSuivant(false)
-
-        // Récupérer les mots de la phrase actuelle
-        const motsPhrase = [...phrase.mots]
-        console.log('📝 Phrase:', phrase.texte)
-        console.log('🎯 Mots de la phrase:', motsPhrase.length, 'mots')
-
-        // Ajouter le nombre de mots intrus choisi par l'apprenant
-        const motsIntrus = []
-
-        // Collecter tous les mots des autres phrases
-        const autresMots = phrases
-            .filter(p => p !== phrase) // Exclure la phrase actuelle
-            .flatMap(p => p.mots) // Récupérer tous les mots
-            .filter(mot => !motsPhrase.includes(mot)) // Exclure les mots déjà dans la phrase
-
-        console.log('🔢 Nombre de mots intrus demandé:', nbMotsIntrus)
-        console.log('📚 Mots disponibles pour intrus:', autresMots.length)
-
-        // Sélectionner aléatoirement des intrus
-        const motsIntrusCopie = [...autresMots]
-        for (let i = 0; i < nbMotsIntrus && motsIntrusCopie.length > 0; i++) {
-            const indexAleatoire = Math.floor(Math.random() * motsIntrusCopie.length)
-            motsIntrus.push(motsIntrusCopie[indexAleatoire])
-            motsIntrusCopie.splice(indexAleatoire, 1) // Éviter les doublons
-        }
-
-        console.log('🎲 Mots intrus ajoutés:', motsIntrus.length)
-        console.log('👉 Intrus:', motsIntrus)
-
-        // Combiner les mots de la phrase + les intrus et mélanger avec Fisher-Yates
-        const tousLesMots = [...motsPhrase, ...motsIntrus]
-
-        // Fisher-Yates shuffle pour un vrai hasard
-        for (let i = tousLesMots.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [tousLesMots[i], tousLesMots[j]] = [tousLesMots[j], tousLesMots[i]]
-        }
-
-        console.log('✅ Total de mots présentés:', tousLesMots.length)
-        setMotsDisponibles(tousLesMots)
-
-        // Lire automatiquement la phrase après 1 seconde
-        setTimeout(() => {
-            lirePhrase(phrase.texte)
-        }, 1000)
-    }
-
-    // Fonction pour lire un mot individuel avec priorités
-    const lireUnMot = async (mot, onEnded = null) => {
+    const lireUnMot = async (mot, onEnded = null, enregMap = null) => {
         // Normaliser le mot (enlever ponctuation)
         const motNormalise = mot
             .toLowerCase()
@@ -216,10 +208,17 @@ export default function ConstruisPhrasesDefi() {
             .replace(/^[.,;:!?¡¿'"«»\-—]+/, '')
             .replace(/[.,;:!?¡¿'"«»\-—]+$/, '')
 
+        // Utiliser la map fournie ou celle du state
+        const mapAUtiliser = enregMap || enregistrementsMap
+
+        console.log(`🔍 Recherche voix perso pour: "${mot}" → normalisé: "${motNormalise}"`)
+        console.log(`📚 Enregistrements disponibles:`, Object.keys(mapAUtiliser).slice(0, 10))
+
         // PRIORITÉ 1 : Voix personnalisée de l'apprenant
-        if (enregistrementsMap[motNormalise]) {
+        if (mapAUtiliser[motNormalise]) {
+            console.log(`✅ Voix perso trouvée pour: ${motNormalise}`)
             try {
-                const audio = new Audio(enregistrementsMap[motNormalise].audio_url)
+                const audio = new Audio(mapAUtiliser[motNormalise].audio_url)
                 if (onEnded) audio.addEventListener('ended', onEnded)
                 await audio.play()
                 return
@@ -252,15 +251,28 @@ export default function ConstruisPhrasesDefi() {
             console.log('ElevenLabs non disponible pour mot:', mot)
         }
 
-        // PRIORITÉ 3 : Web Speech API
+        // PRIORITÉ 3 : Web Speech API (pas Hortense)
         if ('speechSynthesis' in window) {
-            const voices = window.speechSynthesis.getVoices()
-            const frenchVoice = voices.find(v => v.lang.startsWith('fr'))
-
             const utterance = new SpeechSynthesisUtterance(mot)
             utterance.lang = 'fr-FR'
-            utterance.rate = 0.9
-            if (frenchVoice) utterance.voice = frenchVoice
+            utterance.rate = 1.0
+            utterance.pitch = 1.0
+
+            const voices = window.speechSynthesis.getVoices()
+            const voixMasculine = voices.find(voice =>
+                voice.lang.includes('fr') &&
+                !voice.name.toLowerCase().includes('hortense') &&
+                (voice.name.toLowerCase().includes('male') ||
+                 voice.name.toLowerCase().includes('paul') ||
+                 voice.name.toLowerCase().includes('thomas'))
+            ) || voices.find(voice =>
+                voice.lang.includes('fr') &&
+                !voice.name.toLowerCase().includes('hortense')
+            )
+
+            if (voixMasculine) {
+                utterance.voice = voixMasculine
+            }
 
             if (onEnded) utterance.addEventListener('end', onEnded)
 
@@ -270,18 +282,16 @@ export default function ConstruisPhrasesDefi() {
         }
     }
 
-    // Fonction TTS pour lire la phrase mot par mot
-    const lirePhrase = async (text) => {
-        if (isPlaying) return
+    const lirePhrase = (phrase = phraseActuelle, enregMap = null) => {
+        if (isPlaying || !phrase) return
 
         setIsPlaying(true)
 
+        // Annuler toute lecture en cours
+        window.speechSynthesis.cancel()
+
         // Découper la phrase en mots
-        const mots = text
-            .trim()
-            .split(/\s+/)
-            .filter(mot => mot && mot.trim().length > 0)
-            .filter(mot => !/^[.,:;!?]+$/.test(mot))
+        const mots = phrase.mots
 
         let index = 0
 
@@ -294,13 +304,72 @@ export default function ConstruisPhrasesDefi() {
 
             const onAudioEnded = () => {
                 index++
-                lireMotSuivant() // Pas de délai, enchaîne directement
+                lireMotSuivant()
             }
 
-            lireUnMot(mots[index], onAudioEnded)
+            lireUnMot(mots[index], onAudioEnded, enregMap)
         }
 
         lireMotSuivant()
+    }
+
+    const demarrerPhrase = (phrase, toutesLesPhrases = null, enregMap = null) => {
+        console.log('🔍 APPEL demarrerPhrase:', phrase.texte)
+
+        setPhraseActuelle(phrase)
+        setMotsSelectionnes([])
+        setVisualFeedback({ correct: false, incorrect: false })
+        setPhraseVisible(false)
+        setMotsStatuts([])
+        setAfficherBoutonSuivant(false)
+
+        // Récupérer les mots de la phrase actuelle
+        const motsPhrase = [...phrase.mots]
+        console.log('📝 Phrase:', phrase.texte)
+        console.log('🎯 Mots de la phrase:', motsPhrase.length, 'mots')
+
+        // Ajouter le nombre de mots intrus choisi par l'apprenant
+        const motsIntrus = []
+
+        // Utiliser toutesLesPhrases si fourni, sinon utiliser le state
+        const phrasesDisponibles = toutesLesPhrases || phrases
+
+        // Collecter tous les mots des autres phrases
+        const autresMots = phrasesDisponibles
+            .filter(p => p !== phrase) // Exclure la phrase actuelle
+            .flatMap(p => p.mots) // Récupérer tous les mots
+            .filter(mot => !motsPhrase.includes(mot)) // Exclure les mots déjà dans la phrase
+
+        console.log('🔢 Nombre de mots intrus demandé:', nbMotsIntrus)
+        console.log('📚 Mots disponibles pour intrus:', autresMots.length)
+
+        // Sélectionner aléatoirement des intrus
+        const motsIntrusCopie = [...autresMots]
+        for (let i = 0; i < nbMotsIntrus && motsIntrusCopie.length > 0; i++) {
+            const indexAleatoire = Math.floor(Math.random() * motsIntrusCopie.length)
+            motsIntrus.push(motsIntrusCopie[indexAleatoire])
+            motsIntrusCopie.splice(indexAleatoire, 1) // Éviter les doublons
+        }
+
+        console.log('🎲 Mots intrus ajoutés:', motsIntrus.length)
+        console.log('👉 Intrus:', motsIntrus)
+
+        // Combiner les mots de la phrase + les intrus et mélanger avec Fisher-Yates
+        const tousLesMots = [...motsPhrase, ...motsIntrus]
+
+        // Fisher-Yates shuffle pour un vrai hasard
+        for (let i = tousLesMots.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [tousLesMots[i], tousLesMots[j]] = [tousLesMots[j], tousLesMots[i]]
+        }
+
+        console.log('✅ Total de mots présentés:', tousLesMots.length)
+        setMotsDisponibles(tousLesMots)
+
+        // Lire automatiquement la phrase après 1 seconde
+        setTimeout(() => {
+            lirePhrase(phrase, enregMap)
+        }, 1000)
     }
 
     const handleMotClick = (mot, index) => {
@@ -367,7 +436,6 @@ export default function ConstruisPhrasesDefi() {
 
     const afficherPhrase = () => {
         setPhraseVisible(true)
-        lirePhrase(phraseActuelle.texte)
     }
 
     const passerPhrase = () => {
@@ -573,6 +641,44 @@ export default function ConstruisPhrasesDefi() {
                     🎯 Mode Défi
                 </h1>
 
+                {/* Message d'erreur visuel */}
+                {loadingError && (
+                    <div style={{
+                        background: '#fef3c7',
+                        border: '2px solid #f59e0b',
+                        padding: isMobile ? '12px' : '15px',
+                        borderRadius: '8px',
+                        marginBottom: '20px',
+                        textAlign: 'center'
+                    }}>
+                        <p style={{
+                            fontSize: isMobile ? '16px' : '18px',
+                            marginBottom: '8px',
+                            fontWeight: 'bold',
+                            color: '#f59e0b'
+                        }}>
+                            ⚠️ Serveur surchargé. Veuillez réessayer.
+                        </p>
+                        <p style={{
+                            fontSize: isMobile ? '13px' : '14px',
+                            color: '#666',
+                            marginBottom: '0'
+                        }}>
+                            {loadingError}
+                        </p>
+                        {retryCount > 0 && (
+                            <p style={{
+                                fontSize: isMobile ? '12px' : '13px',
+                                color: '#888',
+                                marginTop: '8px',
+                                marginBottom: '0'
+                            }}>
+                                Tentative {retryCount}/5
+                            </p>
+                        )}
+                    </div>
+                )}
+
                 {/* LIGNE 2 : Phrase + Score */}
                 <div style={{
                     display: 'flex',
@@ -590,7 +696,7 @@ export default function ConstruisPhrasesDefi() {
                     </div>
                 </div>
 
-                {/* LIGNE 3 : Icônes de navigation + Écouter */}
+                {/* LIGNE 3 : Icônes de navigation */}
                 <div style={{
                     display: 'flex',
                     gap: isMobile ? '8px' : '10px',
@@ -662,7 +768,7 @@ export default function ConstruisPhrasesDefi() {
                         🏠
                     </button>
                     <button
-                        onClick={() => lirePhrase(phraseActuelle.texte)}
+                        onClick={lirePhrase}
                         disabled={isPlaying}
                         style={{
                             padding: '8px 16px',
