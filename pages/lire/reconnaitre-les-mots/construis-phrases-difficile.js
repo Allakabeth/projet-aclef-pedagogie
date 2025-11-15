@@ -8,6 +8,8 @@ export default function ConstruisPhrasesDifficile() {
     const [phraseActuelle, setPhraseActuelle] = useState(null)
     const [phraseIndex, setPhraseIndex] = useState(0)
     const [score, setScore] = useState(0)
+    const [phrasesReussies, setPhrasesReussies] = useState([])
+    const [phrasesARevoir, setPhrasesARevoir] = useState([])
 
     // États pour l'enregistrement vocal
     const [isRecording, setIsRecording] = useState(false)
@@ -15,6 +17,7 @@ export default function ConstruisPhrasesDifficile() {
     const [isTranscribing, setIsTranscribing] = useState(false)
     const [visualFeedback, setVisualFeedback] = useState({ correct: false, incorrect: false })
     const [motsStatuts, setMotsStatuts] = useState([])
+    const [texteTranscrit, setTexteTranscrit] = useState('')
 
     // États pour les erreurs et compteur
     const [loadingError, setLoadingError] = useState(null)
@@ -22,6 +25,9 @@ export default function ConstruisPhrasesDifficile() {
 
     // Confettis
     const [showConfetti, setShowConfetti] = useState(false)
+
+    // Anti-spam bouton recommencer
+    const [isRestarting, setIsRestarting] = useState(false)
 
     // Détection mobile
     const [isMobile, setIsMobile] = useState(false)
@@ -209,6 +215,9 @@ export default function ConstruisPhrasesDifficile() {
     }
 
     const verifierPhraseVocale = (texteTranscrit) => {
+        // Sauvegarder la transcription pour l'affichage
+        setTexteTranscrit(texteTranscrit)
+
         // Normaliser les textes
         const normaliser = (text) => {
             return text
@@ -268,23 +277,82 @@ export default function ConstruisPhrasesDifficile() {
         // Si similarité >= 80% → CORRECT
         const toutCorrect = similarite >= 80
 
-        // Pour l'affichage, découper les mots attendus
+        // Pour l'affichage, découper les mots attendus ET transcrits
         const motsAttendus = phraseActuelle.texte
             .toLowerCase()
             .replace(/[.,;:!?'"«»\-—]/g, '')
             .split(/\s+/)
             .filter(m => m.length > 0)
 
-        // Si correct, tout en vert. Sinon, tout en rouge
-        const statuts = motsAttendus.map(mot => ({
-            mot: mot,
-            correct: toutCorrect
-        }))
+        const motsTranscrits = texteTranscrit
+            .toLowerCase()
+            .replace(/[.,;:!?'"«»\-—]/g, '')
+            .split(/\s+/)
+            .filter(m => m.length > 0)
+
+        // Normaliser chaque mot (sans accents)
+        const normaliserMot = (mot) => {
+            return mot
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '')
+        }
+
+        // Fonction de comparaison phonétique tolérante
+        const motsPhonetiquesSimilaires = (mot1, mot2) => {
+            const m1 = normaliserMot(mot1)
+            const m2 = normaliserMot(mot2)
+
+            // Si identiques après normalisation → OK
+            if (m1 === m2) return true
+
+            // Tolérance : e muet final
+            // partie = parti, jolie = joli, finie = fini
+            if (m1 === m2 + 'e' || m2 === m1 + 'e') {
+                // Vérifier que c'est bien un "e" muet (pas petit/petite)
+                // Les mots en -ie, -ue, -ee ont un e muet
+                const racine = m1.length > m2.length ? m2 : m1
+                const derniereLettre = racine[racine.length - 1]
+
+                // e muet si le mot se termine par i, u, é, ou double consonne
+                if (['i', 'u', 'e'].includes(derniereLettre)) {
+                    return true
+                }
+            }
+
+            // Tolérance : variations er/é/ez/ée en fin de mot
+            // aller = allé = allée = allez
+            const terminaisonsEquivalentes = (mot) => {
+                return mot
+                    .replace(/er$/, 'X')
+                    .replace(/e$/, 'X')
+                    .replace(/es$/, 'X')
+                    .replace(/ee$/, 'X')
+                    .replace(/ees$/, 'X')
+                    .replace(/ez$/, 'X')
+            }
+
+            if (terminaisonsEquivalentes(m1) === terminaisonsEquivalentes(m2)) {
+                return true
+            }
+
+            return false
+        }
+
+        // Comparer mot par mot (position par position)
+        const statuts = motsAttendus.map((motAttendu, index) => {
+            const motTranscrit = motsTranscrits[index] || '' // Mot à cette position (ou vide si absent)
+
+            return {
+                mot: motAttendu, // Afficher le mot attendu original
+                correct: motsPhonetiquesSimilaires(motAttendu, motTranscrit)
+            }
+        })
 
         setMotsStatuts(statuts)
 
         if (toutCorrect) {
             setScore(score + 1)
+            setPhrasesReussies([...phrasesReussies, phraseActuelle.texte])
             setVisualFeedback({ correct: true, incorrect: false })
 
             // Passer à la phrase suivante après 3 secondes
@@ -295,6 +363,7 @@ export default function ConstruisPhrasesDifficile() {
                     setPhraseActuelle(phrases[nextIndex])
                     setVisualFeedback({ correct: false, incorrect: false })
                     setMotsStatuts([])
+                    setTexteTranscrit('')
                 } else {
                     setEtape('resultats')
                 }
@@ -305,12 +374,16 @@ export default function ConstruisPhrasesDifficile() {
     }
 
     const passerPhrase = () => {
+        // Ajouter la phrase actuelle aux phrases à revoir
+        setPhrasesARevoir([...phrasesARevoir, phraseActuelle.texte])
+
         const nextIndex = phraseIndex + 1
         if (nextIndex < phrases.length) {
             setPhraseIndex(nextIndex)
             setPhraseActuelle(phrases[nextIndex])
             setMotsStatuts([])
             setVisualFeedback({ correct: false, incorrect: false })
+            setTexteTranscrit('')
         } else {
             setEtape('resultats')
         }
@@ -342,15 +415,9 @@ export default function ConstruisPhrasesDifficile() {
 
     if (etape === 'resultats') {
         return (
-            <div style={{
-                minHeight: '100vh',
-                background: 'linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                padding: '20px'
-            }}>
-                {showConfetti && (
+            <div style={{ minHeight: '100vh', background: 'white', padding: '15px' }}>
+                {/* Confettis sur score parfait */}
+                {showConfetti && score === phrases.length && (
                     <>
                         <style dangerouslySetInnerHTML={{
                             __html: `
@@ -402,76 +469,236 @@ export default function ConstruisPhrasesDifficile() {
                     </>
                 )}
 
-                <div style={{
-                    background: 'white',
-                    borderRadius: '20px',
-                    padding: '40px',
-                    maxWidth: '500px',
-                    width: '100%',
-                    textAlign: 'center'
-                }}>
-                    <div style={{ fontSize: '64px', marginBottom: '20px' }}>
-                        {score === phrases.length ? '🎉' : '🔥'}
-                    </div>
+                <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
+                    {/* Titre */}
                     <h1 style={{
-                        fontSize: '28px',
+                        fontSize: isMobile ? '20px' : '28px',
                         fontWeight: 'bold',
                         color: '#dc2626',
-                        marginBottom: '20px'
+                        textAlign: 'center',
+                        marginBottom: isMobile ? '10px' : '15px'
                     }}>
-                        {score === phrases.length ? 'Parfait !' : 'Bravo !'}
+                        🔥 Mode Difficile - Résultats
                     </h1>
-                    <p style={{
-                        fontSize: '18px',
-                        color: '#666',
-                        marginBottom: '30px'
-                    }}>
-                        Vous avez lu {score} phrase{score > 1 ? 's' : ''} sur {phrases.length} !
-                    </p>
+
+                    {/* Barre d'icônes */}
                     <div style={{
                         display: 'flex',
-                        gap: '15px',
+                        gap: isMobile ? '8px' : '10px',
                         justifyContent: 'center',
-                        flexWrap: 'wrap'
+                        marginBottom: isMobile ? '15px' : '20px'
                     }}>
-                        <button
-                            onClick={() => {
-                                setScore(0)
-                                setPhraseIndex(0)
-                                setPhraseActuelle(phrases[0])
-                                setMotsStatuts([])
-                                setVisualFeedback({ correct: false, incorrect: false })
-                                setEtape('exercice')
-                            }}
-                            style={{
-                                backgroundColor: '#dc2626',
-                                color: 'white',
-                                padding: '12px 24px',
-                                border: 'none',
-                                borderRadius: '8px',
-                                fontSize: '16px',
-                                fontWeight: 'bold',
-                                cursor: 'pointer'
-                            }}
-                        >
-                            🔄 Recommencer
-                        </button>
                         <button
                             onClick={() => router.push(`/lire/reconnaitre-les-mots/exercices2?textes=${router.query.texte_ids}`)}
                             style={{
-                                backgroundColor: '#6b7280',
-                                color: 'white',
-                                padding: '12px 24px',
-                                border: 'none',
+                                padding: '8px 16px',
+                                backgroundColor: 'white',
+                                border: '2px solid #64748b',
                                 borderRadius: '8px',
-                                fontSize: '16px',
-                                fontWeight: 'bold',
-                                cursor: 'pointer'
+                                cursor: 'pointer',
+                                fontSize: '20px'
                             }}
+                            title="Menu exercices"
                         >
-                            ← Retour aux exercices
+                            ←
+                        </button>
+                        <button
+                            onClick={() => router.push('/lire/reconnaitre-les-mots')}
+                            style={{
+                                padding: '8px 16px',
+                                backgroundColor: 'white',
+                                border: '2px solid #3b82f6',
+                                borderRadius: '8px',
+                                cursor: 'pointer',
+                                fontSize: '20px'
+                            }}
+                            title="Reconnaître les mots"
+                        >
+                            👁️
+                        </button>
+                        <button
+                            onClick={() => router.push('/lire')}
+                            style={{
+                                padding: '8px 16px',
+                                backgroundColor: 'white',
+                                border: '2px solid #10b981',
+                                borderRadius: '8px',
+                                cursor: 'pointer',
+                                fontSize: '20px'
+                            }}
+                            title="Menu Lire"
+                        >
+                            📖
+                        </button>
+                        <button
+                            onClick={() => router.push('/dashboard')}
+                            style={{
+                                padding: '8px 16px',
+                                backgroundColor: 'white',
+                                border: '2px solid #8b5cf6',
+                                borderRadius: '8px',
+                                cursor: 'pointer',
+                                fontSize: '20px'
+                            }}
+                            title="Tableau de bord"
+                        >
+                            🏠
+                        </button>
+                        <button
+                            onClick={async () => {
+                                if (isRestarting) return // Bloquer si déjà en cours
+
+                                setIsRestarting(true) // Activer le verrou
+
+                                const token = localStorage.getItem('token')
+                                const texteIdsArray = router.query.texte_ids.split(',').map(Number)
+
+                                const response = await fetch('/api/phrases/generer', {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/json',
+                                        'Authorization': `Bearer ${token}`
+                                    },
+                                    body: JSON.stringify({ texte_ids: texteIdsArray })
+                                })
+
+                                if (response.ok) {
+                                    const data = await response.json()
+                                    console.log('✅ Nouvelles phrases tirées au sort:', data.phrases.length)
+
+                                    setPhrases(data.phrases)
+                                    setPhraseIndex(0)
+                                    setScore(0)
+                                    setPhrasesReussies([])
+                                    setPhrasesARevoir([])
+                                    setPhraseActuelle(data.phrases[0])
+                                    setMotsStatuts([])
+                                    setVisualFeedback({ correct: false, incorrect: false })
+                                    setTexteTranscrit('')
+                                    setIsRestarting(false)
+                                    setEtape('exercice')
+                                } else {
+                                    setIsRestarting(false) // Libérer si erreur
+                                }
+                            }}
+                            disabled={isRestarting}
+                            style={{
+                                padding: '8px 16px',
+                                backgroundColor: isRestarting ? '#d1d5db' : 'white',
+                                border: '2px solid #f59e0b',
+                                borderRadius: '8px',
+                                cursor: isRestarting ? 'not-allowed' : 'pointer',
+                                fontSize: '20px',
+                                opacity: isRestarting ? 0.6 : 1
+                            }}
+                            title="Recommencer"
+                        >
+                            {isRestarting ? '⏳' : '🔄'}
                         </button>
                     </div>
+
+                    {/* Score */}
+                    <div style={{
+                        textAlign: 'center',
+                        marginBottom: isMobile ? '20px' : '30px'
+                    }}>
+                        <div style={{
+                            display: 'inline-block',
+                            backgroundColor: 'white',
+                            border: '3px solid #dc2626',
+                            borderRadius: '12px',
+                            padding: isMobile ? '12px 24px' : '16px 32px'
+                        }}>
+                            <h2 style={{
+                                fontSize: isMobile ? '28px' : '36px',
+                                fontWeight: 'bold',
+                                color: '#dc2626',
+                                margin: 0
+                            }}>
+                                {score}/{phrases.length}
+                            </h2>
+                        </div>
+                    </div>
+
+                    {/* Phrases réussies */}
+                    {phrasesReussies.length > 0 && (
+                        <div style={{ marginBottom: '20px' }}>
+                            <h2 style={{
+                                fontSize: isMobile ? '16px' : '20px',
+                                fontWeight: 'bold',
+                                color: '#10b981',
+                                marginBottom: '10px',
+                                textAlign: 'center'
+                            }}>
+                                Phrases réussies ({phrasesReussies.length})
+                            </h2>
+                            <div style={{
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '6px',
+                                alignItems: 'center'
+                            }}>
+                                {phrasesReussies.map((phrase, idx) => (
+                                    <div
+                                        key={idx}
+                                        style={{
+                                            maxWidth: '600px',
+                                            width: '100%',
+                                            textAlign: 'center',
+                                            backgroundColor: '#f0fdf4',
+                                            border: '2px solid #10b981',
+                                            borderRadius: '8px',
+                                            padding: isMobile ? '8px 12px' : '10px 16px',
+                                            fontSize: isMobile ? '14px' : '16px',
+                                            color: '#333'
+                                        }}
+                                    >
+                                        {idx + 1}. {phrase}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Phrases à revoir */}
+                    {phrasesARevoir.length > 0 && (
+                        <div>
+                            <h2 style={{
+                                fontSize: isMobile ? '16px' : '20px',
+                                fontWeight: 'bold',
+                                color: '#f59e0b',
+                                marginBottom: '10px',
+                                textAlign: 'center'
+                            }}>
+                                Phrases à revoir ({phrasesARevoir.length})
+                            </h2>
+                            <div style={{
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '6px',
+                                alignItems: 'center'
+                            }}>
+                                {phrasesARevoir.map((phrase, idx) => (
+                                    <div
+                                        key={idx}
+                                        style={{
+                                            maxWidth: '600px',
+                                            width: '100%',
+                                            textAlign: 'center',
+                                            backgroundColor: '#fffbeb',
+                                            border: '2px solid #f59e0b',
+                                            borderRadius: '8px',
+                                            padding: isMobile ? '8px 12px' : '10px 16px',
+                                            fontSize: isMobile ? '14px' : '16px',
+                                            color: '#333'
+                                        }}
+                                    >
+                                        {idx + 1}. {phrase}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
         )
@@ -686,6 +913,48 @@ export default function ConstruisPhrasesDifficile() {
                                 </div>
                             )}
                         </div>
+
+                        {/* Affichage de ce qui a été compris par l'enregistrement */}
+                        {texteTranscrit && motsStatuts.length > 0 && (
+                            <div style={{ marginTop: '30px', marginBottom: '20px' }}>
+                                <p style={{
+                                    color: '#6b7280',
+                                    fontWeight: 'bold',
+                                    fontSize: '16px',
+                                    marginBottom: '10px'
+                                }}>
+                                    📝 Vous avez dit :
+                                </p>
+                                <div style={{
+                                    display: 'flex',
+                                    justifyContent: 'center',
+                                    gap: '8px',
+                                    flexWrap: 'wrap'
+                                }}>
+                                    {texteTranscrit
+                                        .toLowerCase()
+                                        .replace(/[.,;:!?'"«»\-—]/g, '')
+                                        .split(/\s+/)
+                                        .filter(m => m.length > 0)
+                                        .map((mot, index) => (
+                                            <div
+                                                key={index}
+                                                style={{
+                                                    background: '#f3f4f6',
+                                                    color: '#4b5563',
+                                                    padding: '10px 20px',
+                                                    borderRadius: '8px',
+                                                    fontSize: isMobile ? '14px' : '16px',
+                                                    fontWeight: 'bold',
+                                                    border: '2px solid #d1d5db'
+                                                }}
+                                            >
+                                                {mot}
+                                            </div>
+                                        ))}
+                                </div>
+                            </div>
+                        )}
 
                         {/* Feedback visuel */}
                         {visualFeedback.correct && (
