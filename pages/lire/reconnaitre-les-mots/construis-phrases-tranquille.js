@@ -589,7 +589,18 @@ export default function ConstruisPhrasesTranquille() {
                         </button>
                         <button
                             onClick={async () => {
-                                const response = await fetch(`/api/phrases/generer?texte_ids=${texteIds}&mode=facile`)
+                                const token = localStorage.getItem('token')
+                                const texteIdsArray = texteIds.split(',').map(Number)
+
+                                const response = await fetch('/api/phrases/generer', {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/json',
+                                        'Authorization': `Bearer ${token}`
+                                    },
+                                    body: JSON.stringify({ texte_ids: texteIdsArray })
+                                })
+
                                 if (response.ok) {
                                     const data = await response.json()
                                     console.log('✅ Nouvelles phrases tirées au sort:', data.phrases.length)
