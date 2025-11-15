@@ -309,9 +309,12 @@ export default async function handler(req, res) {
             const formattedPhrases = selectedPhrases.map(p => ({
                 texte: p.phrase,
                 mots: p.phrase
-                    .replace(/[.,;:!?¡¿'"«»\-—]+/g, '') // Supprimer ponctuation
                     .trim()
-                    .split(/\s+/) // Découper en mots
+                    .split(/\s+/) // Découper en mots d'abord
+                    .map(mot => mot
+                        .replace(/^[^a-zA-ZàâäéèêëïîôöùûüÿæœçÀÂÄÉÈÊËÏÎÔÖÙÛÜŸÆŒÇ']+/, '') // Ponctuation début (garder ')
+                        .replace(/[^a-zA-ZàâäéèêëïîôöùûüÿæœçÀÂÄÉÈÊËÏÎÔÖÙÛÜŸÆŒÇ']+$/, '') // Ponctuation fin (garder ')
+                    )
                     .filter(mot => mot.length > 0) // Éliminer vides
             }))
 
@@ -502,9 +505,12 @@ export default async function handler(req, res) {
         const formattedPhrases = selectedPhrases.map(p => ({
             texte: p.texte,
             mots: p.texte
-                .replace(/[.,;:!?¡¿'"«»\-—]+/g, '') // Supprimer ponctuation
                 .trim()
-                .split(/\s+/) // Découper en mots
+                .split(/\s+/) // Découper en mots d'abord
+                .map(mot => mot
+                    .replace(/^[^a-zA-ZàâäéèêëïîôöùûüÿæœçÀÂÄÉÈÊËÏÎÔÖÙÛÜŸÆŒÇ']+/, '') // Ponctuation début (garder ')
+                    .replace(/[^a-zA-ZàâäéèêëïîôöùûüÿæœçÀÂÄÉÈÊËÏÎÔÖÙÛÜŸÆŒÇ']+$/, '') // Ponctuation fin (garder ')
+                )
                 .filter(mot => mot.length > 0) // Éliminer vides
         }))
 

@@ -327,12 +327,12 @@ export default function ConstruisPhrasesTranquille() {
         setIsPlaying(true)
 
         try {
-            // Normaliser le mot pour chercher dans enregistrementsMap
+            // Normaliser le mot pour chercher dans enregistrementsMap (garder apostrophes internes)
             const motNormalise = texte
                 .toLowerCase()
                 .trim()
-                .replace(/^[.,;:!?¡¿'"«»\-—]+/, '')
-                .replace(/[.,;:!?¡¿'"«»\-—]+$/, '')
+                .replace(/^[^a-zA-ZàâäéèêëïîôöùûüÿæœçÀÂÄÉÈÊËÏÎÔÖÙÛÜŸÆŒÇ']+/, '')
+                .replace(/[^a-zA-ZàâäéèêëïîôöùûüÿæœçÀÂÄÉÈÊËÏÎÔÖÙÛÜŸÆŒÇ']+$/, '')
 
             console.log(`🔍 Recherche enregistrement pour "${motNormalise}"`)
 

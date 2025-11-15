@@ -109,12 +109,12 @@ export default function ConstruisPhrasesDefi() {
                 console.log(`🎤 ${data.count || 0} enregistrement(s) vocal(aux) chargé(s)`)
                 console.log(`📦 Data reçue:`, data)
 
-                // Normaliser les clés
+                // Normaliser les clés (garder apostrophes internes)
                 const mapNormalise = {}
                 Object.entries(data.enregistrementsMap || {}).forEach(([mot, enreg]) => {
                     const motNormalise = mot.toLowerCase().trim()
-                        .replace(/^[.,;:!?¡¿'"«»\-—]+/, '')
-                        .replace(/[.,;:!?¡¿'"«»\-—]+$/, '')
+                        .replace(/^[^a-zA-ZàâäéèêëïîôöùûüÿæœçÀÂÄÉÈÊËÏÎÔÖÙÛÜŸÆŒÇ']+/, '')
+                        .replace(/[^a-zA-ZàâäéèêëïîôöùûüÿæœçÀÂÄÉÈÊËÏÎÔÖÙÛÜŸÆŒÇ']+$/, '')
                     console.log(`📝 Normalisation: "${mot}" → "${motNormalise}"`)
                     mapNormalise[motNormalise] = enreg
                 })
@@ -201,12 +201,12 @@ export default function ConstruisPhrasesDefi() {
     }
 
     const lireUnMot = async (mot, onEnded = null, enregMap = null) => {
-        // Normaliser le mot (enlever ponctuation)
+        // Normaliser le mot (enlever ponctuation SAUF apostrophes internes)
         const motNormalise = mot
             .toLowerCase()
             .trim()
-            .replace(/^[.,;:!?¡¿'"«»\-—]+/, '')
-            .replace(/[.,;:!?¡¿'"«»\-—]+$/, '')
+            .replace(/^[^a-zA-ZàâäéèêëïîôöùûüÿæœçÀÂÄÉÈÊËÏÎÔÖÙÛÜŸÆŒÇ']+/, '')
+            .replace(/[^a-zA-ZàâäéèêëïîôöùûüÿæœçÀÂÄÉÈÊËÏÎÔÖÙÛÜŸÆŒÇ']+$/, '')
 
         // Utiliser la map fournie ou celle du state
         const mapAUtiliser = enregMap || enregistrementsMap

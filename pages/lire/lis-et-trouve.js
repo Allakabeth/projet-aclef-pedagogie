@@ -185,14 +185,14 @@ export default function LisEtTrouve() {
                 const data = await response.json()
                 console.log(`🎤 ${data.count} enregistrement(s) vocal(aux) chargé(s)`)
 
-                // ⚠️ IMPORTANT: Normaliser les clés pour correspondre à playAudio()
+                // ⚠️ IMPORTANT: Normaliser les clés pour correspondre à playAudio() (garder apostrophes internes)
                 const mapNormalise = {}
                 Object.entries(data.enregistrementsMap || {}).forEach(([mot, enreg]) => {
                     const motNormalise = mot
                         .toLowerCase()
                         .trim()
-                        .replace(/^[.,;:!?¡¿'"«»\-—]+/, '')
-                        .replace(/[.,;:!?¡¿'"«»\-—]+$/, '')
+                        .replace(/^[^a-zA-ZàâäéèêëïîôöùûüÿæœçÀÂÄÉÈÊËÏÎÔÖÙÛÜŸÆŒÇ']+/, '')
+                        .replace(/[^a-zA-ZàâäéèêëïîôöùûüÿæœçÀÂÄÉÈÊËÏÎÔÖÙÛÜŸÆŒÇ']+$/, '')
                     mapNormalise[motNormalise] = enreg
                 })
 
@@ -405,12 +405,12 @@ export default function LisEtTrouve() {
         setIsPlaying(motId)
 
         try {
-            // Normaliser le mot pour chercher dans enregistrementsMap
+            // Normaliser le mot pour chercher dans enregistrementsMap (garder apostrophes internes)
             const motNormalise = motTexte
                 .toLowerCase()
                 .trim()
-                .replace(/^[.,;:!?¡¿'"«»\-—]+/, '')  // Ponctuation au début
-                .replace(/[.,;:!?¡¿'"«»\-—]+$/, '')  // Ponctuation à la fin
+                .replace(/^[^a-zA-ZàâäéèêëïîôöùûüÿæœçÀÂÄÉÈÊËÏÎÔÖÙÛÜŸÆŒÇ']+/, '')
+                .replace(/[^a-zA-ZàâäéèêëïîôöùûüÿæœçÀÂÄÉÈÊËÏÎÔÖÙÛÜŸÆŒÇ']+$/, '')
 
             console.log(`🔍 Recherche enregistrement pour "${motNormalise}"`)
             console.log(`🔍 Contient "${motNormalise}"?`, motNormalise in enregistrementsMap)
