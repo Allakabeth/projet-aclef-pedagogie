@@ -1,7 +1,4 @@
-import { GoogleGenerativeAI } from '@google/generative-ai'
 import { verifyToken } from '../../../lib/jwt'
-
-const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY)
 
 export default async function handler(req, res) {
     if (req.method !== 'POST') {
@@ -71,28 +68,61 @@ Réponds au format JSON :
         let aiResponse
 
         try {
-            // Essayer d'abord Gemini
-            console.log('Tentative avec Gemini...')
-            const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' })
-            const result = await model.generateContent(prompt)
-            const response = result.response
-            const text = response.text()
+            // Utiliser OpenRouter (Gemini 2.0 Flash Exp - gratuit)
+            console.log('Tentative avec OpenRouter (Gemini 2.0 Flash Exp)...')
 
-            // Extraire le JSON de la réponse Gemini
-            let jsonMatch = text.match(/\{[\s\S]*\}/)
+            const openrouterResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
+                    'HTTP-Referer': 'https://projet-aclef-pedagogie.vercel.app',
+                    'X-Title': 'ACLEF Pédagogie - Dictées Recherche',
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    model: 'google/gemini-2.0-flash-exp:free',
+                    messages: [
+                        {
+                            role: 'system',
+                            content: 'Tu es un expert en pédagogie de la lecture française. Tu combines des groupes de sens pour créer des phrases cohérentes.'
+                        },
+                        {
+                            role: 'user',
+                            content: prompt
+                        }
+                    ],
+                    temperature: 0.9,
+                    max_tokens: 500
+                })
+            })
+
+            if (!openrouterResponse.ok) {
+                const errorData = await openrouterResponse.json().catch(() => ({}))
+                console.error('❌ Erreur OpenRouter:', openrouterResponse.status, errorData)
+                throw new Error(`OpenRouter API error: ${openrouterResponse.status}`)
+            }
+
+            const openrouterData = await openrouterResponse.json()
+            const openrouterText = openrouterData.choices[0]?.message?.content || ''
+
+            // Nettoyer et parser la réponse
+            const cleanedText = openrouterText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
+
+            // Extraire le JSON de la réponse
+            let jsonMatch = cleanedText.match(/\{[\s\S]*\}/)
             if (!jsonMatch) {
-                throw new Error('Impossible de parser la réponse de Gemini')
+                throw new Error('Impossible de parser la réponse de OpenRouter')
             }
 
             aiResponse = JSON.parse(jsonMatch[0])
-            console.log('Gemini: succès')
+            console.log('✅ OpenRouter (Gemini 2.0): succès')
 
-        } catch (geminiError) {
-            console.log('Gemini échoué, utilisation du fallback simple:', geminiError.message)
-            
+        } catch (openrouterError) {
+            console.log('OpenRouter échoué, utilisation du fallback simple:', openrouterError.message)
+
             // Fallback simple : génération sans IA
             const groupesChoisis = []
-            
+
             // Choisir 2-3 groupes aléatoirement
             const nombreGroupes = Math.min(3, Math.max(2, groupesTexte.length))
             while (groupesChoisis.length < nombreGroupes && groupesChoisis.length < groupesTexte.length) {
@@ -102,10 +132,10 @@ Réponds au format JSON :
                     groupesChoisis.push(groupe)
                 }
             }
-            
+
             // Créer une phrase simple en combinant les groupes
             const phrase = groupesChoisis.join(' ')
-            
+
             aiResponse = {
                 phrase_generee: phrase,
                 groupes_utilises: groupesChoisis,
@@ -123,15 +153,15 @@ Réponds au format JSON :
         console.error('=== ERREUR DÉTAILLÉE IA ===')
         console.error('Message:', error.message)
         console.error('Stack:', error.stack)
-        console.error('Gemini API Key présente:', !!process.env.GOOGLE_AI_API_KEY)
+        console.error('OpenRouter API Key présente:', !!process.env.OPENROUTER_API_KEY)
         console.error('Groupes reçus:', JSON.stringify(req.body.groupes_sens || [], null, 2))
         console.error('==============================')
-        
-        res.status(500).json({ 
+
+        res.status(500).json({
             error: 'Erreur lors de la génération de phrase',
             details: error.message,
             debug: {
-                hasGeminiKey: !!process.env.GOOGLE_AI_API_KEY,
+                hasOpenRouterKey: !!process.env.OPENROUTER_API_KEY,
                 groupesCount: req.body.groupes_sens?.length || 0
             }
         })

@@ -10,14 +10,19 @@ export default function DicteesRechercheAutoEvaluation() {
     const [isGenerating, setIsGenerating] = useState(false)
     const [currentTextIndex, setCurrentTextIndex] = useState(0)
     const [hasSucceeded, setHasSucceeded] = useState(false)
-    const [showWordHelp, setShowWordHelp] = useState(true)
+    const [showWordHelp, setShowWordHelp] = useState(false)
     const [isPlayingAudio, setIsPlayingAudio] = useState(false)
     const [currentPlayingGroup, setCurrentPlayingGroup] = useState(null)
     const [hasListened, setHasListened] = useState(false)
+    const [phraseCount, setPhraseCount] = useState(0)
+    const [maxPhrases] = useState(10)
     const [enregistrements, setEnregistrements] = useState({})
     const [tokenStatus, setTokenStatus] = useState('available')
     const [groupesComplets, setGroupesComplets] = useState([])
     const [isMobile, setIsMobile] = useState(false)
+    const [etape, setEtape] = useState('exercice')
+    const [phrasesReussies, setPhrasesReussies] = useState([])
+    const [phrasesARevoir, setPhrasesARevoir] = useState([])
     const router = useRouter()
 
     useEffect(() => {
@@ -93,6 +98,12 @@ export default function DicteesRechercheAutoEvaluation() {
 
     const genererPhrase = async () => {
         if (selectedTexteIds.length === 0) return
+
+        // Vérifier la limite de 10 phrases
+        if (phraseCount >= maxPhrases) {
+            setEtape('resultats')
+            return
+        }
 
         setIsGenerating(true)
         setHasSucceeded(false)
@@ -181,7 +192,8 @@ export default function DicteesRechercheAutoEvaluation() {
             }
             setGroupesComplets(groupesUtilisesComplets)
             setPhraseGeneree(data)
-            
+            setPhraseCount(prev => prev + 1)
+
         } catch (error) {
             console.error('Erreur génération:', error)
             alert('Erreur lors de la génération de phrase')
@@ -309,11 +321,21 @@ export default function DicteesRechercheAutoEvaluation() {
         setCurrentPlayingGroup(null)
         setIsPlayingAudio(false)
         setHasListened(true)
+
+        // Tracker la phrase à revoir (car l'utilisateur a eu besoin d'aide)
+        if (phraseGeneree && phraseGeneree.phrase_generee) {
+            setPhrasesARevoir(prev => [...prev, phraseGeneree.phrase_generee])
+        }
     }
 
     const handleSuccess = () => {
         setHasSucceeded(true)
-        
+
+        // Tracker la phrase réussie
+        if (phraseGeneree && phraseGeneree.phrase_generee) {
+            setPhrasesReussies(prev => [...prev, phraseGeneree.phrase_generee])
+        }
+
         setTimeout(() => {
             nextPhrase()
         }, 2000)
@@ -369,6 +391,198 @@ export default function DicteesRechercheAutoEvaluation() {
 
     if (!user) return null
 
+    // Page de résultats
+    if (etape === 'resultats') {
+        const score = phrasesReussies.length
+        const total = phrasesReussies.length + phrasesARevoir.length
+
+        return (
+            <div style={{ minHeight: '100vh', background: 'white', padding: '15px' }}>
+                <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
+                    {/* Titre + icônes de navigation */}
+                    <h1 style={{
+                        fontSize: isMobile ? '20px' : '28px',
+                        fontWeight: 'bold',
+                        color: '#14b8a6',
+                        textAlign: 'center',
+                        marginBottom: isMobile ? '10px' : '15px'
+                    }}>
+                        📊 Résultats - Mode Tranquille
+                    </h1>
+
+                    {/* Barre d'icônes */}
+                    <div style={{
+                        display: 'flex',
+                        gap: isMobile ? '8px' : '10px',
+                        justifyContent: 'center',
+                        marginBottom: isMobile ? '15px' : '20px'
+                    }}>
+                        <button
+                            onClick={() => router.push('/lire/dictees-recherche')}
+                            style={{
+                                padding: '8px 16px',
+                                backgroundColor: 'white',
+                                border: '2px solid #64748b',
+                                borderRadius: '8px',
+                                cursor: 'pointer',
+                                fontSize: '20px'
+                            }}
+                            title="Menu dictées"
+                        >
+                            ←
+                        </button>
+                        <button
+                            onClick={() => router.push('/lire')}
+                            style={{
+                                padding: '8px 16px',
+                                backgroundColor: 'white',
+                                border: '2px solid #10b981',
+                                borderRadius: '8px',
+                                cursor: 'pointer',
+                                fontSize: '20px'
+                            }}
+                            title="Menu Lire"
+                        >
+                            📖
+                        </button>
+                        <button
+                            onClick={() => router.push('/dashboard')}
+                            style={{
+                                padding: '8px 16px',
+                                backgroundColor: 'white',
+                                border: '2px solid #8b5cf6',
+                                borderRadius: '8px',
+                                cursor: 'pointer',
+                                fontSize: '20px'
+                            }}
+                            title="Tableau de bord"
+                        >
+                            🏠
+                        </button>
+                        <button
+                            onClick={() => {
+                                // Recommencer l'exercice
+                                setPhraseCount(0)
+                                setPhrasesReussies([])
+                                setPhrasesARevoir([])
+                                setEtape('exercice')
+                                setPhraseGeneree(null)
+                                setHasSucceeded(false)
+                                setHasListened(false)
+                                genererPhrase()
+                            }}
+                            style={{
+                                padding: '8px 16px',
+                                backgroundColor: 'white',
+                                border: '2px solid #14b8a6',
+                                borderRadius: '8px',
+                                cursor: 'pointer',
+                                fontSize: '20px'
+                            }}
+                            title="Recommencer"
+                        >
+                            🔄
+                        </button>
+                    </div>
+
+                    {/* Score */}
+                    <div style={{
+                        textAlign: 'center',
+                        marginBottom: '20px'
+                    }}>
+                        <div style={{
+                            fontSize: isMobile ? '24px' : '32px',
+                            fontWeight: 'bold',
+                            color: '#14b8a6'
+                        }}>
+                            {score}/{total} phrases lues sans aide
+                        </div>
+                    </div>
+
+                    {/* Phrases réussies */}
+                    {phrasesReussies.length > 0 && (
+                        <div style={{ marginBottom: '20px' }}>
+                            <h2 style={{
+                                fontSize: isMobile ? '16px' : '20px',
+                                fontWeight: 'bold',
+                                color: '#10b981',
+                                marginBottom: '10px',
+                                textAlign: 'center'
+                            }}>
+                                ✅ Phrases réussies ({phrasesReussies.length})
+                            </h2>
+                            <div style={{
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '6px',
+                                alignItems: 'center'
+                            }}>
+                                {phrasesReussies.map((phrase, idx) => (
+                                    <div
+                                        key={idx}
+                                        style={{
+                                            padding: '8px 12px',
+                                            background: '#f0fdf4',
+                                            border: '2px solid #10b981',
+                                            borderRadius: '8px',
+                                            fontSize: isMobile ? '13px' : '15px',
+                                            color: '#333',
+                                            textAlign: 'center',
+                                            maxWidth: '600px',
+                                            width: '100%'
+                                        }}
+                                    >
+                                        {idx + 1}. {phrase}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Phrases à revoir */}
+                    {phrasesARevoir.length > 0 && (
+                        <div style={{ marginBottom: '20px' }}>
+                            <h2 style={{
+                                fontSize: isMobile ? '16px' : '20px',
+                                fontWeight: 'bold',
+                                color: '#f59e0b',
+                                marginBottom: '10px',
+                                textAlign: 'center'
+                            }}>
+                                🔁 Phrases à revoir ({phrasesARevoir.length})
+                            </h2>
+                            <div style={{
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '6px',
+                                alignItems: 'center'
+                            }}>
+                                {phrasesARevoir.map((phrase, idx) => (
+                                    <div
+                                        key={idx}
+                                        style={{
+                                            padding: '8px 12px',
+                                            background: '#fffbeb',
+                                            border: '2px solid #f59e0b',
+                                            borderRadius: '8px',
+                                            fontSize: isMobile ? '13px' : '15px',
+                                            color: '#333',
+                                            textAlign: 'center',
+                                            maxWidth: '600px',
+                                            width: '100%'
+                                        }}
+                                    >
+                                        {idx + 1}. {phrase}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </div>
+        )
+    }
+
     return (
         <div style={{
             minHeight: '100vh',
@@ -382,7 +596,7 @@ export default function DicteesRechercheAutoEvaluation() {
                 <h1 style={{
                     fontSize: 'clamp(18px, 4vw, 22px)',
                     fontWeight: 'bold',
-                    marginBottom: '10px',
+                    marginBottom: '5px',
                     textAlign: 'center',
                     display: 'flex',
                     alignItems: 'center',
@@ -399,6 +613,17 @@ export default function DicteesRechercheAutoEvaluation() {
                         Dictée Recherche - Mode Tranquille
                     </span>
                 </h1>
+
+                {/* Compteur de phrases */}
+                <p style={{
+                    textAlign: 'center',
+                    fontSize: '14px',
+                    color: phraseCount >= maxPhrases ? '#dc2626' : '#666',
+                    marginBottom: '10px',
+                    fontWeight: phraseCount >= maxPhrases ? 'bold' : 'normal'
+                }}>
+                    Phrase {phraseCount}/{maxPhrases}
+                </p>
 
                 {/* Navigation */}
                 <div style={{
@@ -522,16 +747,16 @@ export default function DicteesRechercheAutoEvaluation() {
                             textAlign: 'center'
                         }}>
                             <div style={{
-                                fontSize: '22px',
+                                fontSize: isMobile ? '14px' : '22px',
                                 fontWeight: 'bold',
                                 margin: '0 15px 10px 15px',
-                                padding: '25px',
+                                padding: isMobile ? '15px 10px' : '25px',
                                 background: 'white',
                                 borderRadius: '12px',
                                 lineHeight: '1.4',
                                 display: 'flex',
                                 flexWrap: 'wrap',
-                                gap: '8px',
+                                gap: isMobile ? '4px' : '8px',
                                 justifyContent: 'center'
                             }}>
                                 {phraseGeneree.groupes_utilises && phraseGeneree.groupes_utilises.map((groupe, index) => {
@@ -546,12 +771,16 @@ export default function DicteesRechercheAutoEvaluation() {
                                                 backgroundColor: isHighlighted
                                                     ? highlightColors[index % highlightColors.length]
                                                     : colors[index % colors.length],
-                                                padding: '12px 20px',
-                                                borderRadius: '10px',
+                                                padding: isMobile ? '8px 12px' : '12px 20px',
+                                                borderRadius: isMobile ? '6px' : '10px',
                                                 transition: 'background-color 0.3s ease',
                                                 border: isHighlighted ? '2px solid #333' : '2px solid transparent',
                                                 display: 'inline-block',
-                                                whiteSpace: 'nowrap'
+                                                whiteSpace: 'nowrap',
+                                                fontSize: isMobile ? '13px' : 'inherit',
+                                                maxWidth: isMobile ? 'calc(100vw - 80px)' : 'none',
+                                                overflow: 'hidden',
+                                                textOverflow: 'ellipsis'
                                             }}
                                         >
                                             {groupe}
@@ -562,9 +791,9 @@ export default function DicteesRechercheAutoEvaluation() {
 
                             <div style={{
                                 display: 'flex',
-                                gap: '15px',
+                                gap: isMobile ? '8px' : '15px',
                                 justifyContent: 'center',
-                                flexWrap: 'wrap'
+                                flexWrap: isMobile ? 'nowrap' : 'wrap'
                             }}>
                                 {!hasSucceeded && (
                                     <button
@@ -572,16 +801,17 @@ export default function DicteesRechercheAutoEvaluation() {
                                         style={{
                                             backgroundColor: 'white',
                                             color: '#10b981',
-                                            padding: '15px 25px',
+                                            padding: isMobile ? '12px 15px' : '15px 25px',
                                             border: '2px solid #10b981',
-                                            borderRadius: '12px',
-                                            fontSize: '18px',
+                                            borderRadius: isMobile ? '8px' : '12px',
+                                            fontSize: isMobile ? '14px' : '18px',
                                             fontWeight: 'normal',
                                             cursor: 'pointer',
-                                            minWidth: '250px'
+                                            minWidth: isMobile ? 'auto' : '250px',
+                                            flex: isMobile ? '1' : 'none'
                                         }}
                                     >
-                                        ✅ J'ai réussi à lire !
+                                        ✅ {isMobile ? 'Réussi !' : 'J\'ai réussi à lire !'}
                                     </button>
                                 )}
 
@@ -592,17 +822,18 @@ export default function DicteesRechercheAutoEvaluation() {
                                         style={{
                                             backgroundColor: 'white',
                                             color: isPlayingAudio ? '#f59e0b' : '#f97316',
-                                            padding: '15px 25px',
+                                            padding: isMobile ? '12px 15px' : '15px 25px',
                                             border: isPlayingAudio ? '2px solid #f59e0b' : '2px solid #f97316',
-                                            borderRadius: '12px',
-                                            fontSize: '18px',
+                                            borderRadius: isMobile ? '8px' : '12px',
+                                            fontSize: isMobile ? '14px' : '18px',
                                             fontWeight: 'normal',
                                             cursor: isPlayingAudio ? 'not-allowed' : 'pointer',
                                             opacity: isPlayingAudio ? 0.7 : 1,
-                                            minWidth: '250px'
+                                            minWidth: isMobile ? 'auto' : '250px',
+                                            flex: isMobile ? '1' : 'none'
                                         }}
                                     >
-                                        {isPlayingAudio ? '⏸️ En cours...' : '✖️ C\'est pas facile!'}
+                                        {isPlayingAudio ? '⏸️ En cours...' : (isMobile ? '✖️ Pas facile' : '✖️ C\'est pas facile!')}
                                     </button>
                                 ) : (
                                     <button
@@ -610,16 +841,17 @@ export default function DicteesRechercheAutoEvaluation() {
                                         style={{
                                             backgroundColor: 'white',
                                             color: '#3b82f6',
-                                            padding: '15px 25px',
+                                            padding: isMobile ? '12px 15px' : '15px 25px',
                                             border: '2px solid #3b82f6',
-                                            borderRadius: '12px',
-                                            fontSize: '18px',
+                                            borderRadius: isMobile ? '8px' : '12px',
+                                            fontSize: isMobile ? '14px' : '18px',
                                             fontWeight: 'normal',
                                             cursor: 'pointer',
-                                            minWidth: '250px'
+                                            minWidth: isMobile ? 'auto' : '250px',
+                                            flex: isMobile ? '1' : 'none'
                                         }}
                                     >
-                                        Phrase suivante ➡️
+                                        {isMobile ? 'Suivant ➡️' : 'Phrase suivante ➡️'}
                                     </button>
                                 )}
                             </div>
