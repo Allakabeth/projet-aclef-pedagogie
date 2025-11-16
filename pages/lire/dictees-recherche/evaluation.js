@@ -582,20 +582,104 @@ export default function DicteesRechercheEvaluation() {
             padding: '15px'
         }}>
             <div style={{
-                maxWidth: '800px',
-                margin: '0 auto'
+                maxWidth: isMobile ? '800px' : '100%',
+                margin: '0 auto',
+                padding: isMobile ? '0' : '0 20px'
             }}>
                 <h1 style={{
-                    fontSize: 'clamp(22px, 5vw, 28px)',
+                    fontSize: 'clamp(18px, 4vw, 22px)',
                     fontWeight: 'bold',
-                    marginBottom: '20px',
-                    background: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
-                    WebkitBackgroundClip: 'text',
-                    WebkitTextFillColor: 'transparent',
-                    textAlign: 'center'
+                    marginBottom: '5px',
+                    textAlign: 'center',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px'
                 }}>
-                    🎤 Mode Défi - Dictée Recherche
+                    <span style={{ color: '#3b82f6', fontSize: 'clamp(24px, 5vw, 28px)' }}>🔥</span>
+                    <span style={{
+                        background: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
+                        WebkitBackgroundClip: 'text',
+                        WebkitTextFillColor: 'transparent',
+                        whiteSpace: 'nowrap'
+                    }}>
+                        Dictée Recherche - Mode Défi
+                    </span>
                 </h1>
+
+                {/* Compteur de phrases */}
+                <p style={{
+                    textAlign: 'center',
+                    fontSize: '14px',
+                    color: phraseCount >= maxPhrases ? '#dc2626' : '#666',
+                    marginBottom: '10px',
+                    fontWeight: phraseCount >= maxPhrases ? 'bold' : 'normal'
+                }}>
+                    Phrase {phraseCount}/{maxPhrases}
+                </p>
+
+                {/* Navigation */}
+                <div style={{
+                    display: 'flex',
+                    justifyContent: 'center',
+                    gap: '12px',
+                    marginBottom: '10px'
+                }}>
+                    <button
+                        onClick={() => router.push('/lire/dictees-recherche')}
+                        style={{
+                            width: '55px',
+                            height: '55px',
+                            backgroundColor: 'white',
+                            color: '#64748b',
+                            border: '2px solid #64748b',
+                            borderRadius: '12px',
+                            fontSize: '24px',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                        }}
+                    >
+                        ←
+                    </button>
+                    <button
+                        onClick={() => router.push('/lire')}
+                        style={{
+                            width: '55px',
+                            height: '55px',
+                            backgroundColor: 'white',
+                            color: '#10b981',
+                            border: '2px solid #10b981',
+                            borderRadius: '12px',
+                            fontSize: '24px',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                        }}
+                    >
+                        📖
+                    </button>
+                    <button
+                        onClick={() => router.push('/dashboard')}
+                        style={{
+                            width: '55px',
+                            height: '55px',
+                            backgroundColor: 'white',
+                            color: '#8b5cf6',
+                            border: '2px solid #8b5cf6',
+                            borderRadius: '12px',
+                            fontSize: '24px',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                        }}
+                    >
+                        🏠
+                    </button>
+                </div>
 
                 {isGenerating ? (
                     <div style={{
@@ -611,76 +695,82 @@ export default function DicteesRechercheEvaluation() {
                     </div>
                 ) : phraseGeneree ? (
                     <div>
+                        {/* Titre Répétez la phrase */}
+                        <h3 style={{
+                            textAlign: 'center',
+                            color: '#333',
+                            fontSize: '18px',
+                            fontWeight: 'normal',
+                            marginBottom: '15px'
+                        }}>
+                            Répétez la phrase
+                        </h3>
+
                         <div style={{
-                            background: '#f8f9fa',
-                            padding: '30px',
-                            borderRadius: '12px',
                             marginBottom: '30px',
                             textAlign: 'center'
                         }}>
-                            <h2 style={{
-                                marginBottom: '20px',
-                                color: '#333',
-                                fontSize: '20px'
-                            }}>
-                                📖 Phrase à lire
-                            </h2>
-
-                            <p style={{
-                                textAlign: 'center',
-                                fontSize: '14px',
-                                color: phraseCount >= maxPhrases ? '#dc2626' : '#666',
-                                marginBottom: '10px',
-                                fontWeight: phraseCount >= maxPhrases ? 'bold' : 'normal'
-                            }}>
-                                Phrase {phraseCount}/{maxPhrases}
-                            </p>
-
                             <div style={{
-                                fontSize: isMobile ? '16px' : '24px',
+                                fontSize: isMobile ? '14px' : '22px',
                                 fontWeight: 'bold',
-                                marginBottom: '20px',
-                                padding: isMobile ? '15px 10px' : '20px',
+                                margin: '0 15px 10px 15px',
+                                padding: isMobile ? '15px 10px' : '25px',
                                 background: 'white',
-                                borderRadius: '8px',
-                                border: '2px solid #ddd',
-                                overflowX: 'auto',
-                                whiteSpace: isMobile ? 'nowrap' : 'normal'
+                                borderRadius: '12px',
+                                lineHeight: '1.4',
+                                display: 'flex',
+                                flexWrap: 'wrap',
+                                gap: isMobile ? '4px' : '8px',
+                                justifyContent: 'center'
                             }}>
-                                {phraseGeneree.phrase_generee}
+                                {phraseGeneree.groupes_utilises && phraseGeneree.groupes_utilises.map((groupe, index) => {
+                                    const colors = ['#fef3c7', '#dbeafe', '#fce7f3', '#f3e8ff', '#fed7aa', '#ecfdf5']
+
+                                    return (
+                                        <span
+                                            key={index}
+                                            style={{
+                                                backgroundColor: colors[index % colors.length],
+                                                padding: isMobile ? '8px 12px' : '12px 20px',
+                                                borderRadius: isMobile ? '6px' : '10px',
+                                                border: '2px solid transparent',
+                                                display: 'inline-block',
+                                                whiteSpace: 'nowrap',
+                                                fontSize: isMobile ? '13px' : 'inherit',
+                                                maxWidth: isMobile ? 'calc(100vw - 80px)' : 'none',
+                                                overflow: 'hidden',
+                                                textOverflow: 'ellipsis'
+                                            }}
+                                        >
+                                            {groupe}
+                                        </span>
+                                    )
+                                })}
                             </div>
                         </div>
 
                         <div style={{
-                            background: '#fff7ed',
-                            padding: '30px',
+                            padding: '20px',
                             borderRadius: '12px',
                             marginBottom: '30px',
                             textAlign: 'center'
                         }}>
-                            <h3 style={{ 
-                                marginBottom: '20px', 
-                                color: '#ea580c',
-                                fontSize: '18px'
-                            }}>
-                                🎯 Répétez la phrase au microphone
-                            </h3>
 
                             {!isListening ? (
                                 <button
                                     onClick={startListening}
                                     style={{
-                                        backgroundColor: '#dc2626',
-                                        color: 'white',
+                                        backgroundColor: 'white',
+                                        color: '#10b981',
                                         padding: '15px 30px',
-                                        border: 'none',
-                                        borderRadius: '50px',
+                                        border: '3px solid #10b981',
+                                        borderRadius: '12px',
                                         fontSize: '18px',
                                         fontWeight: 'bold',
                                         cursor: 'pointer'
                                     }}
                                 >
-                                    🎤 Commencer l'enregistrement
+                                    🎤 Commencer
                                 </button>
                             ) : (
                                 <div>
@@ -755,8 +845,7 @@ export default function DicteesRechercheEvaluation() {
 
                         {analysisResult && (
                             <div style={{
-                                background: '#f0fdf4',
-                                padding: '30px',
+                                padding: '20px',
                                 borderRadius: '12px',
                                 marginBottom: '30px'
                             }}>
@@ -853,23 +942,6 @@ export default function DicteesRechercheEvaluation() {
                     </div>
                 ) : null}
 
-                <div style={{ textAlign: 'center' }}>
-                    <button
-                        onClick={() => router.push('/lire/dictees-recherche')}
-                        style={{
-                            backgroundColor: '#6b7280',
-                            color: 'white',
-                            padding: '12px 30px',
-                            border: 'none',
-                            borderRadius: '8px',
-                            fontSize: '14px',
-                            fontWeight: 'bold',
-                            cursor: 'pointer'
-                        }}
-                    >
-                        ← Retour au choix
-                    </button>
-                </div>
             </div>
         </div>
     )
