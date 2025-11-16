@@ -628,7 +628,7 @@ export default function OuEstCeExercice() {
             border: '2px solid #06B6D4',
             fontWeight: 'bold',
             display: 'inline-block',
-            minWidth: '400px'
+            minWidth: isMobile ? 'auto' : '400px'
         },
         ecouterButton: {
             padding: '12px 24px',
