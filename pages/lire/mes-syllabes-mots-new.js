@@ -15,6 +15,17 @@ const customStyles = `
         }
     }
 
+    /* Icônes exercices - mobile uniquement */
+    .mobile-exercices-icons {
+        display: none;
+    }
+
+    @media (max-width: 768px) {
+        .mobile-exercices-icons {
+            display: flex !important;
+        }
+    }
+
     /* Checkbox ronde */
     input[type="checkbox"].round-checkbox {
         appearance: none;
@@ -224,19 +235,20 @@ export default function MesSyllabesMotsNew() {
                 <div style={{
                     display: 'flex',
                     justifyContent: 'center',
-                    gap: '12px',
-                    marginBottom: '40px'
+                    gap: '8px',
+                    marginBottom: '40px',
+                    flexWrap: 'wrap'
                 }}>
                     <button
                         onClick={() => router.push('/lire')}
                         style={{
-                            width: '55px',
-                            height: '55px',
+                            width: '48px',
+                            height: '48px',
                             backgroundColor: 'white',
                             color: '#10b981',
                             border: '2px solid #10b981',
-                            borderRadius: '12px',
-                            fontSize: '24px',
+                            borderRadius: '10px',
+                            fontSize: '22px',
                             cursor: 'pointer',
                             display: 'flex',
                             alignItems: 'center',
@@ -248,13 +260,13 @@ export default function MesSyllabesMotsNew() {
                     <button
                         onClick={() => router.push('/dashboard')}
                         style={{
-                            width: '55px',
-                            height: '55px',
+                            width: '48px',
+                            height: '48px',
                             backgroundColor: 'white',
                             color: '#8b5cf6',
                             border: '2px solid #8b5cf6',
-                            borderRadius: '12px',
-                            fontSize: '24px',
+                            borderRadius: '10px',
+                            fontSize: '22px',
                             cursor: 'pointer',
                             display: 'flex',
                             alignItems: 'center',
@@ -262,6 +274,76 @@ export default function MesSyllabesMotsNew() {
                         }}
                     >
                         🏠
+                    </button>
+
+                    {/* Icônes exercices - Mobile uniquement */}
+                    <button
+                        onClick={startClassement}
+                        disabled={selectedTextes.size === 0}
+                        className="mobile-exercices-icons"
+                        style={{
+                            width: '48px',
+                            height: '48px',
+                            backgroundColor: 'white',
+                            color: '#ef4444',
+                            border: '2px solid #ef4444',
+                            borderRadius: '10px',
+                            fontSize: '22px',
+                            cursor: selectedTextes.size > 0 ? 'pointer' : 'not-allowed',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            opacity: selectedTextes.size > 0 ? 1 : 0.4
+                        }}
+                        title="Classement"
+                    >
+                        🏷️
+                    </button>
+
+                    <button
+                        onClick={startOuEst}
+                        disabled={selectedTextes.size === 0}
+                        className="mobile-exercices-icons"
+                        style={{
+                            width: '48px',
+                            height: '48px',
+                            backgroundColor: 'white',
+                            color: '#10b981',
+                            border: '2px solid #10b981',
+                            borderRadius: '10px',
+                            fontSize: '22px',
+                            cursor: selectedTextes.size > 0 ? 'pointer' : 'not-allowed',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            opacity: selectedTextes.size > 0 ? 1 : 0.4
+                        }}
+                        title="Où est ce mot ?"
+                    >
+                        🔍
+                    </button>
+
+                    <button
+                        onClick={startQuestCe}
+                        disabled={selectedTextes.size === 0}
+                        className="mobile-exercices-icons"
+                        style={{
+                            width: '48px',
+                            height: '48px',
+                            backgroundColor: 'white',
+                            color: '#3b82f6',
+                            border: '2px solid #3b82f6',
+                            borderRadius: '10px',
+                            fontSize: '22px',
+                            cursor: selectedTextes.size > 0 ? 'pointer' : 'not-allowed',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            opacity: selectedTextes.size > 0 ? 1 : 0.4
+                        }}
+                        title="Qu'est-ce que c'est ?"
+                    >
+                        🤔
                     </button>
                 </div>
 
@@ -289,7 +371,7 @@ export default function MesSyllabesMotsNew() {
                             maxWidth: '940px',
                             margin: '0 auto 30px auto'
                         }}>
-                            <h2 style={{
+                            <h2 className="desktop-only" style={{
                                 marginBottom: '20px',
                                 color: '#333',
                                 fontSize: '20px',
@@ -374,163 +456,193 @@ export default function MesSyllabesMotsNew() {
                             </div>
                         </div>
 
-                        {/* Les 3 exercices en ligne horizontale */}
-                        <div style={{
-                            display: 'flex',
-                            gap: '20px',
-                            justifyContent: 'space-between',
-                            flexWrap: 'wrap',
+                        {/* Cartes exercices - Desktop uniquement */}
+                        <div className="desktop-only" style={{
                             maxWidth: '940px',
-                            margin: '0 auto'
+                            margin: '0 auto',
+                            marginTop: '40px'
                         }}>
-                            {/* Exercice 1 : Classement */}
-                            <div style={{
-                                background: 'white',
-                                padding: '15px',
-                                borderRadius: '12px',
-                                border: '2px solid #ef4444',
-                                textAlign: 'center',
-                                flex: '1',
-                                minWidth: '250px',
-                                maxWidth: '300px'
+                            <h2 style={{
+                                marginBottom: '30px',
+                                color: '#333',
+                                fontSize: '22px',
+                                textAlign: 'center'
                             }}>
-                                <div style={{ fontSize: '32px', marginBottom: '8px' }}>🏷️</div>
-                                <h3 style={{
-                                    color: '#ef4444',
-                                    margin: '0 0 8px 0',
-                                    fontSize: '16px',
-                                    fontWeight: 'bold'
-                                }}>
-                                    Classement
-                                </h3>
+                                🎮 Choisissez votre exercice
+                            </h2>
 
-                                <p style={{
-                                    color: '#666',
-                                    marginBottom: '10px',
-                                    lineHeight: '1.5',
-                                    fontSize: '12px'
-                                }}>
-                                    Classez les mots<br/>
-                                    par leur première lettre
-                                </p>
-
-                                <button
-                                    onClick={startClassement}
-                                    disabled={selectedTextes.size === 0}
-                                    style={{
-                                        backgroundColor: selectedTextes.size > 0 ? '#ef4444' : '#ccc',
-                                        color: 'white',
-                                        padding: '8px 16px',
-                                        border: 'none',
-                                        borderRadius: '8px',
-                                        fontSize: '14px',
-                                        fontWeight: 'bold',
-                                        cursor: selectedTextes.size > 0 ? 'pointer' : 'not-allowed',
-                                        width: '100%'
-                                    }}
-                                >
-                                    🚀 Commencer
-                                </button>
-                            </div>
-
-                            {/* Exercice 2 : Où est ce mot ? */}
                             <div style={{
-                                background: 'white',
-                                padding: '15px',
-                                borderRadius: '12px',
-                                border: '2px solid #10b981',
-                                textAlign: 'center',
-                                flex: '1',
-                                minWidth: '250px',
-                                maxWidth: '300px'
+                                display: 'grid',
+                                gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+                                gap: '20px'
                             }}>
-                                <div style={{ fontSize: '32px', marginBottom: '8px' }}>🔍</div>
-                                <h3 style={{
-                                    color: '#10b981',
-                                    margin: '0 0 8px 0',
-                                    fontSize: '16px',
-                                    fontWeight: 'bold'
+                                {/* Carte 1: Classement */}
+                                <div style={{
+                                    padding: '25px',
+                                    background: 'white',
+                                    borderRadius: '12px',
+                                    border: '3px solid #ef4444',
+                                    boxShadow: '0 4px 12px rgba(239, 68, 68, 0.15)',
+                                    transition: 'all 0.3s ease',
+                                    cursor: selectedTextes.size > 0 ? 'pointer' : 'not-allowed',
+                                    opacity: selectedTextes.size > 0 ? 1 : 0.6
                                 }}>
-                                    Où est ce mot ?
-                                </h3>
-
-                                <p style={{
-                                    color: '#666',
-                                    marginBottom: '10px',
-                                    lineHeight: '1.5',
-                                    fontSize: '12px'
-                                }}>
-                                    Écoutez le mot<br/>
-                                    et trouvez-le
-                                </p>
-
-                                <button
-                                    onClick={startOuEst}
-                                    disabled={selectedTextes.size === 0}
-                                    style={{
-                                        backgroundColor: selectedTextes.size > 0 ? '#10b981' : '#ccc',
-                                        color: 'white',
-                                        padding: '8px 16px',
-                                        border: 'none',
-                                        borderRadius: '8px',
-                                        fontSize: '14px',
+                                    <div style={{
+                                        fontSize: '32px',
+                                        marginBottom: '15px',
+                                        textAlign: 'center'
+                                    }}>
+                                        🏷️
+                                    </div>
+                                    <h3 style={{
+                                        fontSize: '20px',
                                         fontWeight: 'bold',
-                                        cursor: selectedTextes.size > 0 ? 'pointer' : 'not-allowed',
-                                        width: '100%'
-                                    }}
-                                >
-                                    🚀 Commencer
-                                </button>
-                            </div>
+                                        marginBottom: '12px',
+                                        color: '#ef4444',
+                                        textAlign: 'center'
+                                    }}>
+                                        Classement
+                                    </h3>
+                                    <p style={{
+                                        fontSize: '15px',
+                                        color: '#666',
+                                        marginBottom: '20px',
+                                        textAlign: 'center',
+                                        lineHeight: '1.5'
+                                    }}>
+                                        Classez les syllabes et les mots selon leurs caractéristiques
+                                    </p>
+                                    <button
+                                        onClick={startClassement}
+                                        disabled={selectedTextes.size === 0}
+                                        style={{
+                                            width: '100%',
+                                            padding: '12px',
+                                            backgroundColor: selectedTextes.size > 0 ? '#ef4444' : '#ccc',
+                                            color: 'white',
+                                            border: 'none',
+                                            borderRadius: '8px',
+                                            fontSize: '16px',
+                                            fontWeight: 'bold',
+                                            cursor: selectedTextes.size > 0 ? 'pointer' : 'not-allowed',
+                                            transition: 'all 0.3s ease'
+                                        }}
+                                    >
+                                        🚀 Commencer
+                                    </button>
+                                </div>
 
-                            {/* Exercice 3 : Qu'est-ce que c'est ? */}
-                            <div style={{
-                                background: 'white',
-                                padding: '15px',
-                                borderRadius: '12px',
-                                border: '2px solid #3b82f6',
-                                textAlign: 'center',
-                                flex: '1',
-                                minWidth: '250px',
-                                maxWidth: '300px'
-                            }}>
-                                <div style={{ fontSize: '32px', marginBottom: '8px' }}>🤔</div>
-                                <h3 style={{
-                                    color: '#3b82f6',
-                                    margin: '0 0 8px 0',
-                                    fontSize: '16px',
-                                    fontWeight: 'bold'
+                                {/* Carte 2: Où est ce mot ? */}
+                                <div style={{
+                                    padding: '25px',
+                                    background: 'white',
+                                    borderRadius: '12px',
+                                    border: '3px solid #10b981',
+                                    boxShadow: '0 4px 12px rgba(16, 185, 129, 0.15)',
+                                    transition: 'all 0.3s ease',
+                                    cursor: selectedTextes.size > 0 ? 'pointer' : 'not-allowed',
+                                    opacity: selectedTextes.size > 0 ? 1 : 0.6
                                 }}>
-                                    Qu'est-ce que c'est ?
-                                </h3>
-
-                                <p style={{
-                                    color: '#666',
-                                    marginBottom: '10px',
-                                    lineHeight: '1.5',
-                                    fontSize: '12px'
-                                }}>
-                                    Regardez le mot<br/>
-                                    et écoutez les propositions
-                                </p>
-
-                                <button
-                                    onClick={startQuestCe}
-                                    disabled={selectedTextes.size === 0}
-                                    style={{
-                                        backgroundColor: selectedTextes.size > 0 ? '#3b82f6' : '#ccc',
-                                        color: 'white',
-                                        padding: '8px 16px',
-                                        border: 'none',
-                                        borderRadius: '8px',
-                                        fontSize: '14px',
+                                    <div style={{
+                                        fontSize: '32px',
+                                        marginBottom: '15px',
+                                        textAlign: 'center'
+                                    }}>
+                                        🔍
+                                    </div>
+                                    <h3 style={{
+                                        fontSize: '20px',
                                         fontWeight: 'bold',
-                                        cursor: selectedTextes.size > 0 ? 'pointer' : 'not-allowed',
-                                        width: '100%'
-                                    }}
-                                >
-                                    🚀 Commencer
-                                </button>
+                                        marginBottom: '12px',
+                                        color: '#10b981',
+                                        textAlign: 'center'
+                                    }}>
+                                        Où est ce mot ?
+                                    </h3>
+                                    <p style={{
+                                        fontSize: '15px',
+                                        color: '#666',
+                                        marginBottom: '20px',
+                                        textAlign: 'center',
+                                        lineHeight: '1.5'
+                                    }}>
+                                        Écoutez le mot et trouvez-le parmi les propositions
+                                    </p>
+                                    <button
+                                        onClick={startOuEst}
+                                        disabled={selectedTextes.size === 0}
+                                        style={{
+                                            width: '100%',
+                                            padding: '12px',
+                                            backgroundColor: selectedTextes.size > 0 ? '#10b981' : '#ccc',
+                                            color: 'white',
+                                            border: 'none',
+                                            borderRadius: '8px',
+                                            fontSize: '16px',
+                                            fontWeight: 'bold',
+                                            cursor: selectedTextes.size > 0 ? 'pointer' : 'not-allowed',
+                                            transition: 'all 0.3s ease'
+                                        }}
+                                    >
+                                        🚀 Commencer
+                                    </button>
+                                </div>
+
+                                {/* Carte 3: Qu'est-ce que c'est ? */}
+                                <div style={{
+                                    padding: '25px',
+                                    background: 'white',
+                                    borderRadius: '12px',
+                                    border: '3px solid #3b82f6',
+                                    boxShadow: '0 4px 12px rgba(59, 130, 246, 0.15)',
+                                    transition: 'all 0.3s ease',
+                                    cursor: selectedTextes.size > 0 ? 'pointer' : 'not-allowed',
+                                    opacity: selectedTextes.size > 0 ? 1 : 0.6
+                                }}>
+                                    <div style={{
+                                        fontSize: '32px',
+                                        marginBottom: '15px',
+                                        textAlign: 'center'
+                                    }}>
+                                        🤔
+                                    </div>
+                                    <h3 style={{
+                                        fontSize: '20px',
+                                        fontWeight: 'bold',
+                                        marginBottom: '12px',
+                                        color: '#3b82f6',
+                                        textAlign: 'center'
+                                    }}>
+                                        Qu'est-ce que c'est ?
+                                    </h3>
+                                    <p style={{
+                                        fontSize: '15px',
+                                        color: '#666',
+                                        marginBottom: '20px',
+                                        textAlign: 'center',
+                                        lineHeight: '1.5'
+                                    }}>
+                                        Lisez le mot et identifiez-le parmi les propositions audio
+                                    </p>
+                                    <button
+                                        onClick={startQuestCe}
+                                        disabled={selectedTextes.size === 0}
+                                        style={{
+                                            width: '100%',
+                                            padding: '12px',
+                                            backgroundColor: selectedTextes.size > 0 ? '#3b82f6' : '#ccc',
+                                            color: 'white',
+                                            border: 'none',
+                                            borderRadius: '8px',
+                                            fontSize: '16px',
+                                            fontWeight: 'bold',
+                                            cursor: selectedTextes.size > 0 ? 'pointer' : 'not-allowed',
+                                            transition: 'all 0.3s ease'
+                                        }}
+                                    >
+                                        🚀 Commencer
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>

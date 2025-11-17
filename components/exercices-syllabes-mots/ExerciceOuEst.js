@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 
 export default function ExerciceOuEst({ selectedTextes, retourSelection }) {
     const [allMots, setAllMots] = useState([])
@@ -9,24 +9,91 @@ export default function ExerciceOuEst({ selectedTextes, retourSelection }) {
     const [attempts, setAttempts] = useState(0)
     const [isPlaying, setIsPlaying] = useState(false)
     const [currentAudio, setCurrentAudio] = useState(null)
-    const [feedback, setFeedback] = useState('')
     const [completedMots, setCompletedMots] = useState([])
-    const [selectedVoice, setSelectedVoice] = useState('AfbuxQ9DVtS4azaxN1W7')
-    const [availableVoices, setAvailableVoices] = useState([])
+    const [selectedMotId, setSelectedMotId] = useState(null)
+    const [isCorrect, setIsCorrect] = useState(null)
     const [gameFinished, setGameFinished] = useState(false)
     const [finalScore, setFinalScore] = useState({ correct: 0, total: 0, percentage: 0 })
 
+    // Cascade de voix : perso → ElevenLabs → Web Speech
+    const enregistrementsMapRef = useRef({}) // Ref pour accès synchrone
+    const [enregistrementsMap, setEnregistrementsMap] = useState({}) // State pour re-render
+    const [elevenLabsTokens, setElevenLabsTokens] = useState(0)
+
+    // Ref pour éviter double initialisation (React Strict Mode)
+    const gameStartedRef = useRef(false)
+
     useEffect(() => {
-        loadVoices()
-        startGame()
+        // Charger les données puis démarrer le jeu
+        const init = async () => {
+            await Promise.all([
+                loadEnregistrements(),
+                loadElevenLabsTokens()
+            ])
+
+            // Empêcher double appel startGame() en React Strict Mode
+            if (!gameStartedRef.current) {
+                gameStartedRef.current = true
+                startGame()
+            }
+        }
+
+        init()
     }, [])
 
-    const loadVoices = () => {
-        setAvailableVoices([
-            { name: 'Paul (ElevenLabs)', id: 'AfbuxQ9DVtS4azaxN1W7', type: 'elevenlabs' },
-            { name: 'Julie (ElevenLabs)', id: 'tMyQcCxfGDdIt7wJ2RQw', type: 'elevenlabs' },
-            { name: 'Voix système (Web Speech)', id: 'webspeech', type: 'webspeech' }
-        ])
+    const loadEnregistrements = async () => {
+        try {
+            const token = localStorage.getItem('token')
+            const response = await fetch('/api/enregistrements-mots/list', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            })
+
+            if (response.ok) {
+                const data = await response.json()
+
+                // L'API retourne déjà un enregistrementsMap formaté
+                // Mais on doit normaliser les clés pour le matching
+                const map = {}
+                const enregistrements = data.enregistrements || []
+
+                enregistrements.forEach(enr => {
+                    const motNormalise = enr.mot
+                        .toLowerCase()
+                        .trim()
+                        .replace(/^[.,;:!?¡¿'"«»\-—]+/, '')
+                        .replace(/[.,;:!?¡¿'"«»\-—]+$/, '')
+                    map[motNormalise] = enr
+                })
+
+                // Mettre à jour à la fois le ref (synchrone) et le state
+                enregistrementsMapRef.current = map
+                setEnregistrementsMap(map)
+                console.log(`✅ ${Object.keys(map).length} enregistrements chargés`)
+            }
+        } catch (err) {
+            console.error('Erreur chargement enregistrements:', err)
+        }
+    }
+
+    const loadElevenLabsTokens = async () => {
+        try {
+            const token = localStorage.getItem('token')
+            const response = await fetch('/api/speech/tokens', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            })
+
+            if (response.ok) {
+                const data = await response.json()
+                setElevenLabsTokens(data.remaining || 0)
+                console.log(`✅ ${data.remaining || 0} tokens ElevenLabs disponibles`)
+            } else {
+                // Si l'API n'existe pas ou erreur, on reste à 0 tokens (Web Speech sera utilisé)
+                console.log('ℹ️ API tokens ElevenLabs non disponible, utilisation Web Speech uniquement')
+            }
+        } catch (err) {
+            // Erreur silencieuse - on continuera avec Web Speech
+            console.log('ℹ️ Tokens ElevenLabs non disponibles, utilisation Web Speech uniquement')
+        }
     }
 
     const startGame = async () => {
@@ -66,7 +133,6 @@ export default function ExerciceOuEst({ selectedTextes, retourSelection }) {
             setScore(0)
             setAttempts(0)
             setGameFinished(false)
-            setFeedback('')
 
             nextRoundWithAllMots(shuffled, [], motsAvecIndex)
         } catch (error) {
@@ -112,11 +178,13 @@ export default function ExerciceOuEst({ selectedTextes, retourSelection }) {
     }
 
     const handleAnswer = async (selectedMot) => {
+        setSelectedMotId(selectedMot.id)
         setAttempts(attempts + 1)
 
         if (selectedMot.id === currentMot.id) {
+            // Bonne réponse
+            setIsCorrect(true)
             setScore(score + 1)
-            setFeedback(`✅ Correct ! "${selectedMot.contenu}"`)
 
             const newCompleted = [...completedMots, currentMot]
             setCompletedMots(newCompleted)
@@ -124,18 +192,23 @@ export default function ExerciceOuEst({ selectedTextes, retourSelection }) {
             const remaining = shuffledMots.filter(m => !newCompleted.find(c => c.id === m.id))
 
             setTimeout(() => {
-                setFeedback('')
+                setSelectedMotId(null)
+                setIsCorrect(null)
                 nextRound(remaining, newCompleted)
-            }, 1500)
+            }, 3000)
         } else {
-            setFeedback(`❌ Non, c'était "${currentMot.contenu}"`)
-            setTimeout(() => {
-                setFeedback('')
-                const remaining = shuffledMots.filter(m => m.id !== currentMot.id)
-                setShuffledMots(remaining)
-                nextRound(remaining, completedMots)
-            }, 2000)
+            // Mauvaise réponse
+            setIsCorrect(false)
+            // Pas de setTimeout automatique, on attend le clic sur la flèche
         }
+    }
+
+    const handleNextAfterError = () => {
+        setSelectedMotId(null)
+        setIsCorrect(null)
+        const remaining = shuffledMots.filter(m => m.id !== currentMot.id)
+        setShuffledMots(remaining)
+        nextRound(remaining, completedMots)
     }
 
     const finishGame = () => {
@@ -152,15 +225,16 @@ export default function ExerciceOuEst({ selectedTextes, retourSelection }) {
         setAttempts(0)
         setGameFinished(false)
         setCompletedMots([])
-        setFeedback('')
         startGame()
     }
 
     const playAudioAuto = async (text) => {
-        if (!text) return
+        if (!text || isPlaying) return
+
+        // Bloquer immédiatement les autres appels
+        setIsPlaying(true)
 
         // Réinitialiser complètement l'état audio
-        setIsPlaying(false)
         if (currentAudio) {
             currentAudio.pause()
             setCurrentAudio(null)
@@ -169,111 +243,58 @@ export default function ExerciceOuEst({ selectedTextes, retourSelection }) {
             speechSynthesis.cancel()
         }
 
-        // Attendre un peu puis lancer l'audio
-        setTimeout(async () => {
-            setIsPlaying(true)
+        // Normaliser le mot pour vérifier les enregistrements
+        const motNormalise = text
+            .toLowerCase()
+            .trim()
+            .replace(/^[.,;:!?¡¿'"«»\-—]+/, '')
+            .replace(/[.,;:!?¡¿'"«»\-—]+$/, '')
 
-            // Si Web Speech est sélectionné, utiliser directement
-            if (selectedVoice === 'webspeech') {
-                if ('speechSynthesis' in window) {
-                    const utterance = new SpeechSynthesisUtterance(`Trouvez le mot ${text}`)
-                    utterance.lang = 'fr-FR'
-                    utterance.rate = 0.8
+        // Utiliser le ref pour accès synchrone à la map
+        const map = enregistrementsMapRef.current
 
-                    utterance.onend = () => {
-                        setIsPlaying(false)
-                    }
+        console.log(`🔍 Recherche "${motNormalise}" dans`, Object.keys(map).length, 'enregistrements')
+        console.log(`📋 Premiers enregistrements disponibles:`, Object.keys(map).slice(0, 5))
 
-                    utterance.onerror = () => {
-                        setIsPlaying(false)
-                    }
+        // PRIORITÉ 1 : ENREGISTREMENT PERSONNEL
+        if (map[motNormalise]) {
+            console.log(`🎵 Enregistrement personnel trouvé pour "${text}"`)
+            try {
+                const audio = new Audio(map[motNormalise].audio_url)
+                setCurrentAudio(audio)
 
-                    speechSynthesis.speak(utterance)
-                } else {
+                audio.onended = () => {
                     setIsPlaying(false)
+                    setCurrentAudio(null)
                 }
+
+                audio.onerror = () => {
+                    console.error('❌ Erreur lecture enregistrement, fallback ElevenLabs')
+                    playElevenLabsOrFallback(text)
+                }
+
+                await audio.play()
+                return
+            } catch (error) {
+                console.error('❌ Erreur playback enregistrement, fallback ElevenLabs')
+                playElevenLabsOrFallback(text)
                 return
             }
+        }
 
-            // Sinon, essayer ElevenLabs
-            try {
-                const response = await fetch('/api/speech/elevenlabs', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${localStorage.getItem('token')}`
-                    },
-                    body: JSON.stringify({
-                        text: `Trouvez le mot ${text}`,
-                        voice_id: selectedVoice
-                    })
-                })
-
-                if (response.ok) {
-                    const data = await response.json()
-                    const audio = new Audio(data.audio)
-                    setCurrentAudio(audio)
-
-                    audio.onended = () => {
-                        setIsPlaying(false)
-                        setCurrentAudio(null)
-                    }
-
-                    await audio.play()
-                } else {
-                    throw new Error('ElevenLabs failed')
-                }
-            } catch (error) {
-                console.log('Fallback vers Web Speech API')
-                if ('speechSynthesis' in window) {
-                    const utterance = new SpeechSynthesisUtterance(`Trouvez le mot ${text}`)
-                    utterance.lang = 'fr-FR'
-                    utterance.rate = 0.8
-
-                    utterance.onend = () => {
-                        setIsPlaying(false)
-                    }
-
-                    utterance.onerror = () => {
-                        setIsPlaying(false)
-                    }
-
-                    speechSynthesis.speak(utterance)
-                } else {
-                    setIsPlaying(false)
-                }
-            }
-        }, 100)
+        // PRIORITÉ 2 : ELEVENLABS (si tokens disponibles)
+        playElevenLabsOrFallback(text)
     }
 
-    const playAudio = async (text) => {
-        if (!text || isPlaying) return
-
-        setIsPlaying(true)
-
-        // Si Web Speech est sélectionné, utiliser directement
-        if (selectedVoice === 'webspeech') {
-            if ('speechSynthesis' in window) {
-                const utterance = new SpeechSynthesisUtterance(`Trouvez le mot ${text}`)
-                utterance.lang = 'fr-FR'
-                utterance.rate = 0.8
-
-                utterance.onend = () => {
-                    setIsPlaying(false)
-                }
-
-                utterance.onerror = () => {
-                    setIsPlaying(false)
-                }
-
-                speechSynthesis.speak(utterance)
-            } else {
-                setIsPlaying(false)
-            }
+    const playElevenLabsOrFallback = async (text) => {
+        // Si pas de tokens, directement Web Speech
+        if (elevenLabsTokens <= 0) {
+            console.warn('⚠️ Pas de tokens ElevenLabs, fallback Web Speech')
+            playWebSpeech(text)
             return
         }
 
-        // Sinon, essayer ElevenLabs
+        // Essayer ElevenLabs
         try {
             const response = await fetch('/api/speech/elevenlabs', {
                 method: 'POST',
@@ -281,14 +302,19 @@ export default function ExerciceOuEst({ selectedTextes, retourSelection }) {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${localStorage.getItem('token')}`
                 },
-                body: JSON.stringify({
-                    text: `Trouvez le mot ${text}`,
-                    voice_id: selectedVoice
-                })
+                body: JSON.stringify({ text: `Trouvez le mot ${text}` })
             })
 
             if (response.ok) {
                 const data = await response.json()
+                console.log(`🎙️ ElevenLabs utilisé pour "${text}"`)
+
+                // Mettre à jour les tokens restants
+                if (data.remaining !== undefined) {
+                    setElevenLabsTokens(data.remaining)
+                    console.log(`📊 Tokens restants: ${data.remaining}`)
+                }
+
                 const audio = new Audio(data.audio)
                 setCurrentAudio(audio)
 
@@ -297,30 +323,71 @@ export default function ExerciceOuEst({ selectedTextes, retourSelection }) {
                     setCurrentAudio(null)
                 }
 
+                audio.onerror = () => {
+                    console.error('❌ Erreur lecture ElevenLabs, fallback Web Speech')
+                    playWebSpeech(text)
+                }
+
                 await audio.play()
             } else {
-                throw new Error('ElevenLabs failed')
+                const errorData = await response.json()
+                if (response.status === 429 || errorData.error === 'QUOTA_EXCEEDED') {
+                    console.warn('⚠️ Quota ElevenLabs dépassé, fallback Web Speech')
+                    setElevenLabsTokens(0)
+                }
+                playWebSpeech(text)
             }
         } catch (error) {
-            console.log('Fallback vers Web Speech API')
-            if ('speechSynthesis' in window) {
-                const utterance = new SpeechSynthesisUtterance(`Trouvez le mot ${text}`)
-                utterance.lang = 'fr-FR'
-                utterance.rate = 0.8
+            console.error('❌ Erreur appel ElevenLabs, fallback Web Speech')
+            playWebSpeech(text)
+        }
+    }
 
-                utterance.onend = () => {
-                    setIsPlaying(false)
-                }
+    const playWebSpeech = (text) => {
+        console.log(`🔊 Web Speech API pour "${text}"`)
 
-                utterance.onerror = () => {
-                    setIsPlaying(false)
-                }
+        if ('speechSynthesis' in window) {
+            speechSynthesis.cancel()
 
-                speechSynthesis.speak(utterance)
-            } else {
+            const voices = speechSynthesis.getVoices()
+            const utterance = new SpeechSynthesisUtterance(`Trouvez le mot ${text}`)
+            utterance.lang = 'fr-FR'
+            utterance.rate = 0.8
+            utterance.pitch = 0.6
+
+            // Sélectionner voix française SANS Hortense
+            const frenchVoices = voices.filter(v =>
+                v.lang.startsWith('fr') &&
+                !v.name.toLowerCase().includes('hortense')
+            )
+
+            if (frenchVoices.length > 0) {
+                const preferredVoice = frenchVoices.find(v =>
+                    v.name.toLowerCase().includes('thomas') ||
+                    v.name.toLowerCase().includes('daniel')
+                ) || frenchVoices[0]
+
+                utterance.voice = preferredVoice
+                console.log(`🎤 Voix sélectionnée: ${preferredVoice.name}`)
+            }
+
+            utterance.onend = () => {
                 setIsPlaying(false)
             }
+
+            utterance.onerror = () => {
+                setIsPlaying(false)
+            }
+
+            speechSynthesis.speak(utterance)
+        } else {
+            setIsPlaying(false)
         }
+    }
+
+    const playAudio = async (text) => {
+        // Réutiliser la même cascade de priorité que playAudioAuto
+        await playAudioAuto(text)
     }
 
     if (gameFinished) {
@@ -411,16 +478,118 @@ export default function ExerciceOuEst({ selectedTextes, retourSelection }) {
                 margin: '0 auto'
             }}>
                 <h1 style={{
-                    fontSize: 'clamp(22px, 5vw, 28px)',
+                    fontSize: '32px',
                     fontWeight: 'bold',
                     marginBottom: '20px',
-                    background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                    WebkitBackgroundClip: 'text',
-                    WebkitTextFillColor: 'transparent',
-                    textAlign: 'center'
+                    textAlign: 'center',
+                    color: '#06B6D4'
                 }}>
                     🔍 Où est ce mot ?
                 </h1>
+
+                {/* Navigation icônes */}
+                <div style={{
+                    display: 'flex',
+                    justifyContent: 'center',
+                    gap: '15px',
+                    marginBottom: '20px'
+                }}>
+                    <button
+                        onClick={retourSelection}
+                        disabled={isPlaying}
+                        style={{
+                            width: '55px',
+                            height: '55px',
+                            backgroundColor: 'white',
+                            border: '3px solid #06B6D4',
+                            borderRadius: '12px',
+                            fontSize: '24px',
+                            cursor: isPlaying ? 'not-allowed' : 'pointer',
+                            opacity: isPlaying ? 0.5 : 1,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                        }}
+                    >
+                        ←
+                    </button>
+                    <button
+                        onClick={() => window.location.href = '/lire'}
+                        disabled={isPlaying}
+                        style={{
+                            width: '55px',
+                            height: '55px',
+                            backgroundColor: 'white',
+                            border: '3px solid #06B6D4',
+                            borderRadius: '12px',
+                            fontSize: '24px',
+                            cursor: isPlaying ? 'not-allowed' : 'pointer',
+                            opacity: isPlaying ? 0.5 : 1,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                        }}
+                    >
+                        📖
+                    </button>
+                    <button
+                        onClick={() => window.location.href = '/dashboard'}
+                        disabled={isPlaying}
+                        style={{
+                            width: '55px',
+                            height: '55px',
+                            backgroundColor: 'white',
+                            border: '3px solid #06B6D4',
+                            borderRadius: '12px',
+                            fontSize: '24px',
+                            cursor: isPlaying ? 'not-allowed' : 'pointer',
+                            opacity: isPlaying ? 0.5 : 1,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                        }}
+                    >
+                        🏠
+                    </button>
+                    <button
+                        onClick={() => currentMot && playAudio(currentMot.contenu)}
+                        disabled={!currentMot || isPlaying}
+                        style={{
+                            width: '55px',
+                            height: '55px',
+                            backgroundColor: 'white',
+                            border: '3px solid #06B6D4',
+                            borderRadius: '12px',
+                            fontSize: '24px',
+                            cursor: (!currentMot || isPlaying) ? 'not-allowed' : 'pointer',
+                            opacity: (!currentMot || isPlaying) ? 0.5 : 1,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                        }}
+                    >
+                        🔊
+                    </button>
+                    <button
+                        onClick={handleNextAfterError}
+                        disabled={isCorrect !== false}
+                        style={{
+                            width: '55px',
+                            height: '55px',
+                            backgroundColor: 'white',
+                            border: '3px solid #06B6D4',
+                            borderRadius: '12px',
+                            fontSize: '24px',
+                            cursor: isCorrect === false ? 'pointer' : 'not-allowed',
+                            opacity: isCorrect === false ? 1 : 0.3,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                        }}
+                    >
+                        →
+                    </button>
+                </div>
 
                 <p style={{
                     textAlign: 'center',
@@ -431,99 +600,6 @@ export default function ExerciceOuEst({ selectedTextes, retourSelection }) {
                     Écoutez le mot et trouvez-le parmi les choix proposés
                 </p>
 
-                {/* Sélection de la voix */}
-                <div style={{
-                    background: '#fef3c7',
-                    padding: '20px',
-                    borderRadius: '8px',
-                    marginBottom: '20px'
-                }}>
-                    <h3 style={{
-                        marginBottom: '15px',
-                        color: '#92400e',
-                        fontSize: '16px',
-                        textAlign: 'center'
-                    }}>
-                        🎤 Choisissez une voix
-                    </h3>
-                    <div style={{
-                        display: 'flex',
-                        gap: '10px',
-                        justifyContent: 'center',
-                        flexWrap: 'wrap'
-                    }}>
-                        {availableVoices.map(voice => (
-                            <button
-                                key={voice.id}
-                                onClick={() => setSelectedVoice(voice.id)}
-                                style={{
-                                    padding: '8px 16px',
-                                    border: selectedVoice === voice.id ? '2px solid #d97706' : '1px solid #d1d5db',
-                                    borderRadius: '6px',
-                                    background: selectedVoice === voice.id ? '#fef3c7' : 'white',
-                                    color: selectedVoice === voice.id ? '#92400e' : '#374151',
-                                    fontSize: '14px',
-                                    cursor: 'pointer',
-                                    fontWeight: selectedVoice === voice.id ? 'bold' : 'normal'
-                                }}
-                            >
-                                {voice.name}
-                            </button>
-                        ))}
-                    </div>
-                </div>
-
-                {/* En-tête de jeu */}
-                <div style={{
-                    background: '#f0fdf4',
-                    padding: '20px',
-                    borderRadius: '12px',
-                    marginBottom: '30px',
-                    textAlign: 'center'
-                }}>
-                    <h3 style={{ color: '#166534', marginBottom: '10px' }}>
-                        📊 Score : {score}/{attempts} ({attempts > 0 ? Math.round((score/attempts)*100) : 0}%)
-                    </h3>
-                    <p style={{ color: '#666', fontSize: '14px' }}>
-                        Mots restants : {shuffledMots.length - completedMots.length}
-                    </p>
-                </div>
-
-                {/* Question */}
-                {currentMot && (
-                    <div style={{
-                        background: '#fff7ed',
-                        padding: '30px',
-                        borderRadius: '12px',
-                        marginBottom: '30px',
-                        textAlign: 'center'
-                    }}>
-                        <h2 style={{
-                            color: '#c2410c',
-                            marginBottom: '20px',
-                            fontSize: '24px'
-                        }}>
-                            🔊 Écoutez et trouvez le mot
-                        </h2>
-                        <button
-                            onClick={() => playAudio(currentMot.contenu)}
-                            disabled={isPlaying}
-                            style={{
-                                backgroundColor: isPlaying ? '#ccc' : '#ea580c',
-                                color: 'white',
-                                padding: '15px 30px',
-                                border: 'none',
-                                borderRadius: '8px',
-                                fontSize: '18px',
-                                fontWeight: 'bold',
-                                cursor: isPlaying ? 'not-allowed' : 'pointer'
-                            }}
-                        >
-                            {isPlaying ? '🔊 Lecture...' : '🔊 Écouter'}
-                        </button>
-                    </div>
-                )}
-
                 {/* Options */}
                 <div style={{
                     display: 'grid',
@@ -531,63 +607,45 @@ export default function ExerciceOuEst({ selectedTextes, retourSelection }) {
                     gap: '15px',
                     marginBottom: '30px'
                 }}>
-                    {displayedMots.map((mot, index) => (
-                        <button
-                            key={`${mot.id}-${index}`}
-                            onClick={() => handleAnswer(mot)}
-                            disabled={!!feedback}
-                            style={{
-                                padding: '20px',
-                                background: 'white',
-                                border: '2px solid #10b981',
-                                borderRadius: '8px',
-                                fontSize: '18px',
-                                fontWeight: 'bold',
-                                color: '#333',
-                                cursor: feedback ? 'not-allowed' : 'pointer',
-                                opacity: feedback ? 0.7 : 1,
-                                transition: 'all 0.2s ease'
-                            }}
-                            onMouseOver={(e) => !feedback && (e.target.style.background = '#f0fdf4')}
-                            onMouseOut={(e) => !feedback && (e.target.style.background = 'white')}
-                        >
-                            {mot.contenu}
-                        </button>
-                    ))}
-                </div>
+                    {displayedMots.map((mot, index) => {
+                        // Fonction pour déterminer la bordure dynamique
+                        const getBorder = () => {
+                            if (selectedMotId === mot.id && isCorrect === true) {
+                                return '4px solid #10b981' // Bonne réponse cliquée : VERT GRAS
+                            }
+                            if (selectedMotId === mot.id && isCorrect === false) {
+                                return '4px solid #ef4444' // Mauvaise réponse cliquée : ROUGE GRAS
+                            }
+                            if (mot.id === currentMot?.id && isCorrect === false) {
+                                return '4px solid #10b981' // Bonne réponse affichée après erreur : VERT GRAS
+                            }
+                            return '2px solid #06B6D4' // Normal : TURQUOISE
+                        }
 
-                {/* Feedback */}
-                {feedback && (
-                    <div style={{
-                        textAlign: 'center',
-                        fontSize: '20px',
-                        fontWeight: 'bold',
-                        color: feedback.includes('✅') ? '#10b981' : '#ef4444',
-                        marginBottom: '20px'
-                    }}>
-                        {feedback}
-                    </div>
-                )}
-
-                {/* Actions */}
-                <div style={{
-                    textAlign: 'center',
-                    marginTop: '30px'
-                }}>
-                    <button
-                        onClick={retourSelection}
-                        style={{
-                            backgroundColor: '#6b7280',
-                            color: 'white',
-                            padding: '10px 20px',
-                            border: 'none',
-                            borderRadius: '8px',
-                            fontSize: '14px',
-                            cursor: 'pointer'
-                        }}
-                    >
-                        📚 Changer de textes
-                    </button>
+                        return (
+                            <button
+                                key={`${mot.id}-${index}`}
+                                onClick={() => handleAnswer(mot)}
+                                disabled={isCorrect !== null || isPlaying}
+                                style={{
+                                    padding: '20px',
+                                    background: 'white',
+                                    border: getBorder(),
+                                    borderRadius: '8px',
+                                    fontSize: '18px',
+                                    fontWeight: 'bold',
+                                    color: '#333',
+                                    cursor: (isCorrect !== null || isPlaying) ? 'not-allowed' : 'pointer',
+                                    opacity: (isCorrect !== null || isPlaying) ? 0.7 : 1,
+                                    transition: 'all 0.2s ease'
+                                }}
+                                onMouseOver={(e) => !(isCorrect !== null || isPlaying) && (e.target.style.background = '#f0fdf4')}
+                                onMouseOut={(e) => !(isCorrect !== null || isPlaying) && (e.target.style.background = 'white')}
+                            >
+                                {mot.contenu}
+                            </button>
+                        )
+                    })}
                 </div>
             </div>
         </div>
