@@ -22,6 +22,8 @@ export default function ConstruisPhrasesDifficile() {
     // États pour les erreurs et compteur
     const [loadingError, setLoadingError] = useState(null)
     const [retryCount, setRetryCount] = useState(0)
+    const [loadingStep, setLoadingStep] = useState('') // Étape de chargement
+    const [loadingTimeout, setLoadingTimeout] = useState(false) // Timeout dépassé
 
     // Confettis
     const [showConfetti, setShowConfetti] = useState(false)
@@ -66,7 +68,24 @@ export default function ConstruisPhrasesDifficile() {
 
             // Charger les données via texte_ids
             if (router.query.texte_ids) {
-                await chargerPhrases(router.query.texte_ids)
+                // Timeout de sécurité 30 secondes
+                const timeoutId = setTimeout(() => {
+                    setLoadingTimeout(true)
+                    console.warn('⏱️ Timeout chargement dépassé (30s)')
+                }, 30000)
+
+                try {
+                    setLoadingStep('Chargement des phrases...')
+                    await chargerPhrases(router.query.texte_ids)
+
+                    clearTimeout(timeoutId)
+                    setLoadingStep('')
+                } catch (err) {
+                    clearTimeout(timeoutId)
+                    console.error('Erreur chargement:', err)
+                    setLoadingError('Erreur lors du chargement. Veuillez réessayer.')
+                    setEtape('intro')
+                }
             } else {
                 alert('Aucun texte sélectionné. Retournez au menu des exercices.')
                 router.push('/lire/reconnaitre-les-mots/exercices2')
@@ -403,10 +422,101 @@ export default function ConstruisPhrasesDifficile() {
                 minHeight: '100vh',
                 background: 'white',
                 display: 'flex',
+                flexDirection: 'column',
                 alignItems: 'center',
-                justifyContent: 'center'
+                justifyContent: 'center',
+                gap: '20px',
+                padding: '20px'
             }}>
-                <div style={{ color: '#f97316', fontSize: '18px' }}>Chargement...</div>
+                {!loadingTimeout ? (
+                    <>
+                        <div style={{
+                            fontSize: '48px',
+                            animation: 'spin 2s linear infinite'
+                        }}>
+                            ⏳
+                        </div>
+                        <div style={{
+                            color: '#f97316',
+                            fontSize: '20px',
+                            fontWeight: 'bold',
+                            textAlign: 'center'
+                        }}>
+                            {loadingStep || 'Chargement...'}
+                        </div>
+                        <div style={{
+                            color: '#64748b',
+                            fontSize: '14px',
+                            textAlign: 'center',
+                            maxWidth: '400px'
+                        }}>
+                            Génération ou récupération des phrases en cours. Cela peut prendre quelques secondes...
+                        </div>
+                        <style dangerouslySetInnerHTML={{
+                            __html: `
+                                @keyframes spin {
+                                    0% { transform: rotate(0deg); }
+                                    100% { transform: rotate(360deg); }
+                                }
+                            `
+                        }} />
+                    </>
+                ) : (
+                    <>
+                        <div style={{ fontSize: '48px' }}>⏱️</div>
+                        <div style={{
+                            color: '#f59e0b',
+                            fontSize: '20px',
+                            fontWeight: 'bold',
+                            textAlign: 'center'
+                        }}>
+                            Le chargement prend plus de temps que prévu...
+                        </div>
+                        <div style={{
+                            color: '#64748b',
+                            fontSize: '14px',
+                            textAlign: 'center',
+                            maxWidth: '400px'
+                        }}>
+                            Dernière étape : {loadingStep || 'En cours...'}
+                        </div>
+                        <button
+                            onClick={() => {
+                                setLoadingTimeout(false)
+                                setLoadingStep('')
+                                window.location.reload()
+                            }}
+                            style={{
+                                padding: '12px 24px',
+                                backgroundColor: '#f97316',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '8px',
+                                fontSize: '16px',
+                                fontWeight: 'bold',
+                                cursor: 'pointer',
+                                boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                            }}
+                        >
+                            🔄 Réessayer
+                        </button>
+                        <button
+                            onClick={() => router.push('/lire/reconnaitre-les-mots/exercices2')}
+                            style={{
+                                padding: '12px 24px',
+                                backgroundColor: 'white',
+                                color: '#64748b',
+                                border: '2px solid #e2e8f0',
+                                borderRadius: '8px',
+                                fontSize: '16px',
+                                fontWeight: 'bold',
+                                cursor: 'pointer'
+                            }}
+                        >
+                            ← Retour au menu
+                        </button>
+                    </>
+                )}
             </div>
         )
     }
