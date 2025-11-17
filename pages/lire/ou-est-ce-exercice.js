@@ -1078,6 +1078,103 @@ export default function OuEstCeExercice() {
                     )}
                 </div>
 
+                {/* Boutons de navigation */}
+                <div style={{
+                    display: 'flex',
+                    gap: isMobile ? '8px' : '12px',
+                    justifyContent: 'center',
+                    width: '100%',
+                    maxWidth: '1200px',
+                    marginBottom: isMobile ? '12px' : '24px'
+                }}>
+                    <button
+                        onClick={() => router.push(`/lire/reconnaitre-les-mots/exercices2?textes=1`)}
+                        style={{
+                            padding: isMobile ? '8px 12px' : '12px 16px',
+                            backgroundColor: 'white',
+                            border: '2px solid #6b7280',
+                            borderRadius: '8px',
+                            cursor: 'pointer',
+                            fontSize: isMobile ? '20px' : '24px',
+                            display: 'flex',
+                            alignItems: 'center'
+                        }}
+                        title="Menu exercices"
+                    >
+                        ←
+                    </button>
+                    <button
+                        onClick={() => router.push(`/lire/reconnaitre-les-mots`)}
+                        style={{
+                            padding: isMobile ? '8px 12px' : '12px 16px',
+                            backgroundColor: 'white',
+                            border: '2px solid #06B6D4',
+                            borderRadius: '8px',
+                            cursor: 'pointer',
+                            fontSize: isMobile ? '20px' : '24px',
+                            display: 'flex',
+                            alignItems: 'center'
+                        }}
+                        title="Sélection des textes"
+                    >
+                        👁️
+                    </button>
+                    <button
+                        onClick={() => router.push('/lire')}
+                        style={{
+                            padding: isMobile ? '8px 12px' : '12px 16px',
+                            backgroundColor: 'white',
+                            border: '2px solid #10b981',
+                            borderRadius: '8px',
+                            cursor: 'pointer',
+                            fontSize: isMobile ? '20px' : '24px',
+                            display: 'flex',
+                            alignItems: 'center'
+                        }}
+                        title="Menu Lire"
+                    >
+                        📖
+                    </button>
+                    <button
+                        onClick={() => router.push('/dashboard')}
+                        style={{
+                            padding: isMobile ? '8px 12px' : '12px 16px',
+                            backgroundColor: 'white',
+                            border: '2px solid #f59e0b',
+                            borderRadius: '8px',
+                            cursor: 'pointer',
+                            fontSize: isMobile ? '20px' : '24px',
+                            display: 'flex',
+                            alignItems: 'center'
+                        }}
+                        title="Accueil"
+                    >
+                        🏠
+                    </button>
+                    <button
+                        onClick={() => {
+                            // Récupérer les texte_ids depuis l'URL
+                            const ids = router.query.texte_ids ? router.query.texte_ids.split(',').map(id => parseInt(id)) : []
+                            if (ids.length > 0) {
+                                chargerGroupesSens(ids)
+                            }
+                        }}
+                        style={{
+                            padding: isMobile ? '8px 12px' : '12px 16px',
+                            backgroundColor: 'white',
+                            border: '2px solid #8b5cf6',
+                            borderRadius: '8px',
+                            cursor: 'pointer',
+                            fontSize: isMobile ? '20px' : '24px',
+                            display: 'flex',
+                            alignItems: 'center'
+                        }}
+                        title="Recommencer"
+                    >
+                        🔁
+                    </button>
+                </div>
+
                 <div style={{
                     ...styles.resultatsBox,
                     ...(isMobile ? {
