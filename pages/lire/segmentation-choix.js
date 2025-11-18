@@ -22,6 +22,15 @@ export default function SegmentationSyllabiqueTest() {
     const [syllabesToRecord, setSyllabesToRecord] = useState([]) // Syllabes à enregistrer (pas déjà existantes)
     const [existingSyllabes, setExistingSyllabes] = useState({}) // Map des syllabes déjà enregistrées
     const [currentAudioUrls, setCurrentAudioUrls] = useState([]) // URLs audio du mot courant
+
+    // ⭐ SYSTÈME DE PRIORITÉ DES VOIX (personnel → ElevenLabs → système)
+    const [enregistrementsMap, setEnregistrementsMap] = useState({}) // Map des enregistrements personnels
+    const [isLoadingAudio, setIsLoadingAudio] = useState(false) // Verrou pendant chargement audio
+    const [tokenStatus, setTokenStatus] = useState('available') // 'available' | 'exhausted'
+    const [selectedVoice, setSelectedVoice] = useState('pNInz6obpgDQGcFmaJgB') // Voix ElevenLabs par défaut (Adam)
+    const [currentAudio, setCurrentAudio] = useState(null) // Instance Audio en cours
+    const [isPlaying, setIsPlaying] = useState(false) // État de lecture
+
     const router = useRouter()
 
     useEffect(() => {
@@ -36,6 +45,7 @@ export default function SegmentationSyllabiqueTest() {
         try {
             setUser(JSON.parse(userData))
             loadTextes()
+            loadEnregistrements() // ⭐ Charger les enregistrements personnels
         } catch (error) {
             console.error('Erreur parsing user data:', error)
             router.push('/login')
@@ -44,6 +54,286 @@ export default function SegmentationSyllabiqueTest() {
 
         setIsLoading(false)
     }, [router])
+
+    // ========================================================================
+    // FONCTIONS CACHE ELEVENLABS
+    // ========================================================================
+
+    const getCachedAudio = (text, voiceId) => {
+        try {
+            const cacheKey = `audio_${text}_${voiceId}`
+            const cached = localStorage.getItem(cacheKey)
+            return cached ? JSON.parse(cached) : null
+        } catch {
+            return null
+        }
+    }
+
+    const setCachedAudio = (text, voiceId, audioData) => {
+        try {
+            const cacheKey = `audio_${text}_${voiceId}`
+            localStorage.setItem(cacheKey, JSON.stringify(audioData))
+        } catch (error) {
+            console.warn('Impossible de mettre en cache:', error)
+        }
+    }
+
+    // ========================================================================
+    // CHARGEMENT DES ENREGISTREMENTS PERSONNELS
+    // ========================================================================
+
+    const loadEnregistrements = async () => {
+        try {
+            const token = localStorage.getItem('token')
+            const response = await fetch('/api/enregistrements-mots/list', {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            })
+
+            if (response.ok) {
+                const data = await response.json()
+                console.log(`🎤 ${data.count} enregistrement(s) vocal(aux) chargé(s)`)
+
+                // ⚠️ IMPORTANT: Normaliser les clés pour correspondre à playAudio() (garder apostrophes internes)
+                const mapNormalise = {}
+                Object.entries(data.enregistrementsMap || {}).forEach(([mot, enreg]) => {
+                    const motNormalise = mot
+                        .toLowerCase()
+                        .trim()
+                        .replace(/^[^a-zA-ZàâäéèêëïîôöùûüÿæœçÀÂÄÉÈÊËÏÎÔÖÙÛÜŸÆŒÇ']+/, '')
+                        .replace(/[^a-zA-ZàâäéèêëïîôöùûüÿæœçÀÂÄÉÈÊËÏÎÔÖÙÛÜŸÆŒÇ']+$/, '')
+                    mapNormalise[motNormalise] = enreg
+                })
+
+                console.log('📋 Enregistrements normalisés:', Object.keys(mapNormalise))
+                setEnregistrementsMap(mapNormalise)
+            } else {
+                console.error('Erreur chargement enregistrements vocaux')
+            }
+        } catch (error) {
+            console.error('Erreur chargement enregistrements vocaux:', error)
+        }
+    }
+
+    // ========================================================================
+    // LECTURE ENREGISTREMENT PERSONNEL
+    // ========================================================================
+
+    const playEnregistrement = async (enregistrement) => {
+        if (!enregistrement || !enregistrement.audio_url) {
+            console.warn('⚠️ Enregistrement invalide')
+            setIsLoadingAudio(false)
+            return false
+        }
+
+        try {
+            console.log('🎵 Lecture enregistrement personnel:', enregistrement.mot)
+            const audio = new Audio(enregistrement.audio_url)
+            setCurrentAudio(audio)
+
+            audio.onended = () => {
+                setIsPlaying(false)
+                setCurrentAudio(null)
+                setIsLoadingAudio(false)
+            }
+
+            audio.onerror = () => {
+                console.error('❌ Erreur lecture enregistrement')
+                setIsPlaying(false)
+                setCurrentAudio(null)
+                setIsLoadingAudio(false)
+                return false
+            }
+
+            await audio.play()
+            return true
+
+        } catch (error) {
+            console.error('❌ Erreur playEnregistrement:', error)
+            setIsLoadingAudio(false)
+            return false
+        }
+    }
+
+    // ========================================================================
+    // FALLBACK WEB SPEECH (SANS HORTENSE)
+    // ========================================================================
+
+    const fallbackToWebSpeech = (texte) => {
+        try {
+            const utterance = new SpeechSynthesisUtterance(`Le mot est : ${texte}`)
+            utterance.lang = 'fr-FR'
+            utterance.rate = 0.8
+
+            const voices = window.speechSynthesis.getVoices()
+            // Exclure explicitement Hortense et chercher une voix masculine
+            const voixMasculine = voices.find(voice =>
+                voice.lang.includes('fr') &&
+                !voice.name.toLowerCase().includes('hortense') &&
+                (voice.name.toLowerCase().includes('male') ||
+                 voice.name.toLowerCase().includes('homme') ||
+                 voice.name.toLowerCase().includes('thomas') ||
+                 voice.name.toLowerCase().includes('paul') ||
+                 voice.name.toLowerCase().includes('pierre'))
+            ) || voices.find(voice =>
+                voice.lang.includes('fr') &&
+                !voice.name.toLowerCase().includes('hortense')
+            )
+
+            if (voixMasculine) {
+                utterance.voice = voixMasculine
+            }
+
+            utterance.onend = () => {
+                setIsPlaying(false)
+                setIsLoadingAudio(false)
+            }
+
+            utterance.onerror = () => {
+                setIsPlaying(false)
+                setIsLoadingAudio(false)
+            }
+
+            window.speechSynthesis.speak(utterance)
+        } catch (error) {
+            setIsPlaying(false)
+            setIsLoadingAudio(false)
+        }
+    }
+
+    // ========================================================================
+    // LECTURE AUDIO AVEC PRIORITÉ (Personnel → ElevenLabs → Web Speech)
+    // ========================================================================
+
+    const playAudio = async (texte) => {
+        // ⭐ VERROU - Empêcher appels multiples pendant chargement
+        if (isLoadingAudio) {
+            console.log('⏸️ Audio déjà en cours de chargement, requête ignorée')
+            return
+        }
+
+        setIsLoadingAudio(true)
+
+        // ⭐ NETTOYAGE INCONDITIONNEL - Arrêter TOUT son en cours
+        if (currentAudio) {
+            currentAudio.pause()
+            currentAudio.currentTime = 0
+            setCurrentAudio(null)
+        }
+        window.speechSynthesis.cancel()
+
+        if (isPlaying && currentAudio) {
+            currentAudio.pause()
+            setCurrentAudio(null)
+            setIsPlaying(false)
+            setIsLoadingAudio(false)
+            return
+        }
+
+        setIsPlaying(true)
+
+        try {
+            // Normaliser le mot pour chercher dans enregistrementsMap (garder apostrophes internes)
+            const motNormalise = texte
+                .toLowerCase()
+                .trim()
+                .replace(/^[^a-zA-ZàâäéèêëïîôöùûüÿæœçÀÂÄÉÈÊËÏÎÔÖÙÛÜŸÆŒÇ']+/, '')
+                .replace(/[^a-zA-ZàâäéèêëïîôöùûüÿæœçÀÂÄÉÈÊËÏÎÔÖÙÛÜŸÆŒÇ']+$/, '')
+
+            console.log(`🔍 Recherche enregistrement pour "${motNormalise}"`)
+            console.log(`🔍 Contient "${motNormalise}"?`, motNormalise in enregistrementsMap)
+
+            // ========================================================
+            // PRIORITÉ 1 : VOIX PERSONNALISÉE
+            // ========================================================
+            if (enregistrementsMap[motNormalise]) {
+                console.log(`✅ Enregistrement personnalisé trouvé pour "${motNormalise}"`)
+                console.log(`🎵 URL:`, enregistrementsMap[motNormalise].audio_url)
+                const success = await playEnregistrement(enregistrementsMap[motNormalise])
+                if (success) {
+                    // Note: setIsLoadingAudio(false) sera appelé dans les callbacks de playEnregistrement
+                    return
+                }
+                console.log('⚠️ Échec enregistrement personnel, fallback ElevenLabs')
+            }
+
+            // ========================================================
+            // PRIORITÉ 2 : ELEVENLABS AVEC CACHE
+            // ========================================================
+            const cachedAudio = getCachedAudio(texte, selectedVoice)
+            let audioData = null
+
+            if (cachedAudio) {
+                audioData = cachedAudio
+            } else if (tokenStatus !== 'exhausted') {
+                try {
+                    const token = localStorage.getItem('token')
+                    const response = await fetch('/api/speech/elevenlabs', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify({
+                            text: `Le mot est : ${texte}`,
+                            voice_id: selectedVoice
+                        })
+                    })
+
+                    if (response.ok) {
+                        const data = await response.json()
+                        audioData = data.audio
+                        setCachedAudio(texte, selectedVoice, audioData)
+                        setTokenStatus('available')
+                    } else {
+                        setTokenStatus('exhausted')
+                        fallbackToWebSpeech(texte)
+                        // Note: setIsLoadingAudio(false) sera appelé dans les callbacks de fallbackToWebSpeech
+                        return
+                    }
+                } catch (error) {
+                    setTokenStatus('exhausted')
+                    fallbackToWebSpeech(texte)
+                    // Note: setIsLoadingAudio(false) sera appelé dans les callbacks de fallbackToWebSpeech
+                    return
+                }
+            } else {
+                // ========================================================
+                // PRIORITÉ 3 : WEB SPEECH API (Paul/Julie, PAS Hortense)
+                // ========================================================
+                fallbackToWebSpeech(texte)
+                // Note: setIsLoadingAudio(false) sera appelé dans les callbacks de fallbackToWebSpeech
+                return
+            }
+
+            // Jouer l'audio ElevenLabs
+            if (audioData) {
+                const audio = new Audio(`data:audio/mp3;base64,${audioData}`)
+                setCurrentAudio(audio)
+
+                audio.onended = () => {
+                    setIsPlaying(false)
+                    setCurrentAudio(null)
+                    setIsLoadingAudio(false)
+                }
+
+                audio.onerror = () => {
+                    console.error('Erreur lecture ElevenLabs, fallback Web Speech')
+                    setIsPlaying(false)
+                    setCurrentAudio(null)
+                    fallbackToWebSpeech(texte)
+                }
+
+                await audio.play()
+            }
+
+        } catch (error) {
+            console.error('Erreur playAudio:', error)
+            setIsPlaying(false)
+            setIsLoadingAudio(false)
+        }
+    }
 
     const loadTextes = async () => {
         try {
@@ -816,12 +1106,8 @@ export default function SegmentationSyllabiqueTest() {
                         🏠
                     </button>
                     <button
-                        onClick={() => {
-                            const utterance = new SpeechSynthesisUtterance(currentMot.contenu)
-                            utterance.lang = 'fr-FR'
-                            utterance.rate = 0.8
-                            window.speechSynthesis.speak(utterance)
-                        }}
+                        onClick={() => playAudio(currentMot.contenu)}
+                        disabled={isLoadingAudio}
                         style={{
                             width: '50px',
                             height: '50px',
@@ -830,22 +1116,25 @@ export default function SegmentationSyllabiqueTest() {
                             border: '2px solid #10b981',
                             borderRadius: '12px',
                             fontSize: '20px',
-                            cursor: 'pointer',
+                            cursor: isLoadingAudio ? 'wait' : 'pointer',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            transition: 'all 0.2s'
+                            transition: 'all 0.2s',
+                            opacity: isLoadingAudio ? 0.6 : 1
                         }}
                         onMouseEnter={(e) => {
-                            e.currentTarget.style.backgroundColor = '#10b981'
-                            e.currentTarget.style.color = 'white'
+                            if (!isLoadingAudio) {
+                                e.currentTarget.style.backgroundColor = '#10b981'
+                                e.currentTarget.style.color = 'white'
+                            }
                         }}
                         onMouseLeave={(e) => {
                             e.currentTarget.style.backgroundColor = 'white'
                             e.currentTarget.style.color = '#10b981'
                         }}
                     >
-                        🔊
+                        {isPlaying ? '⏸️' : '🔊'}
                     </button>
                     {completedMots.includes(currentMot.id) && (
                         <button
