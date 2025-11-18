@@ -95,7 +95,8 @@ export default async function handler(req, res) {
         segmentationsWithSignedUrls.forEach(seg => {
             segmentationsMap[seg.mot_normalise] = {
                 mot: seg.mot,
-                segmentation: seg.segmentation_personnalisee,
+                segmentation_personnalisee: seg.segmentation_personnalisee,
+                syllabes_modifiees: seg.syllabes_modifiees,
                 audio_urls: seg.audio_urls,
                 id: seg.id,
                 created_at: seg.created_at,

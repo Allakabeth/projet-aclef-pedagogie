@@ -19,6 +19,8 @@ export default function SegmentationSyllabiqueTest() {
     const [showDoute, setShowDoute] = useState(false)
     const [messageDoute, setMessageDoute] = useState('')
     const [showResults, setShowResults] = useState(false) // Afficher page de résultats
+    const [syllabesToRecord, setSyllabesToRecord] = useState([]) // Syllabes à enregistrer (pas déjà existantes)
+    const [existingSyllabes, setExistingSyllabes] = useState({}) // Map des syllabes déjà enregistrées
     const router = useRouter()
 
     useEffect(() => {
@@ -139,7 +141,8 @@ export default function SegmentationSyllabiqueTest() {
         }
     }
 
-    const validerSegmentation = () => {
+    const validerSegmentation = async () => {
+        console.log('🔵 Début validerSegmentation')
         const syllabes = getSyllabesFromCuts()
 
         if (syllabes.length === 0) {
@@ -149,8 +152,61 @@ export default function SegmentationSyllabiqueTest() {
 
         console.log('✂️ Segmentation validée:', syllabes.join('-'))
 
-        setSegmentationEnCours(syllabes)
-        setShowEnregistreur(true)
+        // Vérifier quelles syllabes existent déjà
+        try {
+            const token = localStorage.getItem('token')
+            const response = await fetch('/api/syllabes/check-existing', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ syllabes })
+            })
+
+            if (!response.ok) {
+                console.error('Erreur vérification syllabes')
+                // Continuer quand même
+                setSegmentationEnCours(syllabes)
+                setShowEnregistreur(true)
+                return
+            }
+
+            const data = await response.json()
+            console.log('📊 Vérification syllabes:', data.stats)
+
+            // Séparer syllabes existantes et à enregistrer
+            const existing = {}
+            const toRecord = []
+
+            data.syllabes.forEach(s => {
+                if (s.exists) {
+                    existing[s.syllabe] = s.audio_url
+                    console.log(`✅ "${s.syllabe}" déjà enregistrée`)
+                } else {
+                    toRecord.push(s.syllabe)
+                    console.log(`🎤 "${s.syllabe}" à enregistrer`)
+                }
+            })
+
+            setExistingSyllabes(existing)
+            setSyllabesToRecord(toRecord)
+            setSegmentationEnCours(syllabes)
+
+            // Ouvrir l'enregistreur (affichera les syllabes existantes différemment)
+            if (toRecord.length === 0) {
+                console.log('✅ Toutes les syllabes déjà enregistrées!')
+            } else {
+                console.log(`🎤 ${toRecord.length} syllabe(s) à enregistrer: ${toRecord.join(', ')}`)
+            }
+            setShowEnregistreur(true)
+
+        } catch (error) {
+            console.error('Erreur vérification syllabes:', error)
+            // Continuer quand même
+            setSegmentationEnCours(syllabes)
+            setShowEnregistreur(true)
+        }
     }
 
     const handleEnregistrementsComplete = async (result) => {
@@ -682,6 +738,7 @@ export default function SegmentationSyllabiqueTest() {
                 <EnregistreurSyllabes
                     syllabes={segmentationEnCours}
                     mot={currentMot.contenu}
+                    existingSyllabes={existingSyllabes}
                     onComplete={handleEnregistrementsComplete}
                     onCancel={() => {
                         setShowEnregistreur(false)

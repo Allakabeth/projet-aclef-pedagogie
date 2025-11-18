@@ -106,19 +106,21 @@ export default function RecolteSyllabes() {
             const dataMots = await responseMots.json()
             const mots = dataMots.mots || []
 
-            // 2. Charger les segmentations personnalisées de l'apprenant
+            // 2. Charger les segmentations personnalisées de l'apprenant (SANS CACHE)
             const responseSegmentations = await fetch('/api/enregistrements-syllabes/list', {
                 method: 'GET',
                 headers: {
                     'Authorization': `Bearer ${token}`
-                }
+                },
+                cache: 'no-store' // Forcer rechargement sans cache
             })
 
             let segmentationsMap = {}
             if (responseSegmentations.ok) {
                 const dataSegmentations = await responseSegmentations.json()
                 // Créer une map pour accès rapide par mot
-                segmentationsMap = dataSegmentations.enregistrementsMap || {}
+                segmentationsMap = dataSegmentations.segmentationsMap || {}
+                console.log('📦 Segmentations chargées:', Object.keys(segmentationsMap).length, 'mots')
             }
 
             // 3. Enrichir les mots avec leurs segmentations personnalisées
@@ -133,6 +135,7 @@ export default function RecolteSyllabes() {
 
                 if (segmentation) {
                     // Le mot a une segmentation personnalisée
+                    console.log(`✅ "${mot.contenu}" -> segmentation:`, segmentation.segmentation_personnalisee, 'modifiées:', segmentation.syllabes_modifiees)
                     return {
                         ...mot,
                         segmentation: segmentation.segmentation_personnalisee,
@@ -141,6 +144,7 @@ export default function RecolteSyllabes() {
                     }
                 } else {
                     // Pas de segmentation personnalisée, on utilisera l'API automatique
+                    console.log(`⚠️ "${mot.contenu}" (${motNormalized}) -> pas de segmentation personnalisée`)
                     return mot
                 }
             })
@@ -382,8 +386,30 @@ export default function RecolteSyllabes() {
         jouerSon(lettre)
     }
 
-    // Fonction pour jouer le son d'une syllabe (corrige la prononciation)
-    const jouerSonSyllabe = (syllabe) => {
+    // Fonction pour jouer le son d'une syllabe (utilise l'enregistrement si disponible)
+    const jouerSonSyllabe = (syllabe, indexSyllabe = null) => {
+        // Si on a un mot actuel avec des URLs audio ET un index de syllabe
+        if (motsATraiter.length > 0 && indexSyllabe !== null) {
+            const motActuel = motsATraiter[0]
+            if (motActuel.audioUrls && motActuel.audioUrls[indexSyllabe]) {
+                // Jouer l'enregistrement audio
+                console.log(`🎵 Lecture enregistrement syllabe "${syllabe}" (index ${indexSyllabe})`)
+                const audio = new Audio(motActuel.audioUrls[indexSyllabe])
+                audio.play().catch(err => {
+                    console.error('Erreur lecture audio:', err)
+                    // Fallback sur synthèse vocale
+                    jouerSonSyllabeSynthese(syllabe)
+                })
+                return
+            }
+        }
+
+        // Fallback : synthèse vocale
+        jouerSonSyllabeSynthese(syllabe)
+    }
+
+    // Fonction auxiliaire pour la synthèse vocale
+    const jouerSonSyllabeSynthese = (syllabe) => {
         // Corrections phonétiques pour une meilleure prononciation
         let syllabeCorrigee = syllabe.toLowerCase()
 
@@ -413,6 +439,42 @@ export default function RecolteSyllabes() {
         }
 
         jouerSon(syllabeCorrigee, { rate: 0.7 }) // Plus lent pour les syllabes
+    }
+
+    // Fonction pour jouer le nom d'un panier avec l'enregistrement si disponible
+    const jouerNomPanier = (nomPanier) => {
+        // Normaliser le nom du panier pour rechercher l'enregistrement
+        const nomNormalise = nomPanier.toLowerCase().trim()
+
+        // Chercher dans tous les mots chargés si on a un enregistrement pour cette syllabe
+        let audioUrlTrouve = null
+
+        for (const mot of tousMots) {
+            if (mot.segmentation && mot.audioUrls) {
+                const index = mot.segmentation.findIndex(syl =>
+                    syl.toLowerCase().trim() === nomNormalise
+                )
+                if (index !== -1 && mot.audioUrls[index]) {
+                    audioUrlTrouve = mot.audioUrls[index]
+                    break
+                }
+            }
+        }
+
+        // Si on a trouvé un enregistrement, le jouer
+        if (audioUrlTrouve) {
+            console.log(`🎵 Lecture enregistrement panier "${nomPanier}"`)
+            const audio = new Audio(audioUrlTrouve)
+            audio.play().catch(err => {
+                console.error('Erreur lecture audio panier:', err)
+                // Fallback sur synthèse vocale
+                jouerSonSyllabeSynthese(nomPanier)
+            })
+        } else {
+            // Pas d'enregistrement trouvé, utiliser synthèse vocale
+            console.log(`⚠️ Pas d'enregistrement pour "${nomPanier}", synthèse vocale`)
+            jouerSonSyllabeSynthese(nomPanier)
+        }
     }
 
     // Fonction pour afficher un mot avec colorisation
@@ -1310,7 +1372,7 @@ export default function RecolteSyllabes() {
                                     {segmentationActuelle.map((syllabe, index) => (
                                         <div
                                             key={index}
-                                            onClick={() => jouerSonSyllabe(syllabe)}
+                                            onClick={() => jouerSonSyllabe(syllabe, index)}
                                             style={{
                                                 padding: '4px 8px',
                                                 backgroundColor: index === indexSyllabeActuelle ? '#dcfce7' : '#e5e7eb',
@@ -1360,7 +1422,7 @@ export default function RecolteSyllabes() {
                                     {/* Syllabe à classer */}
                                     <div
                                         draggable
-                                        onClick={() => jouerSonSyllabe(segmentationActuelle[indexSyllabeActuelle])}
+                                        onClick={() => jouerSonSyllabe(segmentationActuelle[indexSyllabeActuelle], indexSyllabeActuelle)}
                                         onDragStart={(e) => {
                                             e.dataTransfer.setData('text/plain', segmentationActuelle[indexSyllabeActuelle])
                                             e.dataTransfer.setData('syllabe-index', indexSyllabeActuelle.toString())
@@ -1477,7 +1539,7 @@ export default function RecolteSyllabes() {
                                 {segmentationActuelle.map((syllabe, index) => (
                                     <div
                                         key={index}
-                                        onClick={() => jouerSonSyllabe(syllabe)}
+                                        onClick={() => jouerSonSyllabe(syllabe, index)}
                                         style={{
                                             padding: '6px 10px',
                                             backgroundColor: index === indexSyllabeActuelle ? '#dcfce7' : '#e5e7eb',
@@ -1785,7 +1847,7 @@ export default function RecolteSyllabes() {
                             })
                             .map(panier => (
                             <div
-                                onClick={() => jouerSon(`c'est le panier des ${panier.nom}`)}
+                                onClick={() => jouerNomPanier(panier.nom)}
                                 key={panier.id}
                                 onDragOver={(e) => {
                                     e.preventDefault()
@@ -2187,7 +2249,7 @@ export default function RecolteSyllabes() {
                             <li><strong>➕ Ajouter un panier :</strong> Créez de nouveaux paniers pour organiser vos syllabes</li>
                             <li><strong>🔊 Bouton son :</strong> Dans le coin du panier pour activer/désactiver le son de création</li>
                             <li><strong>Glisser-déposer :</strong> Faites glisser une syllabe vers un panier</li>
-                            <li><strong>Paniers existants :</strong> Cliquez pour entendre "c'est le panier des [nom]"</li>
+                            <li><strong>Paniers existants :</strong> Cliquez pour entendre le nom du panier avec votre voix enregistrée</li>
                         </ul>
 
                         <h2 style={{ color: '#16a34a', fontSize: '22px', marginTop: '25px', marginBottom: '15px' }}>

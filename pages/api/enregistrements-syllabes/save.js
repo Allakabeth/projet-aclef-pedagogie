@@ -9,6 +9,66 @@ export const config = {
     },
 }
 
+/**
+ * Fonction pour sauvegarder chaque syllabe unique dans syllabes_enregistrees
+ * Permet la réutilisation des syllabes déjà enregistrées
+ */
+async function sauvegarderSyllabesUniques(apprenantId, segmentation, audioUrls, actions) {
+    try {
+        const syllabesToSave = []
+
+        for (let i = 0; i < segmentation.length; i++) {
+            const syllabe = segmentation[i]
+            const audioUrl = audioUrls[i]
+            const action = actions[i]
+
+            // Ignorer les syllabes jetées (pas d'audio)
+            if (action === 'jeter' || !audioUrl) {
+                continue
+            }
+
+            // Normaliser la syllabe
+            const syllabeNormalisee = syllabe
+                .toLowerCase()
+                .trim()
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '')
+
+            syllabesToSave.push({
+                apprenant_id: apprenantId,
+                syllabe: syllabeNormalisee,
+                syllabe_affichee: syllabe,
+                audio_url: audioUrl
+            })
+        }
+
+        if (syllabesToSave.length === 0) {
+            console.log('⏭️ Aucune syllabe à sauvegarder (toutes jetées)')
+            return
+        }
+
+        console.log(`💾 Sauvegarde de ${syllabesToSave.length} syllabe(s) unique(s)...`)
+
+        // Upsert (insert ou update si existe déjà)
+        const { data, error } = await supabaseAdmin
+            .from('syllabes_enregistrees')
+            .upsert(syllabesToSave, {
+                onConflict: 'apprenant_id,syllabe'
+            })
+
+        if (error) {
+            console.error('⚠️ Erreur sauvegarde syllabes uniques:', error)
+            // Ne pas bloquer le processus principal
+        } else {
+            console.log(`✅ ${syllabesToSave.length} syllabe(s) unique(s) sauvegardée(s)`)
+        }
+
+    } catch (error) {
+        console.error('⚠️ Erreur sauvegarde syllabes uniques:', error)
+        // Ne pas bloquer le processus principal
+    }
+}
+
 export default async function handler(req, res) {
     if (req.method !== 'POST') {
         return res.status(405).json({ error: 'Method not allowed' })
@@ -170,7 +230,52 @@ export default async function handler(req, res) {
         }
 
         // ====================================================================
-        // 4. UPLOAD DES FICHIERS VERS SUPABASE STORAGE
+        // 4. RÉCUPÉRER LES URLs DES SYLLABES EXISTANTES
+        // ====================================================================
+
+        // Récupérer toutes les syllabes marquées comme 'existing'
+        const syllabesToFetch = []
+        for (let i = 0; i < segmentation.length; i++) {
+            if (actions[i] === 'existing') {
+                const syllabeNormalisee = segmentation[i]
+                    .toLowerCase()
+                    .trim()
+                    .normalize('NFD')
+                    .replace(/[\u0300-\u036f]/g, '')
+                syllabesToFetch.push(syllabeNormalisee)
+            }
+        }
+
+        // Map pour stocker les URLs des syllabes existantes
+        const existingSyllabesMap = {}
+
+        if (syllabesToFetch.length > 0) {
+            console.log(`🔍 Récupération de ${syllabesToFetch.length} syllabe(s) existante(s)...`)
+
+            const { data: existingData, error: existingError } = await supabaseAdmin
+                .from('syllabes_enregistrees')
+                .select('syllabe, audio_url')
+                .eq('apprenant_id', apprenantId)
+                .in('syllabe', syllabesToFetch)
+
+            if (existingError) {
+                console.error('❌ Erreur récupération syllabes existantes:', existingError)
+                return res.status(500).json({
+                    error: 'Erreur lors de la récupération des syllabes existantes',
+                    details: existingError.message
+                })
+            }
+
+            // Créer le map syllabe → audio_url
+            existingData.forEach(syl => {
+                existingSyllabesMap[syl.syllabe] = syl.audio_url
+            })
+
+            console.log(`✅ ${existingData.length} syllabe(s) existante(s) récupérée(s)`)
+        }
+
+        // ====================================================================
+        // 5. UPLOAD DES FICHIERS VERS SUPABASE STORAGE
         // ====================================================================
 
         const audioUrls = []
@@ -188,6 +293,29 @@ export default async function handler(req, res) {
             if (action === 'jeter') {
                 console.log(`🗑️ Syllabe ${i + 1}/${segmentation.length} jetée: "${syllabe}" (pas d'enregistrement)`)
                 audioUrls.push(null)
+                continue
+            }
+
+            // Si syllabe existante (déjà enregistrée), récupérer l'URL depuis le map
+            if (action === 'existing') {
+                const syllabeNormalisee = syllabe
+                    .toLowerCase()
+                    .trim()
+                    .normalize('NFD')
+                    .replace(/[\u0300-\u036f]/g, '')
+
+                const existingUrl = existingSyllabesMap[syllabeNormalisee]
+
+                if (!existingUrl) {
+                    console.error(`❌ URL manquante pour syllabe existante: "${syllabe}"`)
+                    return res.status(500).json({
+                        error: `URL audio manquante pour la syllabe existante "${syllabe}"`,
+                        details: 'La syllabe devrait exister dans syllabes_enregistrees'
+                    })
+                }
+
+                console.log(`♻️ Syllabe ${i + 1}/${segmentation.length} existante: "${syllabe}" (réutilisation)`)
+                audioUrls.push(existingUrl)
                 continue
             }
 
@@ -237,7 +365,7 @@ export default async function handler(req, res) {
         }
 
         // ====================================================================
-        // 5. SAUVEGARDER/METTRE À JOUR L'ENTRÉE EN BASE DE DONNÉES
+        // 6. SAUVEGARDER/METTRE À JOUR L'ENTRÉE EN BASE DE DONNÉES
         // ====================================================================
 
         const dataToSave = {
@@ -269,6 +397,11 @@ export default async function handler(req, res) {
 
             console.log('✅ Segmentation mise à jour:', updateData.id)
 
+            // ================================================================
+            // 7. SAUVEGARDER CHAQUE SYLLABE UNIQUE DANS syllabes_enregistrees
+            // ================================================================
+            await sauvegarderSyllabesUniques(apprenantId, segmentation, audioUrls, actions)
+
             return res.status(200).json({
                 success: true,
                 message: 'Segmentation mise à jour avec succès',
@@ -292,6 +425,11 @@ export default async function handler(req, res) {
             }
 
             console.log('✅ Nouvelle segmentation créée:', insertData.id)
+
+            // ================================================================
+            // 7. SAUVEGARDER CHAQUE SYLLABE UNIQUE DANS syllabes_enregistrees
+            // ================================================================
+            await sauvegarderSyllabesUniques(apprenantId, segmentation, audioUrls, actions)
 
             return res.status(201).json({
                 success: true,

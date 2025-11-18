@@ -5,14 +5,16 @@ import VoiceRecorder from './VoiceRecorder'
  * Composant pour enregistrer chaque syllabe d'un mot segmenté
  *
  * NOUVEAU : Permet de jeter des syllabes (tirets, apostrophes) sans les enregistrer
+ * NOUVEAU : Affiche les syllabes déjà enregistrées avec option d'écoute
  *
  * Props:
  * - syllabes: array des syllabes à enregistrer (ex: ["cerf", "-", "vo", "lant"])
  * - mot: mot complet (pour affichage)
+ * - existingSyllabes: object {syllabe: audioUrl} pour les syllabes déjà enregistrées
  * - onComplete: callback({syllabes: [...], audios: [...], actions: [...]})
  * - onCancel: callback() appelé si annulation
  */
-export default function EnregistreurSyllabes({ syllabes, mot, onComplete, onCancel }) {
+export default function EnregistreurSyllabes({ syllabes, mot, existingSyllabes = {}, onComplete, onCancel }) {
     const [currentIndex, setCurrentIndex] = useState(0)
     const [enregistrements, setEnregistrements] = useState([]) // {syllabe, syllabeModifiee, action: 'enregistrer'|'jeter'|'modifier', audioBlob}
     const [showRecorder, setShowRecorder] = useState(false)
@@ -24,6 +26,42 @@ export default function EnregistreurSyllabes({ syllabes, mot, onComplete, onCanc
     // Vérifier que toutes les syllabes sont traitées
     const allProcessed = enregistrements.length === syllabes.length
     const syllabeActuelle = syllabes[currentIndex]
+
+    // Vérifier si la syllabe actuelle existe déjà
+    const syllabeNormalisee = syllabeActuelle?.toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    const audioExistant = existingSyllabes[syllabeNormalisee]
+
+    /**
+     * Action : Utiliser l'enregistrement existant (déjà enregistré)
+     */
+    const handleUtiliserExistant = () => {
+        console.log(`✅ Utilisation enregistrement existant pour "${syllabeActuelle}"`)
+
+        const newEnregistrement = {
+            syllabe: syllabeActuelle,
+            syllabeModifiee: null,
+            action: 'existing', // Nouvelle action
+            audioBlob: null, // Pas de blob, on utilise l'URL existante
+            audioUrl: audioExistant // URL de l'enregistrement existant
+        }
+
+        setEnregistrements([...enregistrements, newEnregistrement])
+
+        // Passer à la syllabe suivante
+        if (currentIndex < syllabes.length - 1) {
+            setCurrentIndex(currentIndex + 1)
+        }
+    }
+
+    /**
+     * Action : Écouter l'enregistrement existant
+     */
+    const handleEcouterExistant = () => {
+        if (audioExistant) {
+            const audio = new Audio(audioExistant)
+            audio.play()
+        }
+    }
 
     /**
      * Action : Enregistrer la syllabe
@@ -334,12 +372,65 @@ export default function EnregistreurSyllabes({ syllabes, mot, onComplete, onCanc
                                 {/* Choix d'action (syllabe actuelle, pas encore traitée) */}
                                 {isCurrent && !processed && !showRecorder && !showModifier && (
                                     <div style={{ display: 'flex', gap: '10px', marginTop: '10px', flexWrap: 'wrap' }}>
+                                        {/* Si syllabe déjà enregistrée : afficher bouton "Écouter" et "Utiliser" */}
+                                        {audioExistant ? (
+                                            <>
+                                                <div style={{
+                                                    width: '100%',
+                                                    padding: '10px',
+                                                    backgroundColor: '#d1fae5',
+                                                    borderRadius: '6px',
+                                                    border: '2px solid #10b981',
+                                                    marginBottom: '10px',
+                                                    textAlign: 'center',
+                                                    fontSize: '14px',
+                                                    color: '#065f46',
+                                                    fontWeight: 'bold'
+                                                }}>
+                                                    ✅ Syllabe déjà enregistrée
+                                                </div>
+                                                <button
+                                                    onClick={handleEcouterExistant}
+                                                    style={{
+                                                        flex: '1 1 45%',
+                                                        padding: '12px',
+                                                        backgroundColor: '#10b981',
+                                                        color: 'white',
+                                                        border: 'none',
+                                                        borderRadius: '6px',
+                                                        fontSize: '14px',
+                                                        fontWeight: 'bold',
+                                                        cursor: 'pointer'
+                                                    }}
+                                                >
+                                                    🔊 Écouter
+                                                </button>
+                                                <button
+                                                    onClick={handleUtiliserExistant}
+                                                    style={{
+                                                        flex: '1 1 45%',
+                                                        padding: '12px',
+                                                        backgroundColor: '#10b981',
+                                                        color: 'white',
+                                                        border: 'none',
+                                                        borderRadius: '6px',
+                                                        fontSize: '14px',
+                                                        fontWeight: 'bold',
+                                                        cursor: 'pointer'
+                                                    }}
+                                                >
+                                                    👍 Utiliser
+                                                </button>
+                                            </>
+                                        ) : null}
+
+                                        {/* Bouton Enregistrer (toujours disponible) */}
                                         <button
                                             onClick={handleEnregistrer}
                                             style={{
                                                 flex: '1 1 45%',
                                                 padding: '12px',
-                                                backgroundColor: '#3b82f6',
+                                                backgroundColor: audioExistant ? '#6b7280' : '#3b82f6',
                                                 color: 'white',
                                                 border: 'none',
                                                 borderRadius: '6px',
@@ -348,7 +439,7 @@ export default function EnregistreurSyllabes({ syllabes, mot, onComplete, onCanc
                                                 cursor: 'pointer'
                                             }}
                                         >
-                                            🎤 Enregistrer
+                                            🎤 {audioExistant ? 'Ré-enregistrer' : 'Enregistrer'}
                                         </button>
                                         <button
                                             onClick={handleModifier}
