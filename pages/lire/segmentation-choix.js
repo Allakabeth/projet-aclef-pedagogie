@@ -14,9 +14,11 @@ export default function SegmentationSyllabiqueTest() {
     const [showEnregistreur, setShowEnregistreur] = useState(false)
     const [segmentationEnCours, setSegmentationEnCours] = useState([])
     const [completedMots, setCompletedMots] = useState([])
+    const [motsSegmentes, setMotsSegmentes] = useState([]) // Résultats des segmentations
     const [isSaving, setIsSaving] = useState(false)
     const [showDoute, setShowDoute] = useState(false)
     const [messageDoute, setMessageDoute] = useState('')
+    const [showResults, setShowResults] = useState(false) // Afficher page de résultats
     const router = useRouter()
 
     useEffect(() => {
@@ -188,6 +190,15 @@ export default function SegmentationSyllabiqueTest() {
                 const data = await response.json()
                 console.log('✅ Segmentation sauvegardée:', data)
 
+                // Stocker le résultat pour l'affichage final
+                const resultat = {
+                    mot: currentMot.contenu,
+                    syllabes: syllabes,
+                    syllabesModifiees: syllabesModifiees,
+                    actions: actions
+                }
+                setMotsSegmentes([...motsSegmentes, resultat])
+
                 // Passer au mot suivant
                 setCompletedMots([...completedMots, currentMot.id])
                 passerMotSuivant()
@@ -212,9 +223,8 @@ export default function SegmentationSyllabiqueTest() {
         if (currentMotIndex + 1 < allMots.length) {
             setCurrentMotIndex(currentMotIndex + 1)
         } else {
-            // Fin du jeu
-            alert(`🎉 Bravo ! Tu as segmenté ${allMots.length} mots !`)
-            setGameStarted(false)
+            // Tous les mots sont terminés, afficher la page de résultats
+            setShowResults(true)
         }
     }
 
@@ -325,6 +335,141 @@ export default function SegmentationSyllabiqueTest() {
                 >
                     🚀 Commencer la segmentation
                 </button>
+            </div>
+        )
+    }
+
+    // Page de résultats
+    if (showResults) {
+        return (
+            <div style={{
+                minHeight: '100vh',
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                padding: '20px'
+            }}>
+                <div style={{
+                    maxWidth: '900px',
+                    margin: '0 auto',
+                    backgroundColor: 'white',
+                    borderRadius: '16px',
+                    padding: '30px',
+                    boxShadow: '0 10px 40px rgba(0,0,0,0.2)'
+                }}>
+                    <h1 style={{
+                        textAlign: 'center',
+                        color: '#1f2937',
+                        marginBottom: '10px'
+                    }}>
+                        🎉 Segmentation terminée !
+                    </h1>
+
+                    <p style={{
+                        textAlign: 'center',
+                        color: '#6b7280',
+                        marginBottom: '30px'
+                    }}>
+                        Voici tous les mots que tu as segmentés :
+                    </p>
+
+                    {/* Liste des mots segmentés */}
+                    <div style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '15px'
+                    }}>
+                        {motsSegmentes.map((item, index) => {
+                            // Construire l'affichage des syllabes
+                            const syllabesAffichees = item.syllabes.map((syllabe, idx) => {
+                                const action = item.actions[idx]
+                                const modifiee = item.syllabesModifiees[idx]
+
+                                if (action === 'jeter') {
+                                    return null // Ne pas afficher les syllabes jetées
+                                }
+
+                                if (action === 'modifier') {
+                                    return `${syllabe} → ${modifiee}`
+                                }
+
+                                return syllabe
+                            }).filter(s => s !== null)
+
+                            return (
+                                <div
+                                    key={index}
+                                    style={{
+                                        padding: '20px',
+                                        backgroundColor: '#f9fafb',
+                                        borderRadius: '8px',
+                                        border: '2px solid #e5e7eb'
+                                    }}
+                                >
+                                    <div style={{
+                                        fontSize: '20px',
+                                        fontWeight: 'bold',
+                                        color: '#1f2937',
+                                        marginBottom: '10px'
+                                    }}>
+                                        {index + 1}. {item.mot}
+                                    </div>
+                                    <div style={{
+                                        fontSize: '18px',
+                                        color: '#3b82f6',
+                                        fontWeight: 'bold'
+                                    }}>
+                                        {syllabesAffichees.join(' - ')}
+                                    </div>
+                                </div>
+                            )
+                        })}
+                    </div>
+
+                    {/* Boutons */}
+                    <div style={{
+                        display: 'flex',
+                        gap: '15px',
+                        marginTop: '30px'
+                    }}>
+                        <button
+                            onClick={() => {
+                                setShowResults(false)
+                                setGameStarted(false)
+                                setMotsSegmentes([])
+                                setCompletedMots([])
+                                setCurrentMotIndex(0)
+                            }}
+                            style={{
+                                flex: 1,
+                                padding: '15px',
+                                backgroundColor: '#3b82f6',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '8px',
+                                fontSize: '16px',
+                                fontWeight: 'bold',
+                                cursor: 'pointer'
+                            }}
+                        >
+                            🔄 Nouvelle segmentation
+                        </button>
+                        <button
+                            onClick={() => router.push('/dashboard')}
+                            style={{
+                                flex: 1,
+                                padding: '15px',
+                                backgroundColor: '#10b981',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '8px',
+                                fontSize: '16px',
+                                fontWeight: 'bold',
+                                cursor: 'pointer'
+                            }}
+                        >
+                            ✅ Retour au tableau de bord
+                        </button>
+                    </div>
+                </div>
             </div>
         )
     }
