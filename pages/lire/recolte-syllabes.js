@@ -81,31 +81,40 @@ export default function RecolteSyllabes() {
                 console.log('Aucun texte sélectionné')
                 return
             }
-            
-            console.log('Chargement des mots pour le texte:', texteId)
+
+            console.log('Chargement des segmentations personnalisées pour le texte:', texteId)
 
             const token = localStorage.getItem('token')
-            const response = await fetch('/api/mots-classifies/multisyllabes-simple', {
-                method: 'POST',
+
+            // Charger les segmentations personnalisées de l'apprenant
+            const response = await fetch('/api/enregistrements-syllabes/list', {
+                method: 'GET',
                 headers: {
-                    'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({
-                    textesIds: [texteId]
-                })
+                }
             })
 
             if (response.ok) {
                 const data = await response.json()
-                setMotsInitiaux(data.mots || []) // Stocker de façon stable avec state
-                setTousMots(data.mots || []) // Stocker tous les mots initiaux
-                setMotsATraiter(data.mots || [])
-                console.log('Mots chargés:', data.mots?.length || 0)
-                
+                // data.enregistrements = [{mot, segmentation_personnalisee, syllabes_modifiees, audio_urls}, ...]
+
+                // Transformer les enregistrements en format attendu par la page
+                const motsAvecSegmentation = (data.enregistrements || []).map(enr => ({
+                    id: enr.id,
+                    contenu: enr.mot,
+                    segmentation: enr.segmentation_personnalisee,
+                    syllabesModifiees: enr.syllabes_modifiees,
+                    audioUrls: enr.audio_urls
+                }))
+
+                setMotsInitiaux(motsAvecSegmentation) // Stocker de façon stable avec state
+                setTousMots(motsAvecSegmentation) // Stocker tous les mots initiaux
+                setMotsATraiter(motsAvecSegmentation)
+                console.log('Mots segmentés chargés:', motsAvecSegmentation.length)
+
                 // Charger le premier mot
-                if (data.mots && data.mots.length > 0) {
-                    chargerMotActuel(data.mots[0])
+                if (motsAvecSegmentation.length > 0) {
+                    chargerMotActuel(motsAvecSegmentation[0])
                 }
             }
         } catch (error) {
@@ -115,30 +124,26 @@ export default function RecolteSyllabes() {
 
     const chargerMotActuel = async (mot) => {
         try {
-            console.log('Segmentation du mot:', mot.contenu)
-            
-            const response = await fetch('/api/syllabification/coupe-mots', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    mots: [mot.contenu]
-                })
+            console.log('Chargement mot avec segmentation personnalisée:', mot.contenu)
+
+            // Utiliser la segmentation personnalisée déjà chargée
+            // Si syllabe modifiée, on utilise la version modifiée, sinon la version originale
+            const segmentation = mot.segmentation || [mot.contenu]
+            const segmentationAffichee = segmentation.map((syllabe, index) => {
+                // Si syllabe modifiée existe, l'utiliser
+                if (mot.syllabesModifiees && mot.syllabesModifiees[index]) {
+                    return mot.syllabesModifiees[index]
+                }
+                return syllabe
             })
-            
-            if (response.ok) {
-                const data = await response.json()
-                const segmentation = data.syllabifications[mot.contenu] || [mot.contenu]
-                
-                setMotActuel(mot)
-                setSegmentationActuelle(segmentation)
-                setIndexSyllabeActuelle(0)
-                
-                console.log('Segmentation:', segmentation)
-            }
+
+            setMotActuel(mot)
+            setSegmentationActuelle(segmentationAffichee)
+            setIndexSyllabeActuelle(0)
+
+            console.log('Segmentation personnalisée:', segmentationAffichee)
         } catch (error) {
-            console.error('Erreur segmentation:', error)
+            console.error('Erreur chargement mot:', error)
             // Fallback : pas de segmentation
             setMotActuel(mot)
             setSegmentationActuelle([mot.contenu])
