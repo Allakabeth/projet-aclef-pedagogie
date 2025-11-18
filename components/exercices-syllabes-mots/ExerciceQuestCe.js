@@ -1,6 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import { useRouter } from 'next/router'
 
 export default function ExerciceQuestCe({ selectedTextes, retourSelection }) {
+    const router = useRouter()
     const [allMots, setAllMots] = useState([])
     const [currentMot, setCurrentMot] = useState(null)
     const [shuffledMots, setShuffledMots] = useState([])
@@ -11,21 +13,74 @@ export default function ExerciceQuestCe({ selectedTextes, retourSelection }) {
     const [currentAudio, setCurrentAudio] = useState(null)
     const [feedback, setFeedback] = useState('')
     const [completedMots, setCompletedMots] = useState([])
-    const [selectedVoice, setSelectedVoice] = useState('AfbuxQ9DVtS4azaxN1W7')
-    const [availableVoices, setAvailableVoices] = useState([])
     const [gameFinished, setGameFinished] = useState(false)
     const [finalScore, setFinalScore] = useState({ correct: 0, total: 0, percentage: 0 })
+    const [enregistrementsMap, setEnregistrementsMap] = useState({})
+    const [elevenLabsTokens, setElevenLabsTokens] = useState(0)
+
+    const enregistrementsMapRef = useRef({})
 
     useEffect(() => {
-        loadVoices()
-        startGame()
+        const init = async () => {
+            await Promise.all([
+                loadEnregistrements(),
+                loadElevenLabsTokens()
+            ])
+            startGame()
+        }
+        init()
     }, [])
 
-    const loadVoices = () => {
-        setAvailableVoices([
-            { name: 'Paul (ElevenLabs)', id: 'AfbuxQ9DVtS4azaxN1W7', type: 'elevenlabs' },
-            { name: 'Julie (ElevenLabs)', id: 'tMyQcCxfGDdIt7wJ2RQw', type: 'elevenlabs' }
-        ])
+    const loadEnregistrements = async () => {
+        try {
+            const token = localStorage.getItem('token')
+            const response = await fetch('/api/enregistrements-mots/list', {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            })
+
+            if (response.ok) {
+                const data = await response.json()
+                const map = {}
+                const enregistrements = data.enregistrements || []
+
+                enregistrements.forEach(enr => {
+                    const motNormalise = enr.mot
+                        .toLowerCase()
+                        .trim()
+                        .replace(/^[.,;:!?¡¿'"«»\-—]+/, '')
+                        .replace(/[.,;:!?¡¿'"«»\-—]+$/, '')
+                    map[motNormalise] = enr
+                })
+
+                enregistrementsMapRef.current = map
+                setEnregistrementsMap(map)
+                console.log(`✅ ${Object.keys(map).length} enregistrements personnels chargés`)
+            }
+        } catch (error) {
+            console.error('Erreur chargement enregistrements:', error)
+        }
+    }
+
+    const loadElevenLabsTokens = async () => {
+        try {
+            const token = localStorage.getItem('token')
+            const response = await fetch('/api/speech/elevenlabs-tokens', {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            })
+
+            if (response.ok) {
+                const data = await response.json()
+                setElevenLabsTokens(data.tokens || 0)
+                console.log(`✅ Tokens ElevenLabs: ${data.tokens || 0}`)
+            }
+        } catch (error) {
+            console.error('Erreur chargement tokens:', error)
+            setElevenLabsTokens(0)
+        }
     }
 
     const startGame = async () => {
@@ -155,22 +210,18 @@ export default function ExerciceQuestCe({ selectedTextes, retourSelection }) {
 
         setIsPlaying(motId)
 
-        try {
-            const response = await fetch('/api/speech/elevenlabs', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
-                },
-                body: JSON.stringify({
-                    text: text,
-                    voice_id: selectedVoice
-                })
-            })
+        const map = enregistrementsMapRef.current
+        const motNormalise = text
+            .toLowerCase()
+            .trim()
+            .replace(/^[.,;:!?¡¿'"«»\-—]+/, '')
+            .replace(/[.,;:!?¡¿'"«»\-—]+$/, '')
 
-            if (response.ok) {
-                const data = await response.json()
-                const audio = new Audio(data.audio)
+        // PRIORITÉ 1 : Enregistrement personnel
+        if (map[motNormalise]) {
+            console.log(`🎤 Lecture enregistrement personnel pour: ${text}`)
+            try {
+                const audio = new Audio(map[motNormalise].audio_url)
                 setCurrentAudio(audio)
 
                 audio.onended = () => {
@@ -179,24 +230,94 @@ export default function ExerciceQuestCe({ selectedTextes, retourSelection }) {
                 }
 
                 await audio.play()
-            } else {
-                throw new Error('ElevenLabs failed')
+                return
+            } catch (error) {
+                console.error('Erreur lecture enregistrement personnel:', error)
             }
-        } catch (error) {
-            console.log('Fallback vers Web Speech API')
-            if ('speechSynthesis' in window) {
-                const utterance = new SpeechSynthesisUtterance(text)
-                utterance.lang = 'fr-FR'
-                utterance.rate = 0.8
+        }
 
-                utterance.onend = () => {
-                    setIsPlaying(null)
+        // PRIORITÉ 2 : ElevenLabs (si tokens disponibles)
+        if (elevenLabsTokens > 0) {
+            console.log(`🔊 Tentative ElevenLabs (${elevenLabsTokens} tokens restants)`)
+            try {
+                const response = await fetch('/api/speech/elevenlabs', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    },
+                    body: JSON.stringify({
+                        text: text,
+                        voice_id: 'tMyQcCxfGDdIt7wJ2RQw' // Julie par défaut
+                    })
+                })
+
+                if (response.ok) {
+                    const data = await response.json()
+                    const audio = new Audio(data.audio)
+                    setCurrentAudio(audio)
+
+                    audio.onended = () => {
+                        setIsPlaying(null)
+                        setCurrentAudio(null)
+                    }
+
+                    await audio.play()
+
+                    // Recharger les tokens après utilisation
+                    loadElevenLabsTokens()
+                    return
                 }
+            } catch (error) {
+                console.log('ElevenLabs échoué, fallback vers Web Speech')
+            }
+        }
 
-                speechSynthesis.speak(utterance)
+        // PRIORITÉ 3 : Web Speech API (sans Hortense)
+        console.log('🗣️ Fallback vers Web Speech API')
+        playWebSpeech(motId, text)
+    }
+
+    const playWebSpeech = (motId, text) => {
+        if ('speechSynthesis' in window) {
+            const utterance = new SpeechSynthesisUtterance(text)
+            utterance.lang = 'fr-FR'
+            utterance.rate = 0.8
+
+            // Attendre que les voix soient chargées
+            const setVoice = () => {
+                const voices = speechSynthesis.getVoices()
+                const frenchVoices = voices.filter(v =>
+                    v.lang.startsWith('fr') &&
+                    !v.name.toLowerCase().includes('hortense')
+                )
+
+                // Préférer Julie, Thomas ou Daniel
+                const preferredVoice = frenchVoices.find(v =>
+                    v.name.toLowerCase().includes('julie') ||
+                    v.name.toLowerCase().includes('thomas') ||
+                    v.name.toLowerCase().includes('daniel')
+                ) || frenchVoices[0]
+
+                if (preferredVoice) {
+                    utterance.voice = preferredVoice
+                    console.log(`🗣️ Voix sélectionnée: ${preferredVoice.name}`)
+                }
+            }
+
+            if (speechSynthesis.getVoices().length > 0) {
+                setVoice()
             } else {
+                speechSynthesis.onvoiceschanged = setVoice
+            }
+
+            utterance.onend = () => {
                 setIsPlaying(null)
             }
+
+            speechSynthesis.speak(utterance)
+        } else {
+            setIsPlaying(null)
         }
     }
 
@@ -288,16 +409,100 @@ export default function ExerciceQuestCe({ selectedTextes, retourSelection }) {
                 margin: '0 auto'
             }}>
                 <h1 style={{
-                    fontSize: 'clamp(22px, 5vw, 28px)',
+                    fontSize: '32px',
                     fontWeight: 'bold',
                     marginBottom: '20px',
-                    background: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
-                    WebkitBackgroundClip: 'text',
-                    WebkitTextFillColor: 'transparent',
-                    textAlign: 'center'
+                    textAlign: 'center',
+                    color: '#3b82f6'
                 }}>
                     🤔 Qu'est-ce que c'est ?
                 </h1>
+
+                {/* Navigation icônes */}
+                <div style={{
+                    display: 'flex',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    marginBottom: '30px',
+                    flexWrap: 'wrap'
+                }}>
+                    <button
+                        onClick={retourSelection}
+                        style={{
+                            width: '48px',
+                            height: '48px',
+                            backgroundColor: 'white',
+                            color: '#3b82f6',
+                            border: '2px solid #3b82f6',
+                            borderRadius: '10px',
+                            fontSize: '22px',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                        }}
+                        title="Retour sélection"
+                    >
+                        ←
+                    </button>
+                    <button
+                        onClick={() => router.push('/lire/reconnaitre-les-mots')}
+                        style={{
+                            width: '48px',
+                            height: '48px',
+                            backgroundColor: 'white',
+                            color: '#3b82f6',
+                            border: '2px solid #3b82f6',
+                            borderRadius: '10px',
+                            fontSize: '22px',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                        }}
+                        title="Menu exercices"
+                    >
+                        👁️
+                    </button>
+                    <button
+                        onClick={() => router.push('/lire')}
+                        style={{
+                            width: '48px',
+                            height: '48px',
+                            backgroundColor: 'white',
+                            color: '#3b82f6',
+                            border: '2px solid #3b82f6',
+                            borderRadius: '10px',
+                            fontSize: '22px',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                        }}
+                        title="Menu Lire"
+                    >
+                        📖
+                    </button>
+                    <button
+                        onClick={() => router.push('/dashboard')}
+                        style={{
+                            width: '48px',
+                            height: '48px',
+                            backgroundColor: 'white',
+                            color: '#3b82f6',
+                            border: '2px solid #3b82f6',
+                            borderRadius: '10px',
+                            fontSize: '22px',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                        }}
+                        title="Dashboard"
+                    >
+                        🏠
+                    </button>
+                </div>
 
                 <p style={{
                     textAlign: 'center',
@@ -308,88 +513,16 @@ export default function ExerciceQuestCe({ selectedTextes, retourSelection }) {
                     Regardez le mot écrit et écoutez les propositions
                 </p>
 
-                {/* Sélection de la voix */}
-                <div style={{
-                    background: '#fef3c7',
-                    padding: '20px',
-                    borderRadius: '8px',
-                    marginBottom: '20px'
-                }}>
-                    <h3 style={{
-                        marginBottom: '15px',
-                        color: '#92400e',
-                        fontSize: '16px',
-                        textAlign: 'center'
-                    }}>
-                        🎤 Choisissez une voix
-                    </h3>
-                    <div style={{
-                        display: 'flex',
-                        gap: '10px',
-                        justifyContent: 'center',
-                        flexWrap: 'wrap'
-                    }}>
-                        {availableVoices.map(voice => (
-                            <button
-                                key={voice.id}
-                                onClick={() => setSelectedVoice(voice.id)}
-                                style={{
-                                    padding: '8px 16px',
-                                    border: selectedVoice === voice.id ? '2px solid #d97706' : '1px solid #d1d5db',
-                                    borderRadius: '6px',
-                                    background: selectedVoice === voice.id ? '#fef3c7' : 'white',
-                                    color: selectedVoice === voice.id ? '#92400e' : '#374151',
-                                    fontSize: '14px',
-                                    cursor: 'pointer',
-                                    fontWeight: selectedVoice === voice.id ? 'bold' : 'normal'
-                                }}
-                            >
-                                {voice.name}
-                            </button>
-                        ))}
-                    </div>
-                </div>
-
-                {/* En-tête de jeu */}
-                <div style={{
-                    background: '#f0f9ff',
-                    padding: '20px',
-                    borderRadius: '12px',
-                    marginBottom: '30px',
-                    textAlign: 'center'
-                }}>
-                    <h3 style={{ color: '#1d4ed8', marginBottom: '10px' }}>
-                        📊 Score : {score}/{attempts} ({attempts > 0 ? Math.round((score/attempts)*100) : 0}%)
-                    </h3>
-                    <p style={{ color: '#666', fontSize: '14px' }}>
-                        Mots restants : {shuffledMots.length - completedMots.length}
-                    </p>
-                </div>
-
                 {/* Mot affiché */}
                 {currentMot && (
                     <div style={{
-                        background: '#fef3c7',
-                        padding: '40px',
-                        borderRadius: '12px',
                         marginBottom: '30px',
                         textAlign: 'center'
                     }}>
-                        <h2 style={{
-                            color: '#92400e',
-                            marginBottom: '20px',
-                            fontSize: '20px'
-                        }}>
-                            👁️ Regardez ce mot et écoutez les propositions :
-                        </h2>
                         <div style={{
                             fontSize: '48px',
                             fontWeight: 'bold',
-                            color: '#b45309',
-                            padding: '20px',
-                            background: 'white',
-                            borderRadius: '12px',
-                            boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+                            color: '#3b82f6'
                         }}>
                             {currentMot.contenu}
                         </div>
@@ -399,53 +532,93 @@ export default function ExerciceQuestCe({ selectedTextes, retourSelection }) {
                 {/* Options */}
                 <div style={{
                     display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-                    gap: '15px',
-                    marginBottom: '30px'
+                    gridTemplateColumns: typeof window !== 'undefined' && window.innerWidth <= 768 ?
+                        (displayedMots.length <= 4 ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)') :
+                        'repeat(auto-fit, minmax(250px, 1fr))',
+                    gap: typeof window !== 'undefined' && window.innerWidth <= 768 ? '6px' : '20px'
                 }}>
                     {displayedMots.map((mot, index) => (
-                        <button
-                            key={`${mot.id}-${index}`}
-                            onClick={() => handleAnswer(mot)}
-                            disabled={!!feedback}
-                            style={{
-                                padding: '20px',
-                                background: 'white',
-                                border: '2px solid #3b82f6',
-                                borderRadius: '8px',
-                                fontSize: '16px',
-                                fontWeight: 'bold',
-                                color: '#333',
-                                cursor: feedback ? 'not-allowed' : 'pointer',
-                                opacity: feedback ? 0.7 : 1,
-                                transition: 'all 0.2s ease',
+                        <div key={`${mot.id}-${index}`} style={{
+                            background: '#fff',
+                            border: typeof window !== 'undefined' && window.innerWidth <= 768 ? '1px solid' : '2px solid',
+                            borderColor: '#dee2e6',
+                            borderRadius: typeof window !== 'undefined' && window.innerWidth <= 768 ? '6px' : '8px',
+                            padding: typeof window !== 'undefined' && window.innerWidth <= 768 ? '8px' : '15px',
+                            transition: 'all 0.3s'
+                        }}>
+                            {/* Numéro en haut */}
+                            <div style={{
+                                textAlign: 'center',
+                                marginBottom: typeof window !== 'undefined' && window.innerWidth <= 768 ? '8px' : '12px'
+                            }}>
+                                <span style={{
+                                    fontSize: typeof window !== 'undefined' && window.innerWidth <= 768 ? '12px' : '16px',
+                                    fontWeight: 'bold',
+                                    color: '#333'
+                                }}>
+                                    {index + 1}
+                                </span>
+                            </div>
+
+                            {/* Boutons côte à côte */}
+                            <div style={{
                                 display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center'
-                            }}
-                            onMouseOver={(e) => !feedback && (e.target.style.background = '#f0f9ff')}
-                            onMouseOut={(e) => !feedback && (e.target.style.background = 'white')}
-                        >
-                            <button
-                                onClick={(e) => {
-                                    e.stopPropagation()
-                                    playAudio(mot.id, mot.contenu)
-                                }}
-                                disabled={isPlaying === mot.id}
-                                style={{
-                                    background: isPlaying === mot.id ? '#ccc' : '#3b82f6',
-                                    color: 'white',
-                                    border: 'none',
-                                    borderRadius: '50%',
-                                    width: '32px',
-                                    height: '32px',
-                                    fontSize: '14px',
-                                    cursor: isPlaying === mot.id ? 'not-allowed' : 'pointer'
-                                }}
-                            >
-                                🔊
-                            </button>
-                        </button>
+                                gap: typeof window !== 'undefined' && window.innerWidth <= 768 ? '6px' : '10px'
+                            }}>
+                                {/* Bouton écouter à gauche */}
+                                <button
+                                    onClick={() => playAudio(mot.id, mot.contenu)}
+                                    style={{
+                                        backgroundColor: isPlaying === mot.id ? '#f59e0b' : '#3b82f6',
+                                        color: 'white',
+                                        border: 'none',
+                                        borderRadius: '4px',
+                                        padding: typeof window !== 'undefined' && window.innerWidth <= 768 ? '8px' : '12px',
+                                        fontSize: typeof window !== 'undefined' && window.innerWidth <= 768 ? '14px' : '16px',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s',
+                                        flex: 1,
+                                        minHeight: typeof window !== 'undefined' && window.innerWidth <= 768 ? '36px' : '44px'
+                                    }}
+                                >
+                                    {isPlaying === mot.id ? '⏸️' : '🔊'}
+                                </button>
+
+                                {/* Bouton validation à droite */}
+                                <button
+                                    onClick={() => handleAnswer(mot)}
+                                    disabled={!!feedback}
+                                    style={{
+                                        backgroundColor: 'transparent',
+                                        color: '#3b82f6',
+                                        border: '2px solid #3b82f6',
+                                        borderRadius: '4px',
+                                        padding: typeof window !== 'undefined' && window.innerWidth <= 768 ? '8px' : '12px',
+                                        fontSize: typeof window !== 'undefined' && window.innerWidth <= 768 ? '14px' : '16px',
+                                        fontWeight: 'bold',
+                                        cursor: feedback ? 'not-allowed' : 'pointer',
+                                        opacity: feedback ? 0.7 : 1,
+                                        transition: 'all 0.2s',
+                                        flex: 1,
+                                        minHeight: typeof window !== 'undefined' && window.innerWidth <= 768 ? '36px' : '44px'
+                                    }}
+                                    onMouseEnter={(e) => {
+                                        if (!feedback) {
+                                            e.target.style.backgroundColor = '#3b82f6'
+                                            e.target.style.color = 'white'
+                                        }
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        if (!feedback) {
+                                            e.target.style.backgroundColor = 'transparent'
+                                            e.target.style.color = '#3b82f6'
+                                        }
+                                    }}
+                                >
+                                    ✓
+                                </button>
+                            </div>
+                        </div>
                     ))}
                 </div>
 
@@ -461,27 +634,6 @@ export default function ExerciceQuestCe({ selectedTextes, retourSelection }) {
                         {feedback}
                     </div>
                 )}
-
-                {/* Actions */}
-                <div style={{
-                    textAlign: 'center',
-                    marginTop: '30px'
-                }}>
-                    <button
-                        onClick={retourSelection}
-                        style={{
-                            backgroundColor: '#6b7280',
-                            color: 'white',
-                            padding: '10px 20px',
-                            border: 'none',
-                            borderRadius: '8px',
-                            fontSize: '14px',
-                            cursor: 'pointer'
-                        }}
-                    >
-                        📚 Changer de textes
-                    </button>
-                </div>
             </div>
         </div>
     )
