@@ -21,6 +21,7 @@ export default function SegmentationSyllabiqueTest() {
     const [showResults, setShowResults] = useState(false) // Afficher page de résultats
     const [syllabesToRecord, setSyllabesToRecord] = useState([]) // Syllabes à enregistrer (pas déjà existantes)
     const [existingSyllabes, setExistingSyllabes] = useState({}) // Map des syllabes déjà enregistrées
+    const [currentAudioUrls, setCurrentAudioUrls] = useState([]) // URLs audio du mot courant
     const router = useRouter()
 
     useEffect(() => {
@@ -246,18 +247,24 @@ export default function SegmentationSyllabiqueTest() {
                 const data = await response.json()
                 console.log('✅ Segmentation sauvegardée:', data)
 
+                // Stocker les URLs audio pour le mot courant
+                if (data.enregistrement && data.enregistrement.audio_urls) {
+                    setCurrentAudioUrls(data.enregistrement.audio_urls)
+                }
+
                 // Stocker le résultat pour l'affichage final
                 const resultat = {
                     mot: currentMot.contenu,
                     syllabes: syllabes,
                     syllabesModifiees: syllabesModifiees,
-                    actions: actions
+                    actions: actions,
+                    audioUrls: data.enregistrement?.audio_urls || []
                 }
                 setMotsSegmentes([...motsSegmentes, resultat])
 
-                // Passer au mot suivant
+                // Marquer comme complété (mais ne pas passer au suivant automatiquement)
                 setCompletedMots([...completedMots, currentMot.id])
-                passerMotSuivant()
+                setIsSaving(false)
             } else {
                 const error = await response.json()
                 console.error('❌ Erreur sauvegarde:', error)
@@ -275,6 +282,7 @@ export default function SegmentationSyllabiqueTest() {
         setCuts([])
         setSegmentationEnCours([])
         setIsSaving(false)
+        setCurrentAudioUrls([]) // Réinitialiser les URLs audio
 
         if (currentMotIndex + 1 < allMots.length) {
             setCurrentMotIndex(currentMotIndex + 1)
@@ -326,71 +334,236 @@ export default function SegmentationSyllabiqueTest() {
     }
 
     if (!gameStarted) {
+        const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768
+
         return (
-            <div style={{ padding: '20px', maxWidth: '800px', margin: '0 auto' }}>
-                <h1 style={{ color: '#1f2937', marginBottom: '20px' }}>
-                    ✂️ Segmentation Syllabique (TEST)
-                </h1>
-
+            <div style={{
+                minHeight: '100vh',
+                background: 'white',
+                padding: '15px'
+            }}>
                 <div style={{
-                    padding: '15px',
-                    backgroundColor: '#fef3c7',
-                    border: '2px solid #f59e0b',
-                    borderRadius: '8px',
-                    marginBottom: '20px'
+                    maxWidth: '800px',
+                    margin: '0 auto'
                 }}>
-                    <strong>⚠️ Page de test</strong> - Nouveau système de segmentation personnalisée
-                </div>
+                    {/* Titre + Navigation */}
+                    <h1 style={{
+                        fontSize: 'clamp(22px, 5vw, 28px)',
+                        fontWeight: 'bold',
+                        marginBottom: '10px',
+                        textAlign: 'center'
+                    }}>
+                        <span style={{ marginRight: '8px' }}>✂️</span>
+                        <span style={{
+                            color: '#06B6D4'
+                        }}>
+                            Je coupe mes mots en morceaux
+                        </span>
+                    </h1>
 
-                <div style={{ marginBottom: '20px' }}>
-                    <h3 style={{ marginBottom: '10px' }}>Sélectionne tes textes</h3>
-                    {textes.map(texte => (
-                        <label
-                            key={texte.id}
+                    <div style={{
+                        display: 'flex',
+                        justifyContent: 'center',
+                        gap: '12px',
+                        marginBottom: '25px'
+                    }}>
+                        <button
+                            onClick={() => router.push('/lire')}
                             style={{
-                                display: 'block',
-                                padding: '10px',
-                                marginBottom: '5px',
-                                backgroundColor: selectedTextes.includes(texte.id) ? '#dbeafe' : '#f9fafb',
-                                border: '1px solid #e5e7eb',
-                                borderRadius: '6px',
-                                cursor: 'pointer'
+                                width: '50px',
+                                height: '50px',
+                                backgroundColor: 'white',
+                                color: '#10b981',
+                                border: '2px solid #10b981',
+                                borderRadius: '12px',
+                                fontSize: '20px',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                transition: 'all 0.2s'
+                            }}
+                            onMouseEnter={(e) => {
+                                e.currentTarget.style.backgroundColor = '#10b981'
+                                e.currentTarget.style.color = 'white'
+                            }}
+                            onMouseLeave={(e) => {
+                                e.currentTarget.style.backgroundColor = 'white'
+                                e.currentTarget.style.color = '#10b981'
                             }}
                         >
-                            <input
-                                type="checkbox"
-                                checked={selectedTextes.includes(texte.id)}
-                                onChange={(e) => {
-                                    if (e.target.checked) {
-                                        setSelectedTextes([...selectedTextes, texte.id])
-                                    } else {
-                                        setSelectedTextes(selectedTextes.filter(id => id !== texte.id))
-                                    }
-                                }}
-                                style={{ marginRight: '10px' }}
-                            />
-                            {texte.titre}
-                        </label>
-                    ))}
-                </div>
+                            ←
+                        </button>
+                        <button
+                            onClick={() => router.push('/dashboard')}
+                            style={{
+                                width: '50px',
+                                height: '50px',
+                                backgroundColor: 'white',
+                                color: '#10b981',
+                                border: '2px solid #10b981',
+                                borderRadius: '12px',
+                                fontSize: '20px',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                transition: 'all 0.2s'
+                            }}
+                            onMouseEnter={(e) => {
+                                e.currentTarget.style.backgroundColor = '#10b981'
+                                e.currentTarget.style.color = 'white'
+                            }}
+                            onMouseLeave={(e) => {
+                                e.currentTarget.style.backgroundColor = 'white'
+                                e.currentTarget.style.color = '#10b981'
+                            }}
+                        >
+                            🏠
+                        </button>
+                    </div>
 
-                <button
-                    onClick={startGame}
-                    disabled={selectedTextes.length === 0}
-                    style={{
-                        width: '100%',
-                        padding: '15px',
-                        backgroundColor: selectedTextes.length > 0 ? '#3b82f6' : '#d1d5db',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '8px',
-                        fontSize: '16px',
-                        fontWeight: 'bold',
-                        cursor: selectedTextes.length > 0 ? 'pointer' : 'not-allowed'
-                    }}
-                >
-                    🚀 Commencer la segmentation
-                </button>
+                    {/* Sélection d'un texte */}
+                    <h3 style={{ marginBottom: '15px', textAlign: 'center' }}>Sélectionner un texte</h3>
+
+                    {textes.length === 0 ? (
+                        <div style={{
+                            textAlign: 'center',
+                            padding: '40px',
+                            background: 'linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%)',
+                            borderRadius: '20px',
+                            border: '2px dashed #0ea5e9',
+                            boxShadow: '0 4px 15px rgba(14, 165, 233, 0.1)'
+                        }}>
+                            <p style={{ fontSize: '18px', color: '#666', marginBottom: '20px' }}>
+                                Aucun texte disponible
+                            </p>
+                        </div>
+                    ) : (
+                        <div style={{
+                            display: 'grid',
+                            gap: '15px',
+                            marginBottom: '20px'
+                        }}>
+                            {textes.map((texte, index) => {
+                                const couleurs = [
+                                    { bg: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', shadow: 'rgba(102, 126, 234, 0.3)' },
+                                    { bg: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)', shadow: 'rgba(240, 147, 251, 0.3)' },
+                                    { bg: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)', shadow: 'rgba(79, 172, 254, 0.3)' },
+                                    { bg: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)', shadow: 'rgba(67, 233, 123, 0.3)' },
+                                    { bg: 'linear-gradient(135deg, #fa709a 0%, #fee140 100%)', shadow: 'rgba(250, 112, 154, 0.3)' },
+                                    { bg: 'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)', shadow: 'rgba(168, 237, 234, 0.3)' },
+                                    { bg: 'linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%)', shadow: 'rgba(255, 154, 158, 0.3)' },
+                                    { bg: 'linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%)', shadow: 'rgba(255, 236, 210, 0.3)' }
+                                ]
+                                const couleur = couleurs[index % couleurs.length]
+                                const isSelected = selectedTextes.includes(texte.id)
+
+                                return (
+                                    <div
+                                        key={texte.id}
+                                        onClick={() => {
+                                            // Sélection unique
+                                            setSelectedTextes([texte.id])
+                                        }}
+                                        style={{
+                                            background: couleur.bg,
+                                            border: isSelected ? '3px solid #10b981' : 'none',
+                                            borderRadius: '20px',
+                                            padding: isMobile ? '10px 15px' : '15px',
+                                            boxShadow: isSelected
+                                                ? `0 8px 25px ${couleur.shadow}, 0 0 0 3px #10b981`
+                                                : `0 4px 15px ${couleur.shadow}`,
+                                            cursor: 'pointer',
+                                            transition: 'all 0.3s ease',
+                                            transform: isSelected ? 'scale(1.02)' : 'scale(1)',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '10px'
+                                        }}
+                                    >
+                                        {/* Radio button PC uniquement */}
+                                        {!isMobile && (
+                                            <input
+                                                type="radio"
+                                                name="texte-selection"
+                                                checked={isSelected}
+                                                onChange={(e) => {
+                                                    e.stopPropagation()
+                                                    if (e.target.checked) {
+                                                        setSelectedTextes([texte.id])
+                                                    }
+                                                }}
+                                                style={{
+                                                    width: '20px',
+                                                    height: '20px',
+                                                    cursor: 'pointer',
+                                                    accentColor: '#10b981'
+                                                }}
+                                            />
+                                        )}
+
+                                        {/* Contenu : titre + stats */}
+                                        <div style={{
+                                            display: 'flex',
+                                            justifyContent: isMobile ? 'center' : 'space-between',
+                                            alignItems: 'center',
+                                            width: '100%',
+                                            gap: '10px'
+                                        }}>
+                                            <div style={{
+                                                color: 'white',
+                                                fontWeight: 'bold',
+                                                fontSize: '16px',
+                                                textShadow: '0 2px 4px rgba(0,0,0,0.2)',
+                                                flex: '1',
+                                                textAlign: isMobile ? 'center' : 'left',
+                                                whiteSpace: isMobile ? 'nowrap' : 'normal',
+                                                overflow: isMobile ? 'hidden' : 'visible',
+                                                textOverflow: isMobile ? 'ellipsis' : 'clip'
+                                            }}>
+                                                {texte.titre}
+                                            </div>
+                                        </div>
+                                    </div>
+                                )
+                            })}
+                        </div>
+                    )}
+
+                    <button
+                        onClick={startGame}
+                        disabled={selectedTextes.length === 0}
+                        style={{
+                            width: '100%',
+                            padding: '18px',
+                            backgroundColor: 'white',
+                            color: selectedTextes.length > 0 ? '#10b981' : '#d1d5db',
+                            border: selectedTextes.length > 0 ? '3px solid #10b981' : '3px solid #d1d5db',
+                            borderRadius: '12px',
+                            fontSize: '18px',
+                            fontWeight: 'bold',
+                            cursor: selectedTextes.length > 0 ? 'pointer' : 'not-allowed',
+                            transition: 'all 0.2s'
+                        }}
+                        onMouseEnter={(e) => {
+                            if (selectedTextes.length > 0) {
+                                e.currentTarget.style.backgroundColor = '#f0fdf4'
+                                e.currentTarget.style.transform = 'translateY(-2px)'
+                                e.currentTarget.style.boxShadow = '0 4px 12px rgba(16, 185, 129, 0.3)'
+                            }
+                        }}
+                        onMouseLeave={(e) => {
+                            if (selectedTextes.length > 0) {
+                                e.currentTarget.style.backgroundColor = 'white'
+                                e.currentTarget.style.transform = 'translateY(0)'
+                                e.currentTarget.style.boxShadow = 'none'
+                            }
+                        }}
+                    >
+                        Commencer
+                    </button>
+                </div>
             </div>
         )
     }
@@ -535,40 +708,190 @@ export default function SegmentationSyllabiqueTest() {
     const motLetters = currentMot.contenu.split('')
 
     return (
-        <div style={{ padding: '20px', maxWidth: '800px', margin: '0 auto' }}>
-            {/* Header */}
-            <div style={{ marginBottom: '20px', textAlign: 'center' }}>
-                <h1 style={{ color: '#1f2937', marginBottom: '10px' }}>
-                    ✂️ Segmente ton mot
+        <div style={{
+            minHeight: '100vh',
+            background: 'white',
+            padding: '15px'
+        }}>
+            <div style={{ maxWidth: '800px', margin: '0 auto' }}>
+                {/* Titre */}
+                <h1 style={{
+                    fontSize: 'clamp(22px, 5vw, 28px)',
+                    fontWeight: 'bold',
+                    marginBottom: '10px',
+                    textAlign: 'center'
+                }}>
+                    <span style={{ marginRight: '8px' }}>✂️</span>
+                    <span style={{ color: '#06B6D4' }}>
+                        Je coupe mes mots en morceaux
+                    </span>
                 </h1>
-                <div style={{ fontSize: '14px', color: '#6b7280' }}>
+
+                {/* Navigation */}
+                <div style={{
+                    display: 'flex',
+                    justifyContent: 'center',
+                    gap: '12px',
+                    marginBottom: '25px'
+                }}>
+                    <button
+                        onClick={() => router.push('/lire')}
+                        style={{
+                            width: '50px',
+                            height: '50px',
+                            backgroundColor: 'white',
+                            color: '#10b981',
+                            border: '2px solid #10b981',
+                            borderRadius: '12px',
+                            fontSize: '20px',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            transition: 'all 0.2s'
+                        }}
+                        onMouseEnter={(e) => {
+                            e.currentTarget.style.backgroundColor = '#10b981'
+                            e.currentTarget.style.color = 'white'
+                        }}
+                        onMouseLeave={(e) => {
+                            e.currentTarget.style.backgroundColor = 'white'
+                            e.currentTarget.style.color = '#10b981'
+                        }}
+                    >
+                        ←
+                    </button>
+                    <button
+                        onClick={() => router.push('/lire/mes-textes-references')}
+                        style={{
+                            width: '50px',
+                            height: '50px',
+                            backgroundColor: 'white',
+                            color: '#10b981',
+                            border: '2px solid #10b981',
+                            borderRadius: '12px',
+                            fontSize: '20px',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            transition: 'all 0.2s'
+                        }}
+                        onMouseEnter={(e) => {
+                            e.currentTarget.style.backgroundColor = '#10b981'
+                            e.currentTarget.style.color = 'white'
+                        }}
+                        onMouseLeave={(e) => {
+                            e.currentTarget.style.backgroundColor = 'white'
+                            e.currentTarget.style.color = '#10b981'
+                        }}
+                    >
+                        📖
+                    </button>
+                    <button
+                        onClick={() => router.push('/dashboard')}
+                        style={{
+                            width: '50px',
+                            height: '50px',
+                            backgroundColor: 'white',
+                            color: '#10b981',
+                            border: '2px solid #10b981',
+                            borderRadius: '12px',
+                            fontSize: '20px',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            transition: 'all 0.2s'
+                        }}
+                        onMouseEnter={(e) => {
+                            e.currentTarget.style.backgroundColor = '#10b981'
+                            e.currentTarget.style.color = 'white'
+                        }}
+                        onMouseLeave={(e) => {
+                            e.currentTarget.style.backgroundColor = 'white'
+                            e.currentTarget.style.color = '#10b981'
+                        }}
+                    >
+                        🏠
+                    </button>
+                    <button
+                        onClick={() => {
+                            const utterance = new SpeechSynthesisUtterance(currentMot.contenu)
+                            utterance.lang = 'fr-FR'
+                            utterance.rate = 0.8
+                            window.speechSynthesis.speak(utterance)
+                        }}
+                        style={{
+                            width: '50px',
+                            height: '50px',
+                            backgroundColor: 'white',
+                            color: '#10b981',
+                            border: '2px solid #10b981',
+                            borderRadius: '12px',
+                            fontSize: '20px',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            transition: 'all 0.2s'
+                        }}
+                        onMouseEnter={(e) => {
+                            e.currentTarget.style.backgroundColor = '#10b981'
+                            e.currentTarget.style.color = 'white'
+                        }}
+                        onMouseLeave={(e) => {
+                            e.currentTarget.style.backgroundColor = 'white'
+                            e.currentTarget.style.color = '#10b981'
+                        }}
+                    >
+                        🔊
+                    </button>
+                    {completedMots.includes(currentMot.id) && (
+                        <button
+                            onClick={passerMotSuivant}
+                            style={{
+                                width: '50px',
+                                height: '50px',
+                                backgroundColor: 'white',
+                                color: '#10b981',
+                                border: '2px solid #10b981',
+                                borderRadius: '12px',
+                                fontSize: '24px',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                transition: 'all 0.2s'
+                            }}
+                            onMouseEnter={(e) => {
+                                e.currentTarget.style.backgroundColor = '#10b981'
+                                e.currentTarget.style.color = 'white'
+                            }}
+                            onMouseLeave={(e) => {
+                                e.currentTarget.style.backgroundColor = 'white'
+                                e.currentTarget.style.color = '#10b981'
+                            }}
+                        >
+                            {currentMotIndex + 1 < allMots.length ? '→' : '✓'}
+                        </button>
+                    )}
+                </div>
+
+                {/* Info progression */}
+                <div style={{
+                    fontSize: '14px',
+                    color: '#6b7280',
+                    textAlign: 'center',
+                    marginBottom: '20px'
+                }}>
                     Mot {currentMotIndex + 1} sur {allMots.length} • {completedMots.length} terminés
                 </div>
-            </div>
-
-            {/* Progression */}
-            <div style={{
-                marginBottom: '30px',
-                height: '8px',
-                backgroundColor: '#e5e7eb',
-                borderRadius: '4px',
-                overflow: 'hidden'
-            }}>
-                <div style={{
-                    height: '100%',
-                    width: `${((currentMotIndex + 1) / allMots.length) * 100}%`,
-                    backgroundColor: '#3b82f6',
-                    transition: 'width 0.3s ease'
-                }} />
-            </div>
 
             {/* Mot avec interface de coupure */}
             <div style={{
                 marginBottom: '30px',
-                padding: '30px',
-                backgroundColor: '#f9fafb',
-                borderRadius: '12px',
-                border: '2px solid #e5e7eb'
+                padding: '30px'
             }}>
                 <div style={{
                     fontSize: '14px',
@@ -582,11 +905,11 @@ export default function SegmentationSyllabiqueTest() {
                 <div style={{
                     display: 'flex',
                     justifyContent: 'center',
-                    alignItems: 'center',
+                    alignItems: 'flex-end',
                     gap: '5px',
-                    fontSize: '32px',
+                    fontSize: '48px',
                     fontWeight: 'bold',
-                    color: '#1f2937'
+                    color: '#06B6D4'
                 }}>
                     {motLetters.map((letter, index) => (
                         <div key={index} style={{ display: 'flex', alignItems: 'center' }}>
@@ -598,10 +921,10 @@ export default function SegmentationSyllabiqueTest() {
                                         width: '30px',
                                         height: '30px',
                                         margin: '0 2px',
-                                        backgroundColor: cuts.includes(index + 1) ? '#ef4444' : 'transparent',
+                                        backgroundColor: 'transparent',
                                         border: cuts.includes(index + 1) ? '2px solid #dc2626' : '2px dashed #d1d5db',
                                         borderRadius: '4px',
-                                        cursor: 'pointer',
+                                        cursor: 'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'32\' height=\'32\' viewBox=\'0 0 24 24\'><text x=\'0\' y=\'20\' font-size=\'20\'>✂️</text></svg>") 16 16, pointer',
                                         fontSize: '16px',
                                         display: 'flex',
                                         alignItems: 'center',
@@ -616,19 +939,45 @@ export default function SegmentationSyllabiqueTest() {
                 </div>
 
                 {/* Aperçu segmentation */}
-                {syllabes.length > 0 && (
+                {cuts.length > 0 && (
                     <div style={{
-                        marginTop: '20px',
-                        padding: '15px',
-                        backgroundColor: '#dbeafe',
-                        borderRadius: '8px',
-                        textAlign: 'center'
+                        marginTop: '20px'
                     }}>
-                        <div style={{ fontSize: '14px', color: '#1e40af', marginBottom: '5px' }}>
-                            Ta segmentation :
-                        </div>
-                        <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#1e3a8a' }}>
-                            {syllabes.join(' - ')}
+                        <div style={{
+                            display: 'flex',
+                            gap: '10px',
+                            flexWrap: 'wrap',
+                            justifyContent: 'center'
+                        }}>
+                            {syllabes.map((syllabe, index) => {
+                                const hasAudio = currentAudioUrls[index]
+                                const cursorIcon = hasAudio ? '🎧' : '🔇'
+                                const cursorUrl = `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 24 24'><text x='0' y='20' font-size='20'>${cursorIcon}</text></svg>") 16 16, pointer`
+
+                                return (
+                                    <div
+                                        key={index}
+                                        onClick={() => {
+                                            if (hasAudio) {
+                                                const audio = new Audio(currentAudioUrls[index])
+                                                audio.play().catch(err => console.error('Erreur lecture audio:', err))
+                                            }
+                                        }}
+                                        style={{
+                                            fontSize: '24px',
+                                            fontWeight: 'bold',
+                                            color: '#06B6D4',
+                                            backgroundColor: 'white',
+                                            padding: '10px 20px',
+                                            borderRadius: '8px',
+                                            border: '2px solid #06B6D4',
+                                            cursor: cursorUrl
+                                        }}
+                                    >
+                                        {syllabe}
+                                    </div>
+                                )
+                            })}
                         </div>
                     </div>
                 )}
@@ -636,7 +985,25 @@ export default function SegmentationSyllabiqueTest() {
 
             {/* Boutons d'action */}
             <div style={{ display: 'flex', gap: '10px', flexDirection: 'column' }}>
-                {/* NOUVEAU : Bouton Panier Sons Complexes */}
+                {/* 1. Bouton Valider */}
+                <button
+                    onClick={validerSegmentation}
+                    disabled={syllabes.length === 0 || isSaving}
+                    style={{
+                        padding: '15px',
+                        backgroundColor: syllabes.length > 0 && !isSaving ? '#10b981' : '#d1d5db',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '8px',
+                        fontSize: '16px',
+                        fontWeight: 'bold',
+                        cursor: syllabes.length > 0 && !isSaving ? 'pointer' : 'not-allowed'
+                    }}
+                >
+                    {isSaving ? '💾 Sauvegarde...' : 'Valider'}
+                </button>
+
+                {/* 2. Bouton On ne voit pas et on n'entend pas la même chose */}
                 <button
                     onClick={async () => {
                         if (!confirm(`Mettre "${currentMot.contenu}" dans le panier des sons complexes ?\n\nCe mot ne sera pas segmenté.`)) return
@@ -670,35 +1037,19 @@ export default function SegmentationSyllabiqueTest() {
                     disabled={isSaving}
                     style={{
                         padding: '15px',
-                        backgroundColor: !isSaving ? '#f59e0b' : '#d1d5db',
+                        backgroundColor: !isSaving ? '#fbbf24' : '#d1d5db',
                         color: 'white',
                         border: 'none',
                         borderRadius: '8px',
                         fontSize: '16px',
                         fontWeight: 'bold',
-                        cursor: !isSaving ? 'pointer' : 'not-allowed'
+                        cursor: !isSaving ? 'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'32\' height=\'32\' viewBox=\'0 0 24 24\'><text x=\'0\' y=\'20\' font-size=\'20\'>🗑️</text></svg>") 16 16, pointer' : 'not-allowed'
                     }}
                 >
-                    📦 Mettre dans panier sons complexes (ne pas segmenter)
+                    On n'entend pas et on ne voit pas la même chose
                 </button>
 
-                <button
-                    onClick={validerSegmentation}
-                    disabled={syllabes.length === 0 || isSaving}
-                    style={{
-                        padding: '15px',
-                        backgroundColor: syllabes.length > 0 && !isSaving ? '#10b981' : '#d1d5db',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '8px',
-                        fontSize: '16px',
-                        fontWeight: 'bold',
-                        cursor: syllabes.length > 0 && !isSaving ? 'pointer' : 'not-allowed'
-                    }}
-                >
-                    {isSaving ? '💾 Sauvegarde...' : '✅ Valider et enregistrer mes syllabes'}
-                </button>
-
+                {/* 3. Bouton J'ai un doute */}
                 <button
                     onClick={() => setShowDoute(true)}
                     disabled={syllabes.length === 0}
@@ -710,12 +1061,13 @@ export default function SegmentationSyllabiqueTest() {
                         borderRadius: '8px',
                         fontSize: '14px',
                         fontWeight: 'bold',
-                        cursor: syllabes.length > 0 ? 'pointer' : 'not-allowed'
+                        cursor: syllabes.length > 0 ? 'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'32\' height=\'32\' viewBox=\'0 0 24 24\'><text x=\'0\' y=\'20\' font-size=\'20\'>🤔</text></svg>") 16 16, pointer' : 'not-allowed'
                     }}
                 >
-                    ❓ J'ai un doute - Demander l'avis de l'admin
+                    ❓ J'ai un doute - Demander l'avis des responsables
                 </button>
 
+                {/* 4. Bouton Recommencer */}
                 <button
                     onClick={() => setCuts([])}
                     style={{
@@ -778,7 +1130,7 @@ export default function SegmentationSyllabiqueTest() {
                         </div>
 
                         <div style={{ marginBottom: '15px' }}>
-                            <strong>Ta segmentation :</strong> {syllabes.join(' - ')}
+                            <strong>Tes morceaux :</strong> {syllabes.join(' - ')}
                         </div>
 
                         <textarea
@@ -831,6 +1183,7 @@ export default function SegmentationSyllabiqueTest() {
                     </div>
                 </div>
             )}
+            </div>
         </div>
     )
 }
