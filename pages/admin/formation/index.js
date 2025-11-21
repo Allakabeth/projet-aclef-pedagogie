@@ -191,6 +191,18 @@ export default function DashboardFormation() {
                         Gérer les mots de passe des apprenants
                     </p>
                 </div>
+
+                {/* Sessions actives */}
+                <div
+                    style={styles.menuCard}
+                    onClick={() => router.push('/admin/sessions-actives')}
+                >
+                    <div style={styles.menuIcon}>👥</div>
+                    <h3 style={styles.menuTitle}>Sessions actives</h3>
+                    <p style={styles.menuDescription}>
+                        Voir qui est connecté en temps réel
+                    </p>
+                </div>
             </div>
 
             {/* Bouton retour */}

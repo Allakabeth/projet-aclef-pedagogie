@@ -27,6 +27,39 @@ export default function Dashboard() {
         setIsLoading(false)
     }, [router])
 
+    // Heartbeat pour tracker l'activité utilisateur
+    useEffect(() => {
+        const sendHeartbeat = async () => {
+            const token = localStorage.getItem('token')
+            if (!token) return
+
+            try {
+                const response = await fetch('/api/sessions/heartbeat', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                })
+
+                if (!response.ok) {
+                    const data = await response.json()
+                    console.error('Heartbeat failed:', data.error)
+                }
+            } catch (error) {
+                console.error('Heartbeat error:', error)
+            }
+        }
+
+        // Envoyer heartbeat immédiatement
+        sendHeartbeat()
+
+        // Puis toutes les 2 minutes
+        const interval = setInterval(sendHeartbeat, 2 * 60 * 1000)
+
+        return () => clearInterval(interval)
+    }, [])
+
     const handleLogout = () => {
         localStorage.removeItem('token')
         localStorage.removeItem('refreshToken')

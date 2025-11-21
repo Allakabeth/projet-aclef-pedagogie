@@ -35,10 +35,8 @@ export default function MonosyllabesMultisyllabes() {
     const [showNumbersModal, setShowNumbersModal] = useState(false)
     const [numbersChoices, setNumbersChoices] = useState({})
     const [pendingWords, setPendingWords] = useState([])
-    const [correctionsMonoMulti, setCorrectionsMonoMulti] = useState({})
     const [enregistrementsMap, setEnregistrementsMap] = useState({}) // Enregistrements personnels indexés par mot
     const [isAudioPlaying, setIsAudioPlaying] = useState(false) // Bloquer boutons pendant lecture audio
-    const [showConfetti, setShowConfetti] = useState(false) // Confettis pour score parfait
     const router = useRouter()
     const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768
 
@@ -242,7 +240,7 @@ export default function MonosyllabesMultisyllabes() {
                                 groupe_id: groupe.id,
                                 syllables: syllabifyWord(cleanWord),
                                 estimatedSyllables: countSyllables(cleanWord),
-                                isMonosyllabe: isMonosyllabic(cleanWord)
+                                isMonosyllabe: isMonosyllabic(cleanWord) // Pour comparaison uniquement, pas validation
                             }
                         })
                         .filter(wordObj => wordObj.clean.length > 0)
@@ -260,48 +258,6 @@ export default function MonosyllabesMultisyllabes() {
                 
                 // Convertir en tableau
                 const uniqueWords = Array.from(uniqueWordsMap.values())
-
-                // ====================================================================
-                // CHARGER LES CORRECTIONS CENTRALISÉES
-                // ====================================================================
-                const motsUniques = uniqueWords.map(w => w.clean)
-                let correctionsTemp = {}
-
-                if (motsUniques.length > 0) {
-                    try {
-                        const token = localStorage.getItem('token')
-                        const correctionsResponse = await fetch('/api/corrections/get-corrections', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'Authorization': `Bearer ${token}`
-                            },
-                            body: JSON.stringify({
-                                mots: motsUniques,
-                                type: 'mono_multi'
-                            })
-                        })
-
-                        if (correctionsResponse.ok) {
-                            const correctionsData = await correctionsResponse.json()
-                            correctionsTemp = correctionsData.mono_multi || {}
-                            console.log(`🌟 ${Object.keys(correctionsTemp).length} correction(s) centralisée(s) chargée(s)`)
-                        }
-                    } catch (error) {
-                        console.error('Erreur chargement corrections centralisées:', error)
-                    }
-                }
-
-                setCorrectionsMonoMulti(correctionsTemp)
-
-                // Appliquer les corrections aux mots
-                uniqueWords.forEach(wordObj => {
-                    if (correctionsTemp[wordObj.clean]) {
-                        const correctionValue = correctionsTemp[wordObj.clean]
-                        wordObj.isMonosyllabe = (correctionValue === 'monosyllabe')
-                        console.log(`🌟 Correction appliquée: "${wordObj.clean}" → ${correctionValue}`)
-                    }
-                })
 
                 // Mélanger les mots
                 const shuffledWords = uniqueWords.sort(() => Math.random() - 0.5)
@@ -387,21 +343,13 @@ export default function MonosyllabesMultisyllabes() {
                     // Convertir en lettres avec tirets
                     const converted = convertNumberToWordsWithHyphens(wordObj.clean)
                     if (converted) {
-                        let isMonosyllabe = isMonosyllabic(converted)
-
-                        // Appliquer correction centralisée si elle existe
-                        if (correctionsMonoMulti[converted]) {
-                            isMonosyllabe = (correctionsMonoMulti[converted] === 'monosyllabe')
-                            console.log(`🌟 Correction appliquée au nombre converti: "${converted}" → ${correctionsMonoMulti[converted]}`)
-                        }
-
                         const convertedWord = {
                             original: wordObj.original,
                             clean: converted,
                             groupe_id: wordObj.groupe_id,
                             syllables: syllabifyWord(converted),
                             estimatedSyllables: countSyllables(converted),
-                            isMonosyllabe: isMonosyllabe
+                            isMonosyllabe: isMonosyllabic(converted) // Pour comparaison uniquement
                         }
                         processedWords.push(convertedWord)
                         console.log(`✅ Nombre converti : ${wordObj.clean} → ${converted}`)
@@ -446,14 +394,13 @@ export default function MonosyllabesMultisyllabes() {
         if (!currentMot) return
 
         const newAttempts = attempts + 1
-        const isCorrect = currentMot.isMonosyllabe === isMonosyllabe
-        const newScore = isCorrect ? score + 1 : score
+        const newScore = score + 1 // Chaque choix compte dans le score
 
-        // Enregistrer le choix
+        // Enregistrer le choix (toujours considéré comme valide)
         const choice = {
             mot: currentMot,
             userChoice: isMonosyllabe,
-            isCorrect: isCorrect
+            isCorrect: true // Pas de validation automatique
         }
 
         const newUserChoices = [...userChoices, choice]
@@ -462,22 +409,12 @@ export default function MonosyllabesMultisyllabes() {
         setScore(newScore)
         setUserChoices(newUserChoices)
 
-        if (isCorrect) {
-            setFeedback('✅ Correct !')
+        setFeedback('✅ Choix enregistré')
 
-            // Si correct, passer automatiquement au mot suivant
-            setTimeout(() => {
-                goToNextWord(newScore, newAttempts, newUserChoices)
-            }, 1500)
-        } else {
-            // Message d'erreur selon le type de mot
-            if (currentMot.isMonosyllabe) {
-                setFeedback(`Le mot "${currentMot.clean}" a une syllabe`)
-            } else {
-                setFeedback(`Le mot "${currentMot.clean}" a plusieurs syllabes`)
-            }
-            // Si incorrect, ne PAS passer automatiquement (attendre clic sur "Suivant")
-        }
+        // Passer automatiquement au mot suivant
+        setTimeout(() => {
+            goToNextWord(newScore, newAttempts, newUserChoices)
+        }, 1000)
     }
 
     const goToNextWord = (currentScore = score, currentAttempts = attempts, currentUserChoices = userChoices) => {
@@ -495,12 +432,6 @@ export default function MonosyllabesMultisyllabes() {
             // Fin du jeu
             setGameFinished(true)
             setFeedback('')
-
-            // Déclencher confettis si score parfait
-            if (currentScore === allMots.length) {
-                setShowConfetti(true)
-                setTimeout(() => setShowConfetti(false), 5000) // Arrêter après 5 secondes
-            }
 
             // Sauvegarder tous les résultats en base de données
             sauvegarderResultats()
@@ -541,17 +472,16 @@ export default function MonosyllabesMultisyllabes() {
         }
     }
 
-    // Fonction pour demander une correction à l'admin
-    const demanderCorrection = async (mot, isCurrentlyCorrect) => {
+    // Fonction pour demander l'avis de l'admin
+    const demanderCorrection = async (mot, userChoice) => {
         if (!selectedTexte) {
             alert('Erreur: pas de texte sélectionné')
             return
         }
 
         try {
-            const classificationActuelle = mot.isMonosyllabe ? 'mono' : 'multi'
-            const correctionProposee = mot.isMonosyllabe ? 'multi' : 'mono'
-            
+            const classificationUtilisateur = userChoice ? 'mono' : 'multi'
+
             const token = localStorage.getItem('token')
             const response = await fetch('/api/corrections/demander', {
                 method: 'POST',
@@ -562,9 +492,9 @@ export default function MonosyllabesMultisyllabes() {
                 body: JSON.stringify({
                     mot: mot.clean,
                     texteId: parseInt(selectedTexte),
-                    classificationActuelle: classificationActuelle,
-                    correctionProposee: correctionProposee,
-                    raison: `L'utilisateur pense que "${mot.clean}" devrait être classé comme ${correctionProposee === 'mono' ? '1 son' : 'plusieurs sons'} plutôt que ${classificationActuelle === 'mono' ? '1 son' : 'plusieurs sons'}`
+                    classificationActuelle: classificationUtilisateur,
+                    correctionProposee: classificationUtilisateur === 'mono' ? 'multi' : 'mono',
+                    raison: `L'accompagnateur a classé "${mot.clean}" comme ${classificationUtilisateur === 'mono' ? '1 syllabe' : 'plusieurs syllabes'} et souhaite l'avis de l'admin`
                 })
             })
 
@@ -580,8 +510,50 @@ export default function MonosyllabesMultisyllabes() {
                 }
             }
         } catch (error) {
-            console.error('Erreur demande correction:', error)
-            alert('❌ Erreur lors de la demande de correction')
+            console.error('Erreur demande avis:', error)
+            alert('❌ Erreur lors de la demande d\'avis')
+        }
+    }
+
+    // Fonction pour modifier un choix après coup
+    const modifierChoix = async (index) => {
+        const choice = userChoices[index]
+        const nouveauChoix = !choice.userChoice
+
+        // Mettre à jour le state local
+        const newUserChoices = [...userChoices]
+        newUserChoices[index] = {
+            ...choice,
+            userChoice: nouveauChoix
+        }
+        setUserChoices(newUserChoices)
+
+        // Mettre à jour en base de données
+        try {
+            const token = localStorage.getItem('token')
+            const response = await fetch('/api/mots-classifies/sauvegarder', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    texteId: parseInt(selectedTexte),
+                    resultats: [{
+                        mot: choice.mot.clean,
+                        classification: nouveauChoix ? 'mono' : 'multi',
+                        score: 1
+                    }]
+                })
+            })
+
+            if (response.ok) {
+                console.log('✅ Choix modifié et sauvegardé')
+            } else {
+                console.error('Erreur modification choix:', await response.json())
+            }
+        } catch (error) {
+            console.error('Erreur modification:', error)
         }
     }
 
@@ -1229,7 +1201,7 @@ export default function MonosyllabesMultisyllabes() {
                                 </button>
                             </div>
 
-                            {/* Score final (sans %) */}
+                            {/* Nombre de mots classés */}
                             <p style={{
                                 fontSize: '24px',
                                 textAlign: 'center',
@@ -1237,7 +1209,7 @@ export default function MonosyllabesMultisyllabes() {
                                 marginBottom: '30px',
                                 color: '#333'
                             }}>
-                                Score final : {score}/{attempts}
+                                {attempts} mots classés
                             </p>
 
                             {/* Bouton "Voir le détail" UNIQUEMENT sur mobile */}
@@ -1288,7 +1260,7 @@ export default function MonosyllabesMultisyllabes() {
                                                 justifyContent: 'space-between',
                                                 alignItems: 'center',
                                                 padding: isMobile ? '10px' : '8px',
-                                                background: choice.isCorrect ? '#d1fae5' : '#fee2e2',
+                                                background: '#e0f2fe',
                                                 borderRadius: '4px',
                                                 fontSize: isMobile ? '14px' : '24px'
                                             }}>
@@ -1309,32 +1281,54 @@ export default function MonosyllabesMultisyllabes() {
                                                     </button>
                                                     <div>
                                                         <strong>{choice.mot.clean}</strong>
-                                                        {!isMobile && (
-                                                            <span style={{ fontSize: '20px', color: '#666', marginLeft: '6px' }}>
-                                                                {choice.mot.syllables?.join('-')} ({choice.mot.estimatedSyllables} syll.)
-                                                            </span>
-                                                        )}
                                                     </div>
                                                 </div>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '10px' : '6px' }}>
-                                                    {!isMobile && (
-                                                        <span style={{
-                                                            color: choice.isCorrect ? '#065f46' : '#991b1b',
-                                                            fontSize: '22px'
-                                                        }}>
-                                                            {choice.isCorrect ? '✅' : '❌'}
-                                                        </span>
-                                                    )}
-                                                    {isMobile && (
-                                                        <span style={{
-                                                            color: '#333',
-                                                            fontSize: '12px'
-                                                        }}>
-                                                            Vous: {choice.userChoice ? 'Mono' : 'Multi'} {!choice.isCorrect && '❌'} / ✅: {choice.mot.isMonosyllabe ? 'Mono' : 'Multi'}
-                                                        </span>
-                                                    )}
+                                                    {(() => {
+                                                        // Debug : vérifier si isMonosyllabe existe
+                                                        const algoSuggestion = choice.mot?.isMonosyllabe
+                                                        const differe = algoSuggestion !== undefined && choice.userChoice !== algoSuggestion
+
+                                                        return (
+                                                            <>
+                                                                {!isMobile && (
+                                                                    <span style={{
+                                                                        color: '#0369a1',
+                                                                        fontSize: '22px'
+                                                                    }}>
+                                                                        {choice.userChoice ? 'Mono' : 'Multi'}
+                                                                        {differe ? ' ⚠️' : ''}
+                                                                    </span>
+                                                                )}
+                                                                {isMobile && (
+                                                                    <span style={{
+                                                                        color: '#333',
+                                                                        fontSize: '12px'
+                                                                    }}>
+                                                                        {choice.userChoice ? 'Mono' : 'Multi'}
+                                                                        {differe ? ' ⚠️' : ''}
+                                                                    </span>
+                                                                )}
+                                                            </>
+                                                        )
+                                                    })()}
                                                     <button
-                                                        onClick={() => demanderCorrection(choice.mot, choice.isCorrect)}
+                                                        onClick={() => modifierChoix(index)}
+                                                        style={{
+                                                            backgroundColor: '#3b82f6',
+                                                            color: 'white',
+                                                            padding: isMobile ? '4px 8px' : '6px 12px',
+                                                            border: 'none',
+                                                            borderRadius: '4px',
+                                                            fontSize: isMobile ? '11px' : '18px',
+                                                            cursor: 'pointer',
+                                                            whiteSpace: 'nowrap'
+                                                        }}
+                                                    >
+                                                        {isMobile ? '✏️' : '✏️ Modifier'}
+                                                    </button>
+                                                    <button
+                                                        onClick={() => demanderCorrection(choice.mot, choice.userChoice)}
                                                         style={{
                                                             backgroundColor: '#f59e0b',
                                                             color: 'white',
@@ -1346,67 +1340,13 @@ export default function MonosyllabesMultisyllabes() {
                                                             whiteSpace: 'nowrap'
                                                         }}
                                                     >
-                                                        {isMobile ? '🤔' : '🤔 Pas d\'accord'}
+                                                        {isMobile ? '🤔' : '🤔 Avis admin'}
                                                     </button>
                                                 </div>
                                             </div>
                                         ))}
                                     </div>
                                 </div>
-                            )}
-
-                            {/* Confettis de célébration (score parfait) */}
-                            {showConfetti && (
-                                <>
-                                    <style dangerouslySetInnerHTML={{
-                                        __html: `
-                                            @keyframes confetti-fall {
-                                                0% {
-                                                    transform: translateY(0) rotate(0deg);
-                                                    opacity: 1;
-                                                }
-                                                100% {
-                                                    transform: translateY(100vh) rotate(720deg);
-                                                    opacity: 0;
-                                                }
-                                            }
-                                        `
-                                    }} />
-                                    <div style={{
-                                        position: 'fixed',
-                                        top: 0,
-                                        left: 0,
-                                        width: '100%',
-                                        height: '100%',
-                                        pointerEvents: 'none',
-                                        zIndex: 9999,
-                                        overflow: 'hidden'
-                                    }}>
-                                        {[...Array(50)].map((_, i) => {
-                                            const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8', '#F7DC6F']
-                                            const duration = 3 + Math.random() * 2
-                                            const delay = Math.random() * 0.5
-                                            return (
-                                                <div
-                                                    key={i}
-                                                    style={{
-                                                        position: 'absolute',
-                                                        top: '-20px',
-                                                        left: `${Math.random() * 100}%`,
-                                                        width: '15px',
-                                                        height: '15px',
-                                                        backgroundColor: colors[Math.floor(Math.random() * 6)],
-                                                        opacity: 1,
-                                                        borderRadius: '50%',
-                                                        animation: `confetti-fall ${duration}s linear forwards`,
-                                                        animationDelay: `${delay}s`,
-                                                        zIndex: 10000
-                                                    }}
-                                                />
-                                            )
-                                        })}
-                                    </div>
-                                </>
                             )}
                         </div>
                     </>
