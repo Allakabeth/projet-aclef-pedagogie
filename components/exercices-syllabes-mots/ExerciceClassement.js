@@ -87,17 +87,53 @@ export default function ExerciceClassement({ selectedTextes, retourSelection }) 
                 console.log('Aucun monosyllabe trouvé pour les textes sélectionnés')
             }
 
-            // Mélanger les mots pour un ordre vraiment aléatoire (Fisher-Yates)
-            const motsAleatoires = [...monosyllabesUniques]
+            // Charger les paniers existants depuis localStorage
+            const syllabesMotsClasses = JSON.parse(localStorage.getItem('syllabes-mots-classes') || '{}')
+            let paniersExistants = {}
+            let motsDejaClasses = []
+
+            // Combiner les paniers de tous les textes sélectionnés
+            selectedTextes.forEach(texteId => {
+                if (syllabesMotsClasses[texteId]?.paniers) {
+                    Object.keys(syllabesMotsClasses[texteId].paniers).forEach(lettre => {
+                        if (!paniersExistants[lettre]) {
+                            paniersExistants[lettre] = []
+                        }
+                        const mots = syllabesMotsClasses[texteId].paniers[lettre] || []
+                        paniersExistants[lettre].push(...mots)
+                        motsDejaClasses.push(...mots)
+                    })
+                }
+            })
+
+            // Éliminer les doublons dans les paniers
+            Object.keys(paniersExistants).forEach(lettre => {
+                paniersExistants[lettre] = [...new Set(paniersExistants[lettre])]
+            })
+
+            // Filtrer les mots déjà classés
+            const motsRestants = monosyllabesUniques.filter(mot => !motsDejaClasses.includes(mot))
+
+            // Mélanger les mots restants pour un ordre vraiment aléatoire (Fisher-Yates)
+            const motsAleatoires = [...motsRestants]
             for (let i = motsAleatoires.length - 1; i > 0; i--) {
                 const j = Math.floor(Math.random() * (i + 1));
                 [motsAleatoires[i], motsAleatoires[j]] = [motsAleatoires[j], motsAleatoires[i]]
             }
+
             setMots(motsAleatoires)
-            initializePaniers()
-            setMotActuel(motsAleatoires[0] || null)
-            setIndexActuel(0)
-            setIsCompleted(false)
+            initializePaniers(paniersExistants)
+
+            if (motsAleatoires.length === 0) {
+                // Tous les mots sont déjà classés
+                setIsCompleted(true)
+                setMotActuel(null)
+            } else {
+                setMotActuel(motsAleatoires[0] || null)
+                setIndexActuel(0)
+                setIsCompleted(false)
+            }
+
             setIsLoading(false)
         } catch (error) {
             console.error('Erreur chargement monosyllabes validés:', error)
@@ -105,15 +141,15 @@ export default function ExerciceClassement({ selectedTextes, retourSelection }) 
         }
     }
 
-    const initializePaniers = () => {
+    const initializePaniers = (paniersExistants = {}) => {
         // Créer des paniers : 1 poubelle + toutes les lettres de l'alphabet
         const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')
 
         const nouvellesPaniers = {
-            '🗑️': [] // Panier poubelle pour nombres et caractères spéciaux
+            '🗑️': paniersExistants['🗑️'] || [] // Panier poubelle pour nombres et caractères spéciaux
         }
         alphabet.forEach(lettre => {
-            nouvellesPaniers[lettre] = []
+            nouvellesPaniers[lettre] = paniersExistants[lettre] || []
         })
 
         setPaniers(nouvellesPaniers)
@@ -227,6 +263,36 @@ export default function ExerciceClassement({ selectedTextes, retourSelection }) 
         } else {
             setIsCompleted(true)
             setMotActuel(null)
+            sauvegarderPaniers()
+        }
+    }
+
+    const sauvegarderPaniers = () => {
+        try {
+            // Récupérer les données existantes
+            const syllabesMotsClasses = JSON.parse(localStorage.getItem('syllabes-mots-classes') || '{}')
+
+            // Extraire tous les mots classés
+            const tousLesMotsClasses = []
+            Object.keys(paniers).forEach(lettre => {
+                if (paniers[lettre] && paniers[lettre].length > 0) {
+                    tousLesMotsClasses.push(...paniers[lettre])
+                }
+            })
+
+            // Sauvegarder pour chaque texte sélectionné
+            selectedTextes.forEach(texteId => {
+                syllabesMotsClasses[texteId] = {
+                    mots: [...new Set([...(syllabesMotsClasses[texteId]?.mots || []), ...tousLesMotsClasses])],
+                    paniers: paniers,
+                    dateModification: new Date().toISOString()
+                }
+            })
+
+            localStorage.setItem('syllabes-mots-classes', JSON.stringify(syllabesMotsClasses))
+            console.log('✅ Paniers sauvegardés pour textes:', selectedTextes)
+        } catch (error) {
+            console.error('❌ Erreur sauvegarde paniers:', error)
         }
     }
 
@@ -416,6 +482,45 @@ export default function ExerciceClassement({ selectedTextes, retourSelection }) 
                     >
                         🔊
                     </button>
+                    <button
+                        onClick={resetExercice}
+                        disabled={!isCompleted}
+                        style={{
+                            width: '55px',
+                            height: '55px',
+                            backgroundColor: 'white',
+                            border: '3px solid #10b981',
+                            borderRadius: '12px',
+                            fontSize: '24px',
+                            cursor: isCompleted ? 'pointer' : 'not-allowed',
+                            opacity: isCompleted ? 1 : 0.5,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                        }}
+                    >
+                        🔄
+                    </button>
+                    <button
+                        onClick={sauvegarderPaniers}
+                        disabled={!isCompleted}
+                        style={{
+                            width: '55px',
+                            height: '55px',
+                            backgroundColor: 'white',
+                            border: '3px solid #10b981',
+                            borderRadius: '12px',
+                            fontSize: '24px',
+                            cursor: isCompleted ? 'pointer' : 'not-allowed',
+                            opacity: isCompleted ? 1 : 0.5,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                        }}
+                        title="Valider et enregistrer"
+                    >
+                        ✅
+                    </button>
                 </div>
 
                 {/* Ligne 3 : Instructions - masqué sur mobile */}
@@ -430,23 +535,15 @@ export default function ExerciceClassement({ selectedTextes, retourSelection }) 
 
                 {/* Message de complétion */}
                 {isCompleted && (
-                    <div style={{
+                    <p style={{
                         textAlign: 'center',
-                        marginBottom: '30px',
-                        padding: '20px',
-                        background: '#d1fae5',
-                        borderRadius: '12px',
-                        border: '2px solid #10b981'
+                        marginBottom: '20px',
+                        fontSize: '20px',
+                        fontWeight: 'bold',
+                        color: '#059669'
                     }}>
-                        <div style={{ fontSize: '32px', marginBottom: '10px' }}>🎉</div>
-                        <div style={{
-                            fontSize: '24px',
-                            fontWeight: 'bold',
-                            color: '#059669'
-                        }}>
-                            Bravo ! Tous les mots sont classés !
-                        </div>
-                    </div>
+                        ✅ Tous les mots ont été classés !
+                    </p>
                 )}
 
                 {/* Mot actuel à classer */}
@@ -540,6 +637,7 @@ export default function ExerciceClassement({ selectedTextes, retourSelection }) 
                                     {paniers[lettre]?.map((mot, index) => (
                                         <div
                                             key={index}
+                                            onClick={() => playAudio(mot)}
                                             style={{
                                                 padding: '4px',
                                                 background: '#dcfce7',
@@ -547,8 +645,12 @@ export default function ExerciceClassement({ selectedTextes, retourSelection }) 
                                                 border: '1px solid #16a34a',
                                                 fontSize: isMobile ? '8px' : '10px',
                                                 fontWeight: 'bold',
-                                                color: '#15803d'
+                                                color: '#15803d',
+                                                cursor: 'pointer',
+                                                transition: 'opacity 0.2s'
                                             }}
+                                            onMouseOver={(e) => e.target.style.opacity = '0.7'}
+                                            onMouseOut={(e) => e.target.style.opacity = '1'}
                                         >
                                             {mot}
                                         </div>
@@ -596,6 +698,7 @@ export default function ExerciceClassement({ selectedTextes, retourSelection }) 
                                     {paniers[lettre]?.map((mot, index) => (
                                         <div
                                             key={index}
+                                            onClick={() => playAudio(mot)}
                                             style={{
                                                 padding: '4px',
                                                 background: '#dcfce7',
@@ -603,8 +706,12 @@ export default function ExerciceClassement({ selectedTextes, retourSelection }) 
                                                 border: '1px solid #16a34a',
                                                 fontSize: isMobile ? '8px' : '10px',
                                                 fontWeight: 'bold',
-                                                color: '#15803d'
+                                                color: '#15803d',
+                                                cursor: 'pointer',
+                                                transition: 'opacity 0.2s'
                                             }}
+                                            onMouseOver={(e) => e.target.style.opacity = '0.7'}
+                                            onMouseOut={(e) => e.target.style.opacity = '1'}
                                         >
                                             {mot}
                                         </div>
@@ -651,6 +758,7 @@ export default function ExerciceClassement({ selectedTextes, retourSelection }) 
                                     {paniers[lettre]?.map((mot, index) => (
                                         <div
                                             key={index}
+                                            onClick={() => playAudio(mot)}
                                             style={{
                                                 padding: '4px',
                                                 background: '#dcfce7',
@@ -658,8 +766,12 @@ export default function ExerciceClassement({ selectedTextes, retourSelection }) 
                                                 border: '1px solid #16a34a',
                                                 fontSize: isMobile ? '8px' : '10px',
                                                 fontWeight: 'bold',
-                                                color: '#15803d'
+                                                color: '#15803d',
+                                                cursor: 'pointer',
+                                                transition: 'opacity 0.2s'
                                             }}
+                                            onMouseOver={(e) => e.target.style.opacity = '0.7'}
+                                            onMouseOut={(e) => e.target.style.opacity = '1'}
                                         >
                                             {mot}
                                         </div>
