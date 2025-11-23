@@ -12,6 +12,7 @@ export default function ExerciceClassement({ selectedTextes, retourSelection }) 
     const [elevenLabsTokens, setElevenLabsTokens] = useState(0)
     const [audioCache, setAudioCache] = useState({})
     const [isMobile, setIsMobile] = useState(false)
+    const [showSaveMessage, setShowSaveMessage] = useState(false)
 
     useEffect(() => {
         const checkMobile = () => {
@@ -267,9 +268,9 @@ export default function ExerciceClassement({ selectedTextes, retourSelection }) 
         }
     }
 
-    const sauvegarderPaniers = () => {
+    const sauvegarderPaniers = async () => {
         try {
-            // Récupérer les données existantes
+            // 1. Sauvegarde localStorage (pour compatibilité)
             const syllabesMotsClasses = JSON.parse(localStorage.getItem('syllabes-mots-classes') || '{}')
 
             // Extraire tous les mots classés
@@ -290,9 +291,51 @@ export default function ExerciceClassement({ selectedTextes, retourSelection }) 
             })
 
             localStorage.setItem('syllabes-mots-classes', JSON.stringify(syllabesMotsClasses))
-            console.log('✅ Paniers sauvegardés pour textes:', selectedTextes)
+            console.log('✅ Paniers sauvegardés en localStorage')
+
+            // 2. Sauvegarde en base de données
+            const token = localStorage.getItem('token')
+            if (!token) {
+                console.warn('⚠️ Pas de token - sauvegarde BDD ignorée')
+                setShowSaveMessage(true)
+                setTimeout(() => {
+                    retourSelection()
+                }, 4000)
+                return
+            }
+
+            const response = await fetch('/api/mots-classifies/sauvegarder-paniers', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    paniers: paniers,
+                    selectedTextes: selectedTextes
+                })
+            })
+
+            if (response.ok) {
+                const data = await response.json()
+                console.log('✅ Paniers sauvegardés en BDD:', data.message)
+            } else {
+                const errorData = await response.json()
+                console.error('❌ Erreur sauvegarde BDD:', errorData)
+            }
+
+            // Afficher le message et rediriger après 4 secondes
+            setShowSaveMessage(true)
+            setTimeout(() => {
+                retourSelection()
+            }, 4000)
+
         } catch (error) {
             console.error('❌ Erreur sauvegarde paniers:', error)
+            setShowSaveMessage(true)
+            setTimeout(() => {
+                retourSelection()
+            }, 4000)
         }
     }
 
@@ -351,8 +394,24 @@ export default function ExerciceClassement({ selectedTextes, retourSelection }) 
 
     const resetExercice = () => {
         if (selectedTextes.length > 0) {
-            setIsLoading(true)
-            loadSyllabesMots()
+            try {
+                // 1. Effacer les paniers dans localStorage pour les textes sélectionnés
+                const syllabesMotsClasses = JSON.parse(localStorage.getItem('syllabes-mots-classes') || '{}')
+
+                selectedTextes.forEach(texteId => {
+                    delete syllabesMotsClasses[texteId]
+                })
+
+                localStorage.setItem('syllabes-mots-classes', JSON.stringify(syllabesMotsClasses))
+
+                // 2. Recharger les mots (cela va réinitialiser paniers, index, mot actuel, etc.)
+                setIsLoading(true)
+                loadSyllabesMots()
+
+                console.log('✅ Exercice réinitialisé - Tous les paniers effacés')
+            } catch (error) {
+                console.error('❌ Erreur lors de la réinitialisation:', error)
+            }
         }
     }
 
@@ -544,6 +603,30 @@ export default function ExerciceClassement({ selectedTextes, retourSelection }) 
                     }}>
                         ✅ Tous les mots ont été classés !
                     </p>
+                )}
+
+                {/* Message de sauvegarde */}
+                {showSaveMessage && (
+                    <div style={{
+                        position: 'fixed',
+                        top: '50%',
+                        left: '50%',
+                        transform: 'translate(-50%, -50%)',
+                        backgroundColor: '#4CAF50',
+                        color: 'white',
+                        padding: '30px 50px',
+                        borderRadius: '15px',
+                        fontSize: '24px',
+                        fontWeight: 'bold',
+                        boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
+                        zIndex: 9999,
+                        textAlign: 'center'
+                    }}>
+                        ✅ Mots enregistrés !<br />
+                        <span style={{ fontSize: '18px', marginTop: '10px', display: 'block' }}>
+                            Retour au menu dans 4 secondes...
+                        </span>
+                    </div>
                 )}
 
                 {/* Mot actuel à classer */}

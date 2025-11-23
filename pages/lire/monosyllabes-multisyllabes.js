@@ -445,7 +445,7 @@ export default function MonosyllabesMultisyllabes() {
         try {
             const resultats = userChoices.map(choice => ({
                 mot: choice.mot.clean,
-                classification: choice.mot.isMonosyllabe ? 'mono' : 'multi',
+                classification: choice.userChoice ? 'mono' : 'multi',
                 score: choice.isCorrect ? 1 : 0
             }))
 
@@ -727,7 +727,7 @@ export default function MonosyllabesMultisyllabes() {
         }}>
             <style dangerouslySetInnerHTML={{ __html: mobileStyles }} />
             <div style={{
-                maxWidth: '800px',
+                maxWidth: '1400px',
                 margin: '0 auto'
             }}>
                 {/* Titre + Navigation (UNIQUEMENT sur page sélection textes) */}
@@ -950,7 +950,7 @@ export default function MonosyllabesMultisyllabes() {
                     <>
                         {/* Instructions */}
                         <p className="desktop-only" style={{ textAlign: 'center', fontSize: '16px', color: '#0369a1', marginBottom: '20px' }}>
-                            Pour chaque mot, décidez s'il s'agit d'un mot avec une syllabe 🟢 ou d'un mot avec plusieurs syllabes 🔴
+                            Pour chaque mot, décidez s'il s'agit d'un mot avec une syllabe 🟢 ou d'un mot avec plusieurs syllabes 🔵
                         </p>
 
                         {/* Sélection du texte */}
@@ -1199,18 +1199,29 @@ export default function MonosyllabesMultisyllabes() {
                                 >
                                     🔄
                                 </button>
+                                <button
+                                    onClick={async () => {
+                                        await sauvegarderResultats()
+                                        alert('✅ Classement enregistré en base de données selon vos choix !')
+                                    }}
+                                    style={{
+                                        width: '55px',
+                                        height: '55px',
+                                        backgroundColor: 'white',
+                                        color: '#10b981',
+                                        border: '2px solid #10b981',
+                                        borderRadius: '12px',
+                                        fontSize: '24px',
+                                        cursor: 'pointer',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center'
+                                    }}
+                                    title="Enregistrer le classement en base de données"
+                                >
+                                    💾
+                                </button>
                             </div>
-
-                            {/* Nombre de mots classés */}
-                            <p style={{
-                                fontSize: '24px',
-                                textAlign: 'center',
-                                fontWeight: 'bold',
-                                marginBottom: '30px',
-                                color: '#333'
-                            }}>
-                                {attempts} mots classés
-                            </p>
 
                             {/* Bouton "Voir le détail" UNIQUEMENT sur mobile */}
                             {isMobile && (
@@ -1242,110 +1253,275 @@ export default function MonosyllabesMultisyllabes() {
                                     background: 'transparent',
                                     padding: '0'
                                 }}>
-                                    <h3 style={{
-                                        marginBottom: '20px',
-                                        fontSize: '20px',
-                                        textAlign: isMobile ? 'left' : 'center'
-                                    }}>
-                                        📏 Détail des réponses
-                                    </h3>
-                                    <div style={{
-                                        display: 'grid',
-                                        gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr',
-                                        gap: isMobile ? '15px' : '10px'
-                                    }}>
-                                        {userChoices.map((choice, index) => (
-                                            <div key={index} style={{
-                                                display: 'flex',
-                                                justifyContent: 'space-between',
-                                                alignItems: 'center',
-                                                padding: isMobile ? '10px' : '8px',
-                                                background: '#e0f2fe',
-                                                borderRadius: '4px',
-                                                fontSize: isMobile ? '14px' : '24px'
-                                            }}>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '10px' : '6px' }}>
-                                                    <button
-                                                        onClick={() => speakText(choice.mot.clean)}
-                                                        style={{
-                                                            backgroundColor: '#3b82f6',
-                                                            color: 'white',
-                                                            padding: isMobile ? '4px 8px' : '3px 6px',
-                                                            border: 'none',
-                                                            borderRadius: '4px',
-                                                            fontSize: isMobile ? '12px' : '20px',
-                                                            cursor: 'pointer'
-                                                        }}
-                                                    >
-                                                        🔊
-                                                    </button>
-                                                    <div>
-                                                        <strong>{choice.mot.clean}</strong>
-                                                    </div>
-                                                </div>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '10px' : '6px' }}>
-                                                    {(() => {
-                                                        // Debug : vérifier si isMonosyllabe existe
-                                                        const algoSuggestion = choice.mot?.isMonosyllabe
-                                                        const differe = algoSuggestion !== undefined && choice.userChoice !== algoSuggestion
+                                    {isMobile ? (
+                                        // MOBILE : Liste simple
+                                        <div style={{
+                                            display: 'grid',
+                                            gridTemplateColumns: '1fr',
+                                            gap: '15px'
+                                        }}>
+                                            {userChoices.map((choice, index) => {
+                                                const algoSuggestion = choice.mot?.isMonosyllabe
+                                                const differe = algoSuggestion !== undefined && choice.userChoice !== algoSuggestion
 
-                                                        return (
-                                                            <>
-                                                                {!isMobile && (
-                                                                    <span style={{
-                                                                        color: '#0369a1',
-                                                                        fontSize: '22px'
-                                                                    }}>
-                                                                        {choice.userChoice ? 'Mono' : 'Multi'}
-                                                                        {differe ? ' ⚠️' : ''}
-                                                                    </span>
-                                                                )}
-                                                                {isMobile && (
-                                                                    <span style={{
-                                                                        color: '#333',
-                                                                        fontSize: '12px'
-                                                                    }}>
-                                                                        {choice.userChoice ? 'Mono' : 'Multi'}
-                                                                        {differe ? ' ⚠️' : ''}
-                                                                    </span>
-                                                                )}
-                                                            </>
-                                                        )
-                                                    })()}
-                                                    <button
-                                                        onClick={() => modifierChoix(index)}
-                                                        style={{
-                                                            backgroundColor: '#3b82f6',
-                                                            color: 'white',
-                                                            padding: isMobile ? '4px 8px' : '6px 12px',
-                                                            border: 'none',
-                                                            borderRadius: '4px',
-                                                            fontSize: isMobile ? '11px' : '18px',
-                                                            cursor: 'pointer',
-                                                            whiteSpace: 'nowrap'
-                                                        }}
-                                                    >
-                                                        {isMobile ? '✏️' : '✏️ Modifier'}
-                                                    </button>
-                                                    <button
-                                                        onClick={() => demanderCorrection(choice.mot, choice.userChoice)}
-                                                        style={{
-                                                            backgroundColor: '#f59e0b',
-                                                            color: 'white',
-                                                            padding: isMobile ? '4px 8px' : '6px 12px',
-                                                            border: 'none',
-                                                            borderRadius: '4px',
-                                                            fontSize: isMobile ? '11px' : '18px',
-                                                            cursor: 'pointer',
-                                                            whiteSpace: 'nowrap'
-                                                        }}
-                                                    >
-                                                        {isMobile ? '🤔' : '🤔 Avis admin'}
-                                                    </button>
+                                                return (
+                                                    <div key={index} style={{
+                                                        display: 'flex',
+                                                        justifyContent: 'space-between',
+                                                        alignItems: 'center',
+                                                        padding: '10px',
+                                                        background: '#e0f2fe',
+                                                        borderRadius: '4px',
+                                                        fontSize: '14px'
+                                                    }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                            <button
+                                                                onClick={() => speakText(choice.mot.clean)}
+                                                                style={{
+                                                                    backgroundColor: '#3b82f6',
+                                                                    color: 'white',
+                                                                    padding: '4px 8px',
+                                                                    border: 'none',
+                                                                    borderRadius: '4px',
+                                                                    fontSize: '12px',
+                                                                    cursor: 'pointer'
+                                                                }}
+                                                            >
+                                                                🔊
+                                                            </button>
+                                                            <div>
+                                                                <strong>{choice.mot.clean}</strong>
+                                                            </div>
+                                                        </div>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                            <span style={{
+                                                                color: '#333',
+                                                                fontSize: '12px'
+                                                            }}>
+                                                                {choice.userChoice ? 'Mono' : 'Multi'}
+                                                                {differe ? ' ⚠️' : ''}
+                                                            </span>
+                                                            <button
+                                                                onClick={() => modifierChoix(index)}
+                                                                style={{
+                                                                    backgroundColor: '#3b82f6',
+                                                                    color: 'white',
+                                                                    padding: '4px 8px',
+                                                                    border: 'none',
+                                                                    borderRadius: '4px',
+                                                                    fontSize: '11px',
+                                                                    cursor: 'pointer',
+                                                                    whiteSpace: 'nowrap'
+                                                                }}
+                                                            >
+                                                                ✏️
+                                                            </button>
+                                                            <button
+                                                                onClick={() => demanderCorrection(choice.mot, choice.userChoice)}
+                                                                style={{
+                                                                    backgroundColor: '#f59e0b',
+                                                                    color: 'white',
+                                                                    padding: '4px 8px',
+                                                                    border: 'none',
+                                                                    borderRadius: '4px',
+                                                                    fontSize: '11px',
+                                                                    cursor: 'pointer',
+                                                                    whiteSpace: 'nowrap'
+                                                                }}
+                                                            >
+                                                                🤔
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                )
+                                            })}
+                                        </div>
+                                    ) : (
+                                        // PC : 2 colonnes séparées Mono | Multi
+                                        <div style={{
+                                            display: 'grid',
+                                            gridTemplateColumns: '1fr 1fr',
+                                            gap: '40px'
+                                        }}>
+                                            {/* Colonne MONOSYLLABES */}
+                                            <div>
+                                                <h4 style={{
+                                                    textAlign: 'center',
+                                                    marginBottom: '15px',
+                                                    fontSize: '24px',
+                                                    fontWeight: 'bold',
+                                                    color: '#0369a1'
+                                                }}>
+                                                    📘 MONOSYLLABES
+                                                </h4>
+                                                <div style={{
+                                                    display: 'flex',
+                                                    flexDirection: 'column',
+                                                    gap: '10px'
+                                                }}>
+                                                    {userChoices
+                                                        .map((choice, index) => ({ choice, index }))
+                                                        .filter(({ choice }) => choice.userChoice === true)
+                                                        .map(({ choice, index }) => {
+                                                            const algoSuggestion = choice.mot?.isMonosyllabe
+                                                            const differe = algoSuggestion !== undefined && choice.userChoice !== algoSuggestion
+
+                                                            return (
+                                                                <div key={index} style={{
+                                                                    display: 'flex',
+                                                                    justifyContent: 'space-between',
+                                                                    alignItems: 'center',
+                                                                    padding: '15px',
+                                                                    background: '#e0f2fe',
+                                                                    borderRadius: '6px',
+                                                                    fontSize: '20px'
+                                                                }}>
+                                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                                        <button
+                                                                            onClick={() => speakText(choice.mot.clean)}
+                                                                            style={{
+                                                                                backgroundColor: '#3b82f6',
+                                                                                color: 'white',
+                                                                                padding: '6px 10px',
+                                                                                border: 'none',
+                                                                                borderRadius: '4px',
+                                                                                fontSize: '20px',
+                                                                                cursor: 'pointer'
+                                                                            }}
+                                                                        >
+                                                                            🔊
+                                                                        </button>
+                                                                        <strong>{choice.mot.clean}</strong>
+                                                                        {differe && <span style={{ color: '#f59e0b', fontSize: '24px' }}>⚠️</span>}
+                                                                    </div>
+                                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                                        <button
+                                                                            onClick={() => modifierChoix(index)}
+                                                                            style={{
+                                                                                backgroundColor: '#3b82f6',
+                                                                                color: 'white',
+                                                                                padding: '6px 12px',
+                                                                                border: 'none',
+                                                                                borderRadius: '4px',
+                                                                                fontSize: '16px',
+                                                                                cursor: 'pointer',
+                                                                                whiteSpace: 'nowrap'
+                                                                            }}
+                                                                        >
+                                                                            ✏️ Modifier
+                                                                        </button>
+                                                                        <button
+                                                                            onClick={() => demanderCorrection(choice.mot, choice.userChoice)}
+                                                                            style={{
+                                                                                backgroundColor: '#f59e0b',
+                                                                                color: 'white',
+                                                                                padding: '6px 12px',
+                                                                                border: 'none',
+                                                                                borderRadius: '4px',
+                                                                                fontSize: '16px',
+                                                                                cursor: 'pointer',
+                                                                                whiteSpace: 'nowrap'
+                                                                            }}
+                                                                        >
+                                                                            🤔 Avis admin
+                                                                        </button>
+                                                                    </div>
+                                                                </div>
+                                                            )
+                                                        })}
                                                 </div>
                                             </div>
-                                        ))}
-                                    </div>
+
+                                            {/* Colonne MULTISYLLABES */}
+                                            <div>
+                                                <h4 style={{
+                                                    textAlign: 'center',
+                                                    marginBottom: '15px',
+                                                    fontSize: '24px',
+                                                    fontWeight: 'bold',
+                                                    color: '#0369a1'
+                                                }}>
+                                                    📗 MULTISYLLABES
+                                                </h4>
+                                                <div style={{
+                                                    display: 'flex',
+                                                    flexDirection: 'column',
+                                                    gap: '10px'
+                                                }}>
+                                                    {userChoices
+                                                        .map((choice, index) => ({ choice, index }))
+                                                        .filter(({ choice }) => choice.userChoice === false)
+                                                        .map(({ choice, index }) => {
+                                                            const algoSuggestion = choice.mot?.isMonosyllabe
+                                                            const differe = algoSuggestion !== undefined && choice.userChoice !== algoSuggestion
+
+                                                            return (
+                                                                <div key={index} style={{
+                                                                    display: 'flex',
+                                                                    justifyContent: 'space-between',
+                                                                    alignItems: 'center',
+                                                                    padding: '15px',
+                                                                    background: '#e0f2fe',
+                                                                    borderRadius: '6px',
+                                                                    fontSize: '20px'
+                                                                }}>
+                                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                                        <button
+                                                                            onClick={() => speakText(choice.mot.clean)}
+                                                                            style={{
+                                                                                backgroundColor: '#3b82f6',
+                                                                                color: 'white',
+                                                                                padding: '6px 10px',
+                                                                                border: 'none',
+                                                                                borderRadius: '4px',
+                                                                                fontSize: '20px',
+                                                                                cursor: 'pointer'
+                                                                            }}
+                                                                        >
+                                                                            🔊
+                                                                        </button>
+                                                                        <strong>{choice.mot.clean}</strong>
+                                                                        {differe && <span style={{ color: '#f59e0b', fontSize: '24px' }}>⚠️</span>}
+                                                                    </div>
+                                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                                        <button
+                                                                            onClick={() => modifierChoix(index)}
+                                                                            style={{
+                                                                                backgroundColor: '#3b82f6',
+                                                                                color: 'white',
+                                                                                padding: '6px 12px',
+                                                                                border: 'none',
+                                                                                borderRadius: '4px',
+                                                                                fontSize: '16px',
+                                                                                cursor: 'pointer',
+                                                                                whiteSpace: 'nowrap'
+                                                                            }}
+                                                                        >
+                                                                            ✏️ Modifier
+                                                                        </button>
+                                                                        <button
+                                                                            onClick={() => demanderCorrection(choice.mot, choice.userChoice)}
+                                                                            style={{
+                                                                                backgroundColor: '#f59e0b',
+                                                                                color: 'white',
+                                                                                padding: '6px 12px',
+                                                                                border: 'none',
+                                                                                borderRadius: '4px',
+                                                                                fontSize: '16px',
+                                                                                cursor: 'pointer',
+                                                                                whiteSpace: 'nowrap'
+                                                                            }}
+                                                                        >
+                                                                            🤔 Avis admin
+                                                                        </button>
+                                                                    </div>
+                                                                </div>
+                                                            )
+                                                        })}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             )}
                         </div>
@@ -1492,7 +1668,7 @@ export default function MonosyllabesMultisyllabes() {
                                 marginBottom: '20px',
                                 marginTop: '15px'
                             }}>
-                                Pour chaque mot, décidez s'il s'agit d'un mot avec une syllabe 🟢 ou d'un mot avec plusieurs syllabes 🔴
+                                Pour chaque mot, décidez s'il s'agit d'un mot avec une syllabe 🟢 ou d'un mot avec plusieurs syllabes 🔵
                             </div>
                         )}
 
@@ -1579,7 +1755,7 @@ export default function MonosyllabesMultisyllabes() {
                                     justifyContent: 'center'
                                 }}
                             >
-                                🔴 Plusieurs syllabes
+                                🔵 Plusieurs syllabes
                             </button>
                         </div>
                     </>
