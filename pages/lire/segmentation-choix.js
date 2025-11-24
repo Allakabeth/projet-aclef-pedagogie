@@ -1211,7 +1211,7 @@ export default function SegmentationSyllabiqueTest() {
                                         height: '30px',
                                         margin: '0 2px',
                                         backgroundColor: 'transparent',
-                                        border: cuts.includes(index + 1) ? '2px solid #dc2626' : '2px dashed #d1d5db',
+                                        border: cuts.includes(index + 1) ? '2px solid #dc2626' : 'none',
                                         borderRadius: '4px',
                                         cursor: 'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'32\' height=\'32\' viewBox=\'0 0 24 24\'><text x=\'0\' y=\'20\' font-size=\'20\'>✂️</text></svg>") 16 16, pointer',
                                         fontSize: '16px',
