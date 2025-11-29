@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Prompts pour génération d'images</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 900px; margin: 0 auto; padding: 20px; }
+        h1 { color: #8b5cf6; }
+        h2 { color: #ec4899; margin-top: 40px; }
+        .prompt-card {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 15px;
+            margin: 10px 0;
+        }
+        .prompt-card h3 { margin: 0 0 10px 0; color: #374151; }
+        .prompt-text {
+            background: #fff;
+            border: 1px solid #d1d5db;
+            padding: 10px;
+            border-radius: 5px;
+            font-family: monospace;
+            cursor: pointer;
+        }
+        .prompt-text:hover { background: #f0fdf4; }
+        .copy-btn {
+            background: #8b5cf6;
+            color: white;
+            border: none;
+            padding: 5px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        .copy-btn:hover { background: #7c3aed; }
+        .instructions {
+            background: #dbeafe;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎨 Prompts pour génération d'images</h1>
+
+    <div class="instructions">
+        <h3>📋 Instructions:</h3>
+        <ol>
+            <li>Ouvrez <a href="https://aistudio.google.com/app/prompts/new_chat" target="_blank">Google AI Studio</a></li>
+            <li>Sélectionnez le modèle <strong>Gemini 2.0 Flash</strong> (supporte la génération d'images)</li>
+            <li>Cliquez sur un prompt ci-dessous pour le copier</li>
+            <li>Collez dans Gemini et attendez l'image</li>
+            <li>Téléchargez l'image et renommez-la selon le nom indiqué</li>
+            <li>Placez-la dans le bon dossier (aliments ou objets)</li>
+        </ol>
+        <p><strong>Dossier aliments:</strong> <code>public/images/compter/aliments/</code></p>
+        <p><strong>Dossier objets:</strong> <code>public/images/compter/objets/</code></p>
+    </div>
+
+    <h2>🍎 Aliments</h2>
+
+    <div class="prompt-card">
+        <h3>📸 pomme.png</h3>
+        <div class="prompt-text" onclick="navigator.clipboard.writeText(this.innerText); this.style.background='#dcfce7';">
+A single red apple, photorealistic, centered on pure white background, product photography, studio lighting, no shadows
+        </div>
+        <button class="copy-btn" onclick="navigator.clipboard.writeText('A single red apple, photorealistic, centered on pure white background, product photography, studio lighting, no shadows'); alert('Copié!');">Copier le prompt</button>
+    </div>
+    <div class="prompt-card">
+        <h3>📸 banane.png</h3>
+        <div class="prompt-text" onclick="navigator.clipboard.writeText(this.innerText); this.style.background='#dcfce7';">
+A single yellow ripe banana, photorealistic, centered on pure white background, product photography, studio lighting
+        </div>
+        <button class="copy-btn" onclick="navigator.clipboard.writeText('A single yellow ripe banana, photorealistic, centered on pure white background, product photography, studio lighting'); alert('Copié!');">Copier le prompt</button>
+    </div>
+    <div class="prompt-card">
+        <h3>📸 carotte.png</h3>
+        <div class="prompt-text" onclick="navigator.clipboard.writeText(this.innerText); this.style.background='#dcfce7';">
+A single fresh orange carrot with green leaves, photorealistic, centered on pure white background, product photography
+        </div>
+        <button class="copy-btn" onclick="navigator.clipboard.writeText('A single fresh orange carrot with green leaves, photorealistic, centered on pure white background, product photography'); alert('Copié!');">Copier le prompt</button>
+    </div>
+    <div class="prompt-card">
+        <h3>📸 tomate.png</h3>
+        <div class="prompt-text" onclick="navigator.clipboard.writeText(this.innerText); this.style.background='#dcfce7';">
+A single ripe red tomato, photorealistic, centered on pure white background, product photography, studio lighting
+        </div>
+        <button class="copy-btn" onclick="navigator.clipboard.writeText('A single ripe red tomato, photorealistic, centered on pure white background, product photography, studio lighting'); alert('Copié!');">Copier le prompt</button>
+    </div>
+    <div class="prompt-card">
+        <h3>📸 salade.png</h3>
+        <div class="prompt-text" onclick="navigator.clipboard.writeText(this.innerText); this.style.background='#dcfce7';">
+A fresh green lettuce, photorealistic, centered on pure white background, product photography
+        </div>
+        <button class="copy-btn" onclick="navigator.clipboard.writeText('A fresh green lettuce, photorealistic, centered on pure white background, product photography'); alert('Copié!');">Copier le prompt</button>
+    </div>
+    <div class="prompt-card">
+        <h3>📸 chocolat.png</h3>
+        <div class="prompt-text" onclick="navigator.clipboard.writeText(this.innerText); this.style.background='#dcfce7';">
+A chocolate bar in wrapper partially opened, photorealistic, centered on pure white background, product photography
+        </div>
+        <button class="copy-btn" onclick="navigator.clipboard.writeText('A chocolate bar in wrapper partially opened, photorealistic, centered on pure white background, product photography'); alert('Copié!');">Copier le prompt</button>
+    </div>
+    <div class="prompt-card">
+        <h3>📸 cafe-paquet.png</h3>
+        <div class="prompt-text" onclick="navigator.clipboard.writeText(this.innerText); this.style.background='#dcfce7';">
+A coffee bag package, photorealistic, centered on pure white background, product photography
+        </div>
+        <button class="copy-btn" onclick="navigator.clipboard.writeText('A coffee bag package, photorealistic, centered on pure white background, product photography'); alert('Copié!');">Copier le prompt</button>
+    </div>
+    <div class="prompt-card">
+        <h3>📸 riz.png</h3>
+        <div class="prompt-text" onclick="navigator.clipboard.writeText(this.innerText); this.style.background='#dcfce7';">
+A bag of white rice, photorealistic, centered on pure white background, product photography
+        </div>
+        <button class="copy-btn" onclick="navigator.clipboard.writeText('A bag of white rice, photorealistic, centered on pure white background, product photography'); alert('Copié!');">Copier le prompt</button>
+    </div>
+    <div class="prompt-card">
+        <h3>📸 pates.png</h3>
+        <div class="prompt-text" onclick="navigator.clipboard.writeText(this.innerText); this.style.background='#dcfce7';">
+A package of spaghetti pasta, photorealistic, centered on pure white background, product photography
+        </div>
+        <button class="copy-btn" onclick="navigator.clipboard.writeText('A package of spaghetti pasta, photorealistic, centered on pure white background, product photography'); alert('Copié!');">Copier le prompt</button>
+    </div>
+    <div class="prompt-card">
+        <h3>📸 poisson-entier.png</h3>
+        <div class="prompt-text" onclick="navigator.clipboard.writeText(this.innerText); this.style.background='#dcfce7';">
+A fresh whole fish on a white plate, photorealistic, centered on pure white background, product photography
+        </div>
+        <button class="copy-btn" onclick="navigator.clipboard.writeText('A fresh whole fish on a white plate, photorealistic, centered on pure white background, product photography'); alert('Copié!');">Copier le prompt</button>
+    </div>
+    <div class="prompt-card">
+        <h3>📸 concombre.png</h3>
+        <div class="prompt-text" onclick="navigator.clipboard.writeText(this.innerText); this.style.background='#dcfce7';">
+A fresh green cucumber, photorealistic, centered on pure white background, product photography
+        </div>
+        <button class="copy-btn" onclick="navigator.clipboard.writeText('A fresh green cucumber, photorealistic, centered on pure white background, product photography'); alert('Copié!');">Copier le prompt</button>
+    </div>
+    <div class="prompt-card">
+        <h3>📸 poivron.png</h3>
+        <div class="prompt-text" onclick="navigator.clipboard.writeText(this.innerText); this.style.background='#dcfce7';">
+A red bell pepper, photorealistic, centered on pure white background, product photography
+        </div>
+        <button class="copy-btn" onclick="navigator.clipboard.writeText('A red bell pepper, photorealistic, centered on pure white background, product photography'); alert('Copié!');">Copier le prompt</button>
+    </div>
+    <div class="prompt-card">
+        <h3>📸 courgette.png</h3>
+        <div class="prompt-text" onclick="navigator.clipboard.writeText(this.innerText); this.style.background='#dcfce7';">
+A green zucchini, photorealistic, centered on pure white background, product photography
+        </div>
+        <button class="copy-btn" onclick="navigator.clipboard.writeText('A green zucchini, photorealistic, centered on pure white background, product photography'); alert('Copié!');">Copier le prompt</button>
+    </div>
+    <div class="prompt-card">
+        <h3>📸 oignon.png</h3>
+        <div class="prompt-text" onclick="navigator.clipboard.writeText(this.innerText); this.style.background='#dcfce7';">
+A yellow onion, photorealistic, centered on pure white background, product photography
+        </div>
+        <button class="copy-btn" onclick="navigator.clipboard.writeText('A yellow onion, photorealistic, centered on pure white background, product photography'); alert('Copié!');">Copier le prompt</button>
+    </div>
+    <div class="prompt-card">
+        <h3>📸 ail.png</h3>
+        <div class="prompt-text" onclick="navigator.clipboard.writeText(this.innerText); this.style.background='#dcfce7';">
+A garlic bulb, photorealistic, centered on pure white background, product photography
+        </div>
+        <button class="copy-btn" onclick="navigator.clipboard.writeText('A garlic bulb, photorealistic, centered on pure white background, product photography'); alert('Copié!');">Copier le prompt</button>
+    </div>
+    <div class="prompt-card">
+        <h3>📸 pomme-de-terre.png</h3>
+        <div class="prompt-text" onclick="navigator.clipboard.writeText(this.innerText); this.style.background='#dcfce7';">
+A potato, photorealistic, centered on pure white background, product photography
+        </div>
+        <button class="copy-btn" onclick="navigator.clipboard.writeText('A potato, photorealistic, centered on pure white background, product photography'); alert('Copié!');">Copier le prompt</button>
+    </div>
+    <div class="prompt-card">
+        <h3>📸 raisin.png</h3>
+        <div class="prompt-text" onclick="navigator.clipboard.writeText(this.innerText); this.style.background='#dcfce7';">
+A bunch of green grapes, photorealistic, centered on pure white background, product photography
+        </div>
+        <button class="copy-btn" onclick="navigator.clipboard.writeText('A bunch of green grapes, photorealistic, centered on pure white background, product photography'); alert('Copié!');">Copier le prompt</button>
+    </div>
+    <div class="prompt-card">
+        <h3>📸 fraise.png</h3>
+        <div class="prompt-text" onclick="navigator.clipboard.writeText(this.innerText); this.style.background='#dcfce7';">
+Fresh strawberries, photorealistic, centered on pure white background, product photography
+        </div>
+        <button class="copy-btn" onclick="navigator.clipboard.writeText('Fresh strawberries, photorealistic, centered on pure white background, product photography'); alert('Copié!');">Copier le prompt</button>
+    </div>
+    <div class="prompt-card">
+        <h3>📸 citron.png</h3>
+        <div class="prompt-text" onclick="navigator.clipboard.writeText(this.innerText); this.style.background='#dcfce7';">
+A yellow lemon, photorealistic, centered on pure white background, product photography
+        </div>
+        <button class="copy-btn" onclick="navigator.clipboard.writeText('A yellow lemon, photorealistic, centered on pure white background, product photography'); alert('Copié!');">Copier le prompt</button>
+    </div>
+    <div class="prompt-card">
+        <h3>📸 poire.png</h3>
+        <div class="prompt-text" onclick="navigator.clipboard.writeText(this.innerText); this.style.background='#dcfce7';">
+A green pear, photorealistic, centered on pure white background, product photography
+        </div>
+        <button class="copy-btn" onclick="navigator.clipboard.writeText('A green pear, photorealistic, centered on pure white background, product photography'); alert('Copié!');">Copier le prompt</button>
+    </div>
+    <h2>🏠 Objets de la maison</h2>
+
+    <div class="prompt-card">
+        <h3>📸 cles.png</h3>
+        <div class="prompt-text" onclick="navigator.clipboard.writeText(this.innerText); this.style.background='#dcfce7';">
+A set of house keys on a keyring, photorealistic, centered on pure white background, product photography
+        </div>
+        <button class="copy-btn" onclick="navigator.clipboard.writeText('A set of house keys on a keyring, photorealistic, centered on pure white background, product photography'); alert('Copié!');">Copier le prompt</button>
+    </div>
+    <div class="prompt-card">
+        <h3>📸 telephone.png</h3>
+        <div class="prompt-text" onclick="navigator.clipboard.writeText(this.innerText); this.style.background='#dcfce7';">
+A modern smartphone, photorealistic, centered on pure white background, product photography
+        </div>
+        <button class="copy-btn" onclick="navigator.clipboard.writeText('A modern smartphone, photorealistic, centered on pure white background, product photography'); alert('Copié!');">Copier le prompt</button>
+    </div>
+    <div class="prompt-card">
+        <h3>📸 lunettes.png</h3>
+        <div class="prompt-text" onclick="navigator.clipboard.writeText(this.innerText); this.style.background='#dcfce7';">
+A pair of reading glasses, photorealistic, centered on pure white background, product photography
+        </div>
+        <button class="copy-btn" onclick="navigator.clipboard.writeText('A pair of reading glasses, photorealistic, centered on pure white background, product photography'); alert('Copié!');">Copier le prompt</button>
+    </div>
+    <div class="prompt-card">
+        <h3>📸 portefeuille.png</h3>
+        <div class="prompt-text" onclick="navigator.clipboard.writeText(this.innerText); this.style.background='#dcfce7';">
+A brown leather wallet, photorealistic, centered on pure white background, product photography
+        </div>
+        <button class="copy-btn" onclick="navigator.clipboard.writeText('A brown leather wallet, photorealistic, centered on pure white background, product photography'); alert('Copié!');">Copier le prompt</button>
+    </div>
+    <div class="prompt-card">
+        <h3>📸 montre.png</h3>
+        <div class="prompt-text" onclick="navigator.clipboard.writeText(this.innerText); this.style.background='#dcfce7';">
+A classic wristwatch, photorealistic, centered on pure white background, product photography
+        </div>
+        <button class="copy-btn" onclick="navigator.clipboard.writeText('A classic wristwatch, photorealistic, centered on pure white background, product photography'); alert('Copié!');">Copier le prompt</button>
+    </div>
+    <div class="prompt-card">
+        <h3>📸 livre.png</h3>
+        <div class="prompt-text" onclick="navigator.clipboard.writeText(this.innerText); this.style.background='#dcfce7';">
+A closed red hardcover book, photorealistic, centered on pure white background, product photography
+        </div>
+        <button class="copy-btn" onclick="navigator.clipboard.writeText('A closed red hardcover book, photorealistic, centered on pure white background, product photography'); alert('Copié!');">Copier le prompt</button>
+    </div>
+    <div class="prompt-card">
+        <h3>📸 stylo.png</h3>
+        <div class="prompt-text" onclick="navigator.clipboard.writeText(this.innerText); this.style.background='#dcfce7';">
+A blue ballpoint pen, photorealistic, centered on pure white background, product photography
+        </div>
+        <button class="copy-btn" onclick="navigator.clipboard.writeText('A blue ballpoint pen, photorealistic, centered on pure white background, product photography'); alert('Copié!');">Copier le prompt</button>
+    </div>
+    <div class="prompt-card">
+        <h3>📸 parapluie.png</h3>
+        <div class="prompt-text" onclick="navigator.clipboard.writeText(this.innerText); this.style.background='#dcfce7';">
+A closed black umbrella, photorealistic, centered on pure white background, product photography
+        </div>
+        <button class="copy-btn" onclick="navigator.clipboard.writeText('A closed black umbrella, photorealistic, centered on pure white background, product photography'); alert('Copié!');">Copier le prompt</button>
+    </div>
+    <div class="prompt-card">
+        <h3>📸 bougie.png</h3>
+        <div class="prompt-text" onclick="navigator.clipboard.writeText(this.innerText); this.style.background='#dcfce7';">
+A white candle, photorealistic, centered on pure white background, product photography
+        </div>
+        <button class="copy-btn" onclick="navigator.clipboard.writeText('A white candle, photorealistic, centered on pure white background, product photography'); alert('Copié!');">Copier le prompt</button>
+    </div>
+    <div class="prompt-card">
+        <h3>📸 horloge.png</h3>
+        <div class="prompt-text" onclick="navigator.clipboard.writeText(this.innerText); this.style.background='#dcfce7';">
+A round wall clock, photorealistic, centered on pure white background, product photography
+        </div>
+        <button class="copy-btn" onclick="navigator.clipboard.writeText('A round wall clock, photorealistic, centered on pure white background, product photography'); alert('Copié!');">Copier le prompt</button>
+    </div>
+    <div class="prompt-card">
+        <h3>📸 lampe.png</h3>
+        <div class="prompt-text" onclick="navigator.clipboard.writeText(this.innerText); this.style.background='#dcfce7';">
+A desk lamp, photorealistic, centered on pure white background, product photography
+        </div>
+        <button class="copy-btn" onclick="navigator.clipboard.writeText('A desk lamp, photorealistic, centered on pure white background, product photography'); alert('Copié!');">Copier le prompt</button>
+    </div>
+    <div class="prompt-card">
+        <h3>📸 vase.png</h3>
+        <div class="prompt-text" onclick="navigator.clipboard.writeText(this.innerText); this.style.background='#dcfce7';">
+An empty glass vase, photorealistic, centered on pure white background, product photography
+        </div>
+        <button class="copy-btn" onclick="navigator.clipboard.writeText('An empty glass vase, photorealistic, centered on pure white background, product photography'); alert('Copié!');">Copier le prompt</button>
+    </div>
+    <div class="prompt-card">
+        <h3>📸 plante.png</h3>
+        <div class="prompt-text" onclick="navigator.clipboard.writeText(this.innerText); this.style.background='#dcfce7';">
+A small green potted plant, photorealistic, centered on pure white background, product photography
+        </div>
+        <button class="copy-btn" onclick="navigator.clipboard.writeText('A small green potted plant, photorealistic, centered on pure white background, product photography'); alert('Copié!');">Copier le prompt</button>
+    </div>
+    <div class="prompt-card">
+        <h3>📸 reveil.png</h3>
+        <div class="prompt-text" onclick="navigator.clipboard.writeText(this.innerText); this.style.background='#dcfce7';">
+A vintage alarm clock, photorealistic, centered on pure white background, product photography
+        </div>
+        <button class="copy-btn" onclick="navigator.clipboard.writeText('A vintage alarm clock, photorealistic, centered on pure white background, product photography'); alert('Copié!');">Copier le prompt</button>
+    </div>
+    <div class="prompt-card">
+        <h3>📸 ciseaux.png</h3>
+        <div class="prompt-text" onclick="navigator.clipboard.writeText(this.innerText); this.style.background='#dcfce7';">
+A pair of scissors, photorealistic, centered on pure white background, product photography
+        </div>
+        <button class="copy-btn" onclick="navigator.clipboard.writeText('A pair of scissors, photorealistic, centered on pure white background, product photography'); alert('Copié!');">Copier le prompt</button>
+    </div>
+    <div class="prompt-card">
+        <h3>📸 tasse.png</h3>
+        <div class="prompt-text" onclick="navigator.clipboard.writeText(this.innerText); this.style.background='#dcfce7';">
+A white coffee mug, photorealistic, centered on pure white background, product photography
+        </div>
+        <button class="copy-btn" onclick="navigator.clipboard.writeText('A white coffee mug, photorealistic, centered on pure white background, product photography'); alert('Copié!');">Copier le prompt</button>
+    </div>
+    <div class="prompt-card">
+        <h3>📸 assiette.png</h3>
+        <div class="prompt-text" onclick="navigator.clipboard.writeText(this.innerText); this.style.background='#dcfce7';">
+A white dinner plate, photorealistic, centered on pure white background, product photography
+        </div>
+        <button class="copy-btn" onclick="navigator.clipboard.writeText('A white dinner plate, photorealistic, centered on pure white background, product photography'); alert('Copié!');">Copier le prompt</button>
+    </div>
+    <div class="prompt-card">
+        <h3>📸 fourchette.png</h3>
+        <div class="prompt-text" onclick="navigator.clipboard.writeText(this.innerText); this.style.background='#dcfce7';">
+A silver fork, photorealistic, centered on pure white background, product photography
+        </div>
+        <button class="copy-btn" onclick="navigator.clipboard.writeText('A silver fork, photorealistic, centered on pure white background, product photography'); alert('Copié!');">Copier le prompt</button>
+    </div>
+    <div class="prompt-card">
+        <h3>📸 couteau.png</h3>
+        <div class="prompt-text" onclick="navigator.clipboard.writeText(this.innerText); this.style.background='#dcfce7';">
+A dinner knife, photorealistic, centered on pure white background, product photography
+        </div>
+        <button class="copy-btn" onclick="navigator.clipboard.writeText('A dinner knife, photorealistic, centered on pure white background, product photography'); alert('Copié!');">Copier le prompt</button>
+    </div>
+    <div class="prompt-card">
+        <h3>📸 cuillere.png</h3>
+        <div class="prompt-text" onclick="navigator.clipboard.writeText(this.innerText); this.style.background='#dcfce7';">
+A silver spoon, photorealistic, centered on pure white background, product photography
+        </div>
+        <button class="copy-btn" onclick="navigator.clipboard.writeText('A silver spoon, photorealistic, centered on pure white background, product photography'); alert('Copié!');">Copier le prompt</button>
+    </div>
+</body>
+</html>
