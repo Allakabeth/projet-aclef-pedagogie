@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
 import Head from 'next/head'
-import { convertNumbersInText, capitalizeText } from '../../lib/convertNumbers'
+import { convertNumbersInText } from '../../lib/convertNumbers'
 
 // Moteur de syllables simplifié
 class SimpleSyllableEngine {
@@ -246,10 +246,7 @@ export default function CreerTexteManuel() {
             if (group.content && group.content.trim()) {
                 // Convertir les nombres en lettres
                 group.content = convertNumbersInText(group.content)
-                
-                // Capitaliser le début et après ponctuation
-                group.content = capitalizeText(group.content)
-                
+
                 const words = group.content.match(/[a-zA-ZàáâãäåèéêëìíîïòóôõöùúûüÿçÀÁÂÃÄÅÈÉÊËÌÍÎÏÒÓÔÕÖÙÚÛÜŸÇ-]+/g) || []
                 
                 words.forEach(word => {
