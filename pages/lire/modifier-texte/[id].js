@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
 import Head from 'next/head'
-import { convertNumbersInText, capitalizeText } from '../../../lib/convertNumbers'
+import { convertNumbersInText } from '../../../lib/convertNumbers'
 
 // Moteur de syllables (même que créer-texte)
 class SimpleSyllableEngine {
@@ -348,10 +348,7 @@ export default function ModifierTexte() {
             if (group.content && group.content.trim()) {
                 // Convertir les nombres en lettres
                 group.content = convertNumbersInText(group.content)
-                
-                // Capitaliser le début et après ponctuation
-                group.content = capitalizeText(group.content)
-                
+
                 const words = group.content.match(/[a-zA-ZàáâãäåèéêëìíîïòóôõöùúûüÿçÀÁÂÃÄÅÈÉÊËÌÍÎÏÒÓÔÕÖÙÚÛÜŸÇ-]+/g) || []
                 
                 words.forEach(word => {
@@ -706,7 +703,7 @@ export default function ModifierTexte() {
                     <div style={{ marginBottom: '20px' }}>
                         {textGroups.map((group, index) => (
                             <div key={group.id}>
-                                <div style={{ marginBottom: isMobile ? '2px' : '15px' }}>
+                                <div style={{ marginBottom: isMobile ? '2px' : `${Math.max(4, parseInt(textSize) * 0.3)}px` }}>
                                     {group.type === 'text' ? (
                                         <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
                                             {/* Case à cocher (PC uniquement) */}
@@ -729,10 +726,12 @@ export default function ModifierTexte() {
                                                     flex: 1,
                                                     background: selectedGroups.has(group.id) ? '#e8f5e8' : '#f8f9fa',
                                                     border: selectedGroups.has(group.id) ? '2px solid #10b981' : '2px solid #dee2e6',
-                                                    borderRadius: isMobile ? '4px' : '8px',
-                                                    padding: isMobile ? '0px' : '10px',
+                                                    borderRadius: '4px',
+                                                    padding: isMobile ? '0px' : `${Math.max(2, parseInt(textSize) * 0.15)}px`,
                                                     position: 'relative',
-                                                    cursor: isMobile ? 'pointer' : 'default'
+                                                    cursor: isMobile ? 'pointer' : 'default',
+                                                    display: 'flex',
+                                                    alignItems: 'center'
                                                 }}>
                                                 {!isMobile && (
                                                     <div style={{
@@ -754,16 +753,16 @@ export default function ModifierTexte() {
                                                     onChange={(e) => updateGroupContent(group.id, e.target.value)}
                                                     style={{
                                                         width: '100%',
-                                                        minHeight: isMobile ? 'auto' : '60px',
+                                                        minHeight: isMobile ? 'auto' : `${parseInt(textSize) * 1.4}px`,
                                                         height: isMobile ? 'auto' : 'auto',
-                                                        padding: isMobile ? '0px' : '10px',
+                                                        padding: isMobile ? '0px' : `${Math.max(2, parseInt(textSize) * 0.2)}px ${Math.max(4, parseInt(textSize) * 0.3)}px`,
                                                         border: 'none',
                                                         outline: 'none',
                                                         resize: 'none',
                                                         fontSize: textSize + 'px',
                                                         fontFamily: textFont,
                                                         background: 'transparent',
-                                                        lineHeight: isMobile ? '1.2' : 'normal',
+                                                        lineHeight: '1.2',
                                                         overflow: 'hidden'
                                                     }}
                                                 />
