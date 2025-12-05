@@ -465,17 +465,47 @@ export default function QuestCe() {
         } else {
             // Mauvaise réponse
             setWrongGroupeId(groupe.id)
-            setFeedback('❌ Essayez encore')
 
             // Ajouter aux groupes ratés (éviter doublons)
             if (!failedGroupes.find(g => g.id === currentGroupe.id)) {
                 setFailedGroupes([...failedGroupes, currentGroupe])
             }
 
-            setTimeout(() => {
-                setFeedback('')
-                setWrongGroupeId(null)
-            }, 2000)
+            // Afficher le bouton Suivant (pas de reset automatique)
+            setShowNextButton(true)
+        }
+    }
+
+    const handleNext = () => {
+        const currentIndex = shuffledGroupes.findIndex(g => g.id === currentGroupe.id)
+        if (currentIndex < shuffledGroupes.length - 1) {
+            const nextGroupe = shuffledGroupes[currentIndex + 1]
+            setCurrentGroupe(nextGroupe)
+            setFeedback('')
+            setIsPlaying(null)
+            setWrongGroupeId(null)
+            setShowNextButton(false)
+        } else {
+            // Fin du jeu
+            const finalTotal = shuffledGroupes.length
+            const percentage = Math.round((score / finalTotal) * 100)
+
+            setFinalScore({
+                correct: score,
+                total: finalTotal,
+                percentage: percentage
+            })
+
+            // Confettis si score parfait
+            if (percentage === 100) {
+                setShowConfetti(true)
+                setTimeout(() => setShowConfetti(false), 5000)
+            }
+
+            setGameStarted(false)
+            setGameFinished(true)
+            setFeedback('')
+            setShowNextButton(false)
         }
     }
 
@@ -1123,13 +1153,6 @@ export default function QuestCe() {
                             <div style={{
                                 marginTop: window.innerWidth <= 768 ? '10px' : '30px'
                             }}>
-                                <h3 className="desktop-only" style={{
-                                    textAlign: 'center',
-                                    marginBottom: '20px',
-                                    color: '#666'
-                                }}>
-                                    🎧 Écoutez les audios et choisissez le bon :
-                                </h3>
                                 
                                 <div style={{
                                     display: 'grid',
@@ -1141,14 +1164,21 @@ export default function QuestCe() {
                                     {displayedGroupes.map((groupe, index) => {
                                         // Numérotation stable basée sur l'ID du groupe
                                         const stableIndex = allGroupes.findIndex(g => g.id === groupe.id) + 1
+                                        // Déterminer si c'est la bonne réponse ou la mauvaise
+                                        const isCorrectAnswer = groupe.id === currentGroupe?.id
+                                        const isWrongAnswer = groupe.id === wrongGroupeId
+                                        const showHighlight = wrongGroupeId !== null // Une erreur a été commise
                                         return (
                                         <div key={groupe.id} style={{
                                             background: '#fff',
-                                            border: window.innerWidth <= 768 ? '1px solid' : '2px solid',
-                                            borderColor: '#dee2e6',
+                                            border: showHighlight && isCorrectAnswer ? '4px solid #10b981' :
+                                                    showHighlight && isWrongAnswer ? '4px solid #ef4444' :
+                                                    window.innerWidth <= 768 ? '1px solid #dee2e6' : '2px solid #dee2e6',
                                             borderRadius: window.innerWidth <= 768 ? '6px' : '8px',
                                             padding: window.innerWidth <= 768 ? '8px' : '15px',
-                                            transition: 'all 0.3s'
+                                            transition: 'all 0.3s',
+                                            boxShadow: showHighlight && isCorrectAnswer ? '0 0 10px rgba(16, 185, 129, 0.5)' :
+                                                       showHighlight && isWrongAnswer ? '0 0 10px rgba(239, 68, 68, 0.5)' : 'none'
                                         }}>
                                             {/* Titre "Son X" en haut */}
                                             <div style={{
@@ -1219,13 +1249,38 @@ export default function QuestCe() {
                                                         }
                                                     }}
                                                 >
-                                                    ✅
+                                                    👆
                                                 </button>
                                             </div>
                                         </div>
                                         )
                                     })}
                                 </div>
+
+                                {/* Bouton Suivant après erreur */}
+                                {showNextButton && (
+                                    <div style={{
+                                        textAlign: 'center',
+                                        marginTop: '20px'
+                                    }}>
+                                        <button
+                                            onClick={handleNext}
+                                            style={{
+                                                background: 'white',
+                                                color: '#3b82f6',
+                                                border: '3px solid #3b82f6',
+                                                borderRadius: '12px',
+                                                padding: '15px 40px',
+                                                fontSize: '18px',
+                                                fontWeight: 'bold',
+                                                cursor: 'pointer',
+                                                transition: 'all 0.2s'
+                                            }}
+                                        >
+                                            Suivant →
+                                        </button>
+                                    </div>
+                                )}
                             </div>
                         </div>
 
