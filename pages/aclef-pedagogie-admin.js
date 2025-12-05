@@ -6,12 +6,14 @@ export default function AclefPedagogieAdmin() {
     const [password, setPassword] = useState('')
     const [isLoading, setIsLoading] = useState(false)
     const [error, setError] = useState('')
+    const [errorType, setErrorType] = useState('error') // 'error' ou 'warning'
     const router = useRouter()
 
     const handleSubmit = async (e) => {
         e.preventDefault()
         setIsLoading(true)
         setError('')
+        setErrorType('error')
 
         try {
             const response = await fetch('/api/auth/admin-quiz-login', {
@@ -32,11 +34,19 @@ export default function AclefPedagogieAdmin() {
                 // Rediriger vers l'interface admin
                 router.push('/admin')
             } else {
-                setError(data.error || 'Erreur de connexion')
+                // Distinguer erreur serveur vs erreur identifiants
+                if (response.status >= 500) {
+                    setError('Service temporairement indisponible. Réessayez dans quelques minutes.')
+                    setErrorType('warning')
+                } else {
+                    setError(data.error || 'Erreur de connexion')
+                    setErrorType('error')
+                }
             }
         } catch (error) {
             console.error('Erreur:', error)
-            setError('Erreur de connexion au serveur')
+            setError('Service temporairement indisponible. Vérifiez votre connexion ou réessayez dans quelques minutes.')
+            setErrorType('warning')
         } finally {
             setIsLoading(false)
         }
@@ -156,15 +166,16 @@ export default function AclefPedagogieAdmin() {
 
                     {error && (
                         <div style={{
-                            backgroundColor: '#fef2f2',
-                            border: '1px solid #fecaca',
-                            color: '#dc2626',
+                            backgroundColor: errorType === 'warning' ? '#fef3c7' : '#fef2f2',
+                            border: errorType === 'warning' ? '1px solid #fcd34d' : '1px solid #fecaca',
+                            color: errorType === 'warning' ? '#92400e' : '#dc2626',
                             padding: '12px',
                             borderRadius: '8px',
                             marginBottom: '20px',
                             fontSize: '14px',
                             textAlign: 'center'
                         }}>
+                            {errorType === 'warning' && '⚠️ '}
                             {error}
                         </div>
                     )}

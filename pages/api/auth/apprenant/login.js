@@ -31,6 +31,28 @@ export default async function handler(req, res) {
     try {
         console.log(`🔐 [LOGIN-APPRENANT] Tentative login identifiant="${identifiant}"`)
 
+        // Test de connexion Supabase - détecter si le service est down
+        const { error: connectionError } = await supabase
+            .from('users')
+            .select('id')
+            .limit(1)
+
+        if (connectionError) {
+            console.error('🔐 [LOGIN-APPRENANT] Supabase inaccessible:', connectionError.message)
+            // Vérifier si c'est une erreur de connexion/réseau
+            if (connectionError.message?.includes('fetch') ||
+                connectionError.message?.includes('network') ||
+                connectionError.message?.includes('ECONNREFUSED') ||
+                connectionError.message?.includes('timeout') ||
+                connectionError.code === 'PGRST301' ||
+                connectionError.code === '503') {
+                return res.status(503).json({
+                    error: 'Service temporairement indisponible',
+                    message: 'Le service est momentanément inaccessible. Veuillez réessayer dans quelques minutes.'
+                })
+            }
+        }
+
         // 0. Vérifier d'abord si le compte existe mais est archivé
         const { data: apprenantArchive, error: archiveError } = await supabase
             .from('users')
@@ -184,8 +206,10 @@ export default async function handler(req, res) {
 
     } catch (error) {
         console.error('Erreur login apprenant:', error)
-        return res.status(500).json({ 
-            error: 'Erreur serveur' 
+        // Erreur de connexion/réseau → service indisponible
+        return res.status(503).json({
+            error: 'Service temporairement indisponible',
+            message: 'Le service est momentanément inaccessible. Veuillez réessayer dans quelques minutes.'
         })
     }
 }

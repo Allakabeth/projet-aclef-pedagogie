@@ -37,32 +37,27 @@ export default async function handler(req, res) {
         const groupesMelanges = [...tousLesGroupes].sort(() => Math.random() - 0.5)
         const groupesTexte = groupesMelanges.slice(0, Math.min(6, tousLesGroupes.length))
 
-        // Ajouter un élément aléatoire pour forcer la variation
-        const randomSeed = Math.random().toString(36).substring(7)
-        
-        const prompt = `Tu es un expert en pédagogie de la lecture française. [Seed: ${randomSeed}]
+        const prompt = `Tu es un expert en pédagogie de la lecture française.
 
-CONSIGNE ABSOLUE : Tu dois créer une phrase cohérente en utilisant EXACTEMENT ces groupes de sens, SANS LES MODIFIER :
-
-Groupes disponibles :
+Voici des groupes de sens extraits de textes d'apprenants :
 ${groupesTexte.map((groupe, index) => `${index + 1}. "${groupe}"`).join('\n')}
 
-RÈGLES STRICTES :
-- Utilise EXACTEMENT 2 ou 3 groupes maximum parmi ceux listés (JAMAIS plus de 3)
-- Choisis des groupes DIFFÉRENTS à chaque fois pour créer de la VARIÉTÉ
-- Ne modifie JAMAIS le contenu des groupes (pas d'ajout, suppression, changement de mots)
-- Arrange-les dans un ordre qui crée une phrase qui a du sens
-- Ajoute uniquement la ponctuation nécessaire et des mots de liaison courts si absolument nécessaire (et, le, la, les, dans, sur, avec, etc.)
+OBJECTIF : Créer UNE phrase simple et naturelle qui A DU SENS pour un apprenant adulte non-lecteur.
 
-IMPÉRATIF : Crée une combinaison DIFFÉRENTE des précédentes pour surprendre l'apprenant !
+RÈGLES :
+1. Choisis 2 ou 3 groupes qui VONT BIEN ENSEMBLE sémantiquement
+2. La phrase doit être grammaticalement correcte et compréhensible
+3. Tu peux ajouter des mots de liaison (le, la, les, un, une, et, dans, sur, avec, pour, qui, etc.)
+4. Ne modifie PAS les groupes eux-mêmes
 
-OBJECTIF : Créer une phrase simple et naturelle pour un apprenant non-lecteur.
+IMPORTANT : Si aucune combinaison ne permet de faire une phrase sensée, réponds avec "impossible": true
 
 Réponds au format JSON :
 {
-  "phrase_generee": "La phrase complète créée",
-  "groupes_utilises": ["groupe 1", "groupe 2", "groupe 3"],
-  "mots_ajoutes": ["mots de liaison ajoutés"]
+  "phrase_generee": "La phrase complète",
+  "groupes_utilises": ["groupe 1", "groupe 2"],
+  "mots_ajoutes": ["mots ajoutés"],
+  "impossible": false
 }`
 
         let aiResponse
@@ -115,33 +110,31 @@ Réponds au format JSON :
             }
 
             aiResponse = JSON.parse(jsonMatch[0])
+
+            // Vérifier si l'IA n'a pas pu créer de phrase sensée
+            if (aiResponse.impossible) {
+                return res.status(400).json({
+                    error: 'Impossible de créer une phrase cohérente avec ces groupes de sens. Essayez avec d\'autres textes.',
+                    groupes_recus: groupesTexte
+                })
+            }
+
             console.log('✅ OpenRouter (Gemini 2.0): succès')
 
         } catch (openrouterError) {
-            console.log('OpenRouter échoué, utilisation du fallback simple:', openrouterError.message)
+            console.error('❌ OpenRouter échoué:', openrouterError.message)
 
-            // Fallback simple : génération sans IA
-            const groupesChoisis = []
+            // Déterminer le type d'erreur pour un message clair
+            const isTokenError = openrouterError.message.includes('401') ||
+                                 openrouterError.message.includes('429') ||
+                                 openrouterError.message.includes('quota')
 
-            // Choisir 2-3 groupes aléatoirement
-            const nombreGroupes = Math.min(3, Math.max(2, groupesTexte.length))
-            while (groupesChoisis.length < nombreGroupes && groupesChoisis.length < groupesTexte.length) {
-                const index = Math.floor(Math.random() * groupesTexte.length)
-                const groupe = groupesTexte[index]
-                if (!groupesChoisis.includes(groupe)) {
-                    groupesChoisis.push(groupe)
-                }
-            }
-
-            // Créer une phrase simple en combinant les groupes
-            const phrase = groupesChoisis.join(' ')
-
-            aiResponse = {
-                phrase_generee: phrase,
-                groupes_utilises: groupesChoisis,
-                mots_ajoutes: []
-            }
-            console.log('Fallback simple: succès')
+            return res.status(503).json({
+                error: isTokenError
+                    ? 'Service IA temporairement indisponible (quota épuisé). Réessayez plus tard.'
+                    : 'Impossible de générer la phrase. Réessayez plus tard.',
+                details: openrouterError.message
+            })
         }
 
         res.status(200).json({

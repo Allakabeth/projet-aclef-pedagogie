@@ -14,6 +14,20 @@ export default async function handler(req, res) {
   }
 
   try {
+    // Test de connexion Supabase - détecter si le service est down
+    const { error: connectionError } = await supabase
+      .from('users')
+      .select('id')
+      .limit(1)
+
+    if (connectionError) {
+      console.error('Supabase inaccessible:', connectionError.message)
+      return res.status(503).json({
+        error: 'Service temporairement indisponible',
+        message: 'Le service est momentanément inaccessible. Veuillez réessayer dans quelques minutes.'
+      })
+    }
+
     // Rechercher l'utilisateur dans la base (admin ou salarié)
     const { data: user, error } = await supabase
       .from('users')
@@ -63,6 +77,9 @@ export default async function handler(req, res) {
 
   } catch (error) {
     console.error('Erreur lors de la connexion admin quiz:', error)
-    res.status(500).json({ error: 'Erreur serveur' })
+    res.status(503).json({
+      error: 'Service temporairement indisponible',
+      message: 'Le service est momentanément inaccessible. Veuillez réessayer dans quelques minutes.'
+    })
   }
 }

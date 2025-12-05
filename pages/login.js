@@ -43,10 +43,10 @@ export default function LoginApprenant() {
                 localStorage.setItem('token', data.tokens.accessToken)
                 localStorage.setItem('refreshToken', data.tokens.refreshToken)
                 localStorage.setItem('user', JSON.stringify(data.user))
-                
+
                 setMessage('Connexion réussie ! Redirection...')
                 setMessageType('success')
-                
+
                 // Rediriger vers le dashboard ou page de changement de mot de passe
                 setTimeout(() => {
                     if (data.user.mustChangePassword) {
@@ -56,23 +56,31 @@ export default function LoginApprenant() {
                     }
                 }, 1500)
             } else {
-                // Erreur avec aide intelligente
-                setMessage(data.error || 'Erreur de connexion')
-                setMessageType('error')
-                
-                if (data.help && data.suggestion) {
-                    setSuggestion({
-                        message: data.message,
-                        text: data.suggestion.text,
-                        identifiant: data.suggestion.identifiant,
-                        hint: data.suggestion.hint
-                    })
+                // Distinguer erreur serveur vs erreur identifiants
+                if (response.status >= 500) {
+                    // Erreur serveur (Supabase down, etc.)
+                    setMessage('Service temporairement indisponible. Réessayez dans quelques minutes.')
+                    setMessageType('warning')
+                } else {
+                    // Erreur avec aide intelligente (identifiants incorrects, etc.)
+                    setMessage(data.error || 'Erreur de connexion')
+                    setMessageType('error')
+
+                    if (data.help && data.suggestion) {
+                        setSuggestion({
+                            message: data.message,
+                            text: data.suggestion.text,
+                            identifiant: data.suggestion.identifiant,
+                            hint: data.suggestion.hint
+                        })
+                    }
                 }
             }
         } catch (error) {
             console.error('Erreur connexion:', error)
-            setMessage('Erreur de connexion au serveur')
-            setMessageType('error')
+            // Erreur réseau ou serveur inaccessible
+            setMessage('Service temporairement indisponible. Vérifiez votre connexion ou réessayez dans quelques minutes.')
+            setMessageType('warning')
         } finally {
             setIsLoading(false)
         }
@@ -203,11 +211,14 @@ export default function LoginApprenant() {
                             padding: '12px',
                             borderRadius: '8px',
                             marginBottom: '20px',
-                            backgroundColor: messageType === 'success' ? '#d1fae5' : '#fee2e2',
-                            color: messageType === 'success' ? '#065f46' : '#991b1b',
+                            backgroundColor: messageType === 'success' ? '#d1fae5' :
+                                           messageType === 'warning' ? '#fef3c7' : '#fee2e2',
+                            color: messageType === 'success' ? '#065f46' :
+                                  messageType === 'warning' ? '#92400e' : '#991b1b',
                             fontSize: '14px',
                             textAlign: 'center'
                         }}>
+                            {messageType === 'warning' && '⚠️ '}
                             {message}
                         </div>
                     )}

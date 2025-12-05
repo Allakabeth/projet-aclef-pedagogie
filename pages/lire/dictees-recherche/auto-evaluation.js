@@ -896,35 +896,36 @@ export default function DicteesRechercheAutoEvaluation() {
                                 </h3>
 
                                 <div style={{
-                                    display: 'grid',
-                                    gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
-                                    gap: '12px'
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: '12px',
+                                    alignItems: 'center'
                                 }}>
-                                    {phraseGeneree.phrase_generee
-                                        .replace(/[^\w\s\u00C0-\u017F]/g, ' ')
-                                        .split(/\s+/)
-                                        .filter(word => word.length > 0)
-                                        .map((word, index) => (
-                                        <div
-                                            key={index}
-                                            onClick={() => playWordAudio(word)}
-                                            style={{
-                                                padding: '15px',
-                                                borderRadius: '8px',
-                                                textAlign: 'center',
-                                                cursor: 'pointer',
-                                                fontSize: '16px',
-                                                fontWeight: 'bold',
-                                                backgroundColor: getWordGroupColor(word, isPlayingAudio),
-                                                border: '2px solid #ddd',
-                                                transition: 'background-color 0.3s ease, transform 0.2s ease'
-                                            }}
-                                            onMouseOver={(e) => e.target.style.transform = 'scale(1.05)'}
-                                            onMouseOut={(e) => e.target.style.transform = 'scale(1)'}
-                                        >
-                                            {word}
-                                        </div>
-                                    ))}
+                                    {phraseGeneree.groupes_utilises.map((groupe, index) => {
+                                        const groupeComplet = groupesComplets[index]
+                                        const colors = ['#fef3c7', '#dbeafe', '#fce7f3', '#f3e8ff', '#fed7aa', '#ecfdf5']
+                                        return (
+                                            <div
+                                                key={index}
+                                                onClick={() => playAudio(groupe, groupeComplet?.id)}
+                                                style={{
+                                                    padding: '15px 25px',
+                                                    borderRadius: '10px',
+                                                    textAlign: 'center',
+                                                    cursor: 'pointer',
+                                                    fontSize: '18px',
+                                                    fontWeight: 'bold',
+                                                    backgroundColor: colors[index % colors.length],
+                                                    border: '2px solid #ddd',
+                                                    transition: 'transform 0.2s ease'
+                                                }}
+                                                onMouseOver={(e) => e.target.style.transform = 'scale(1.05)'}
+                                                onMouseOut={(e) => e.target.style.transform = 'scale(1)'}
+                                            >
+                                                🔊 {groupe}
+                                            </div>
+                                        )
+                                    })}
                                 </div>
 
                                 <div style={{
