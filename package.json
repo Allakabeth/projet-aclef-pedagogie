@@ -19,12 +19,13 @@
     "jsonwebtoken": "^9.0.2",
     "jszip": "^3.10.1",
     "mammoth": "^1.10.0",
-    "next": "15.4.6",
+    "next": "15.4.8",
     "pdfjs-dist": "^5.4.149",
-    "react": "19.1.0",
-    "react-dom": "19.1.0"
+    "react": "19.1.2",
+    "react-dom": "19.1.2"
   },
   "devDependencies": {
+    "dotenv": "^17.2.3",
     "supabase": "^2.40.7"
   }
 }
