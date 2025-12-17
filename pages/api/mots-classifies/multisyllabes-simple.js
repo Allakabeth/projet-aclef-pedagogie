@@ -43,7 +43,18 @@ export default async function handler(req, res) {
 
         console.log(`🔍 Récupération multisyllabes SIMPLES pour textes ${textesIds.join(', ')} (apprenant ${decoded.id})`)
 
-        // REQUÊTE UNIQUE ET SIMPLE : Tous les multisyllabes de l'apprenant pour ces textes
+        // 1. Récupérer les mots rangés dans sons complexes par l'apprenant
+        const { data: sonsComplexesData } = await supabase
+            .from('mots_sons_complexes')
+            .select('mot_normalise')
+            .eq('apprenant_id', decoded.id)
+
+        const motsSonsComplexes = new Set(
+            (sonsComplexesData || []).map(m => m.mot_normalise?.toLowerCase())
+        )
+        console.log(`🚫 ${motsSonsComplexes.size} mots sons complexes à exclure`)
+
+        // 2. Récupérer tous les multisyllabes de l'apprenant pour ces textes
         const { data: multisyllabesData, error } = await supabase
             .from('mots_classifies')
             .select('mot, valide_par_admin')
@@ -56,13 +67,15 @@ export default async function handler(req, res) {
             return res.status(500).json({ error: 'Erreur récupération mots' })
         }
 
-        // Extraire mots uniques et les formater comme l'ancienne API
-        const motsUniques = [...new Set(multisyllabesData?.map(m => m.mot) || [])].sort()
+        // 3. Extraire mots uniques EN EXCLUANT les sons complexes
+        const motsUniques = [...new Set(multisyllabesData?.map(m => m.mot) || [])]
+            .filter(mot => !motsSonsComplexes.has(mot.toLowerCase()))
+            .sort()
         const nbValides = multisyllabesData?.filter(m => m.valide_par_admin).length || 0
-        
+
         // Formater les mots comme l'ancienne API pour compatibilité
         const motsFormattes = motsUniques.map(mot => ({ contenu: mot }))
-        
+
         console.log(`✅ ${motsUniques.length} multisyllabes trouvés (dont ${nbValides} corrections validées admin)`)
 
         res.status(200).json({

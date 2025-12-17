@@ -270,12 +270,23 @@ export default function RecolteSyllabes() {
             indexSyllabeCiblee: indexSyllabeActuelle
         }
 
-        // Ajouter le mot avec syllabe au panier
-        setPaniers(paniers.map(p =>
-            p.id === panierId ?
-                { ...p, syllabes: [...p.syllabes, motAvecSyllabe] } :
-                p
-        ))
+        // Ajouter le mot avec syllabe au panier (éviter les doublons)
+        setPaniers(paniers.map(p => {
+            if (p.id === panierId) {
+                // Vérifier si le mot avec cette syllabe existe déjà
+                const dejaPresent = p.syllabes.some(s =>
+                    s.mot === motAvecSyllabe.mot &&
+                    s.indexSyllabeCiblee === motAvecSyllabe.indexSyllabeCiblee
+                )
+
+                // N'ajouter que si pas déjà présent
+                if (!dejaPresent) {
+                    return { ...p, syllabes: [...p.syllabes, motAvecSyllabe] }
+                }
+                return p
+            }
+            return p
+        }))
 
         // Passer à la syllabe suivante
         passerSyllabeSuivante()
@@ -1507,9 +1518,6 @@ export default function RecolteSyllabes() {
                                         display: 'flex',
                                         alignItems: 'center',
                                         flexShrink: 0,
-                                        maxWidth: '120px',
-                                        overflow: 'hidden',
-                                        textOverflow: 'ellipsis',
                                         cursor: 'pointer'
                                     }}>
                                     {motActuel.contenu}
@@ -1552,9 +1560,6 @@ export default function RecolteSyllabes() {
                                             display: 'flex',
                                             alignItems: 'center',
                                             flexShrink: 0,
-                                            maxWidth: '80px',
-                                            overflow: 'hidden',
-                                            textOverflow: 'ellipsis',
                                             cursor: 'pointer'
                                         }}
                                     >
@@ -1598,10 +1603,7 @@ export default function RecolteSyllabes() {
                                         display: 'flex',
                                         alignItems: 'center',
                                         cursor: 'grab',
-                                        flexShrink: 0,
-                                        maxWidth: '100px',
-                                        overflow: 'hidden',
-                                        textOverflow: 'ellipsis'
+                                        flexShrink: 0
                                     }}
                                 >
                                     {segmentationActuelle[indexSyllabeActuelle]}
