@@ -14,6 +14,7 @@ export default function SyllabesJeu8() {
     const [isGameComplete, setIsGameComplete] = useState(false)
     const [selectedAnswer, setSelectedAnswer] = useState(null)
     const [correctAnswer, setCorrectAnswer] = useState(null)
+    const [voixAuto, setVoixAuto] = useState(true)
     const router = useRouter()
 
     // Système audio intelligent (ElevenLabs + Web Speech fallback)
@@ -210,9 +211,11 @@ export default function SyllabesJeu8() {
         setSelectedAnswer(null)
         setIsRoundComplete(false)
 
-        // Lecture automatique du mot avec un petit délai
+        // Lecture automatique du mot avec un petit délai (si activée)
         setTimeout(() => {
-            lireTexte(word.original)
+            if (voixAuto) {
+                lireTexte(word.original)
+            }
         }, 500)
 
         console.log(`Round ${wordIndex + 1}: mot "${word.original}" avec ${word.syllableCount} syllabes`)
@@ -436,6 +439,23 @@ export default function SyllabesJeu8() {
                             flexWrap: 'wrap',
                             gap: '10px'
                         }}>
+                            <button
+                                onClick={() => setVoixAuto(!voixAuto)}
+                                style={{
+                                    backgroundColor: voixAuto ? '#10b981' : '#6b7280',
+                                    color: 'white',
+                                    padding: '8px 12px',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    fontSize: '14px',
+                                    fontWeight: 'bold',
+                                    cursor: 'pointer',
+                                    transition: 'background-color 0.2s'
+                                }}
+                                title={voixAuto ? 'Désactiver la voix automatique' : 'Activer la voix automatique'}
+                            >
+                                {voixAuto ? '🔊 Auto' : '🔇 Auto'}
+                            </button>
                             <div>Mot {currentWordIndex + 1}/{gameWords.length}</div>
                             <div>Score: {score}/{maxPossibleScore}</div>
                             <button
