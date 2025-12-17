@@ -15,7 +15,74 @@ export default function JeJoueSyllabes3() {
     const [targetPositions, setTargetPositions] = useState([])
     const [isRoundComplete, setIsRoundComplete] = useState(false)
     const [isGameComplete, setIsGameComplete] = useState(false)
+    const [gameMode, setGameMode] = useState(null) // 'ecrit' ou 'audio'
+    const [syllabesAudio, setSyllabesAudio] = useState({})
     const router = useRouter()
+
+    // Système audio intelligent (ElevenLabs + Web Speech fallback)
+    const lireTexte = async (text) => {
+        if (!text.trim()) return
+
+        const cacheKey = `voice_Paul_${btoa(text).replace(/[^a-zA-Z0-9]/g, '')}`
+        const cachedAudio = localStorage.getItem(cacheKey)
+
+        if (cachedAudio) {
+            const audio = new Audio(cachedAudio)
+            audio.play()
+            return
+        }
+
+        try {
+            const response = await fetch('/api/speech/elevenlabs', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text: text, voice_id: 'AfbuxQ9DVtS4azaxN1W7' })
+            })
+
+            if (response.ok) {
+                const data = await response.json()
+                try {
+                    localStorage.setItem(cacheKey, data.audio)
+                } catch (storageError) {
+                    Object.keys(localStorage).forEach(key => {
+                        if (key.startsWith('voice_')) localStorage.removeItem(key)
+                    })
+                }
+                const audio = new Audio(data.audio)
+                audio.play()
+                return
+            }
+        } catch (error) {
+            // Fallback silencieux
+        }
+
+        if ('speechSynthesis' in window) {
+            const utterance = new SpeechSynthesisUtterance(text)
+            utterance.lang = 'fr-FR'
+            utterance.rate = 0.8
+            utterance.pitch = 0.6
+            window.speechSynthesis.speak(utterance)
+        }
+    }
+
+    // Fonction pour jouer une syllabe (enregistrement perso si dispo, sinon fallback)
+    const jouerSyllabe = (syllabe) => {
+        if (!syllabe) return
+        const syllabeNormalisee = syllabe.toLowerCase().trim()
+        const audioUrl = syllabesAudio[syllabeNormalisee]
+
+        if (audioUrl) {
+            console.log(`🎵 Lecture enregistrement perso pour "${syllabe}"`)
+            const audio = new Audio(audioUrl)
+            audio.play().catch(err => {
+                console.error('Erreur lecture audio:', err)
+                lireTexte(syllabe)
+            })
+        } else {
+            console.log(`⚠️ Pas d'enregistrement pour "${syllabe}", fallback voix`)
+            lireTexte(syllabe)
+        }
+    }
 
     useEffect(() => {
         // Vérifier l'authentification
@@ -51,6 +118,31 @@ export default function JeJoueSyllabes3() {
                     'Authorization': `Bearer ${token}`
                 }
             })
+
+            // Récupérer les enregistrements audio des syllabes
+            const responseAudio = await fetch('/api/enregistrements-syllabes/list', {
+                method: 'GET',
+                headers: { 'Authorization': `Bearer ${token}` }
+            })
+
+            if (responseAudio.ok) {
+                const dataAudio = await responseAudio.json()
+                const audioMap = {}
+                Object.values(dataAudio.segmentationsMap || {}).forEach(seg => {
+                    if (seg.segmentation_personnalisee && seg.audio_urls) {
+                        seg.segmentation_personnalisee.forEach((syllabe, index) => {
+                            if (seg.audio_urls[index]) {
+                                const syllabeNorm = syllabe.toLowerCase().trim()
+                                if (!audioMap[syllabeNorm]) {
+                                    audioMap[syllabeNorm] = seg.audio_urls[index]
+                                }
+                            }
+                        })
+                    }
+                })
+                setSyllabesAudio(audioMap)
+                console.log(`🎵 ${Object.keys(audioMap).length} syllabes avec enregistrement audio`)
+            }
 
             if (response.ok) {
                 const data = await response.json()
@@ -144,24 +236,28 @@ export default function JeJoueSyllabes3() {
         setCurrentSyllableIndex(0)
     }
 
-    const startGame = () => {
+    const startGame = (mode) => {
+        setGameMode(mode)
         setGameStarted(true)
         setScore(0)
         setMaxPossibleScore(0)
         setCurrentSyllableIndex(0)
         setFoundSyllables(new Set())
         setIsGameComplete(false)
-        startNewRound()
+        startNewRound(mode)
     }
 
-    const startNewRound = () => {
+    const startNewRound = (modeParam = null) => {
+        // Utiliser le mode passé en paramètre ou le state gameMode
+        const mode = modeParam || gameMode
+
         if (currentSyllableIndex >= 10) {
             setIsGameComplete(true)
             return
         }
 
         const syllable = availableSyllables[currentSyllableIndex]
-        console.log(`Round ${currentSyllableIndex + 1}: syllabe "${syllable}"`)
+        console.log(`Round ${currentSyllableIndex + 1}: syllabe "${syllable}" (mode: ${mode})`)
         setCurrentSyllable(syllable)
         setFoundSyllables(new Set())
         setIsRoundComplete(false)
@@ -199,6 +295,13 @@ export default function JeJoueSyllabes3() {
                 totalMaxScore += syllableCount * 5
             })
             setMaxPossibleScore(totalMaxScore)
+        }
+
+        // En mode audio, jouer automatiquement le son
+        if (mode === 'audio' && positions.length > 0) {
+            setTimeout(() => {
+                jouerSyllabe(syllable)
+            }, 500)
         }
 
         // Si la syllabe n'apparaît nulle part, passer à la suivante
@@ -255,6 +358,7 @@ export default function JeJoueSyllabes3() {
     const resetGame = () => {
         loadUserWords()
         setGameStarted(false)
+        setGameMode(null)
         setScore(0)
         setMaxPossibleScore(0)
         setCurrentSyllableIndex(0)
@@ -336,9 +440,18 @@ export default function JeJoueSyllabes3() {
                             <strong>Attention :</strong> La même syllabe peut être présente dans plusieurs mots !
                         </p>
 
-                        <div style={{ display: 'flex', gap: '20px', justifyContent: 'center' }}>
+                        <p style={{
+                            fontSize: '14px',
+                            marginBottom: '20px',
+                            color: '#888',
+                            fontStyle: 'italic'
+                        }}>
+                            Choisissez votre mode de jeu :
+                        </p>
+
+                        <div style={{ display: 'flex', gap: '20px', justifyContent: 'center', flexWrap: 'wrap', marginBottom: '20px' }}>
                             <button
-                                onClick={startGame}
+                                onClick={() => startGame('ecrit')}
                                 style={{
                                     backgroundColor: '#10b981',
                                     color: 'white',
@@ -354,18 +467,40 @@ export default function JeJoueSyllabes3() {
                                 onMouseOver={(e) => e.target.style.transform = 'translateY(-2px)'}
                                 onMouseOut={(e) => e.target.style.transform = 'translateY(0)'}
                             >
-                                🚀 Commencer le jeu
+                                📖 Syllabe écrite
                             </button>
 
                             <button
-                                onClick={() => router.push('/lire/je-joue-syllabes')}
+                                onClick={() => startGame('audio')}
                                 style={{
-                                    backgroundColor: '#6b7280',
+                                    background: 'linear-gradient(135deg, #fd79a8 0%, #e84393 100%)',
                                     color: 'white',
                                     padding: '15px 30px',
                                     border: 'none',
                                     borderRadius: '12px',
                                     fontSize: '18px',
+                                    fontWeight: 'bold',
+                                    cursor: 'pointer',
+                                    boxShadow: '0 4px 15px rgba(253, 121, 168, 0.3)',
+                                    transition: 'transform 0.2s ease'
+                                }}
+                                onMouseOver={(e) => e.target.style.transform = 'translateY(-2px)'}
+                                onMouseOut={(e) => e.target.style.transform = 'translateY(0)'}
+                            >
+                                🔊 Syllabe entendue
+                            </button>
+                        </div>
+
+                        <div style={{ display: 'flex', justifyContent: 'center' }}>
+                            <button
+                                onClick={() => router.push('/lire/je-joue-syllabes')}
+                                style={{
+                                    backgroundColor: '#6b7280',
+                                    color: 'white',
+                                    padding: '12px 25px',
+                                    border: 'none',
+                                    borderRadius: '12px',
+                                    fontSize: '16px',
                                     fontWeight: 'bold',
                                     cursor: 'pointer',
                                     boxShadow: '0 4px 15px rgba(107, 114, 128, 0.3)',
@@ -484,22 +619,57 @@ export default function JeJoueSyllabes3() {
                                     textAlign: 'center',
                                     margin: '0 0 15px 0'
                                 }}>
-                                    🔍 Trouvez cette syllabe :
+                                    {gameMode === 'audio' ? '🔊 Écoutez cette syllabe :' : '🔍 Trouvez cette syllabe :'}
                                 </h3>
                             )}
 
-                            <div style={{
-                                backgroundColor: '#ff6b6b',
-                                color: 'white',
-                                padding: window.innerWidth <= 768 ? '10px 20px' : '15px 30px',
-                                borderRadius: '25px',
-                                fontSize: window.innerWidth <= 768 ? '18px' : '24px',
-                                fontWeight: 'bold',
-                                boxShadow: '0 4px 15px rgba(255, 107, 107, 0.3)',
-                                border: '3px solid white'
-                            }}>
-                                {currentSyllable}
-                            </div>
+                            {gameMode === 'ecrit' ? (
+                                /* Mode écrit : afficher la syllabe */
+                                <div style={{
+                                    backgroundColor: '#ff6b6b',
+                                    color: 'white',
+                                    padding: window.innerWidth <= 768 ? '10px 20px' : '15px 30px',
+                                    borderRadius: '25px',
+                                    fontSize: window.innerWidth <= 768 ? '18px' : '24px',
+                                    fontWeight: 'bold',
+                                    boxShadow: '0 4px 15px rgba(255, 107, 107, 0.3)',
+                                    border: '3px solid white'
+                                }}>
+                                    {currentSyllable}
+                                </div>
+                            ) : (
+                                /* Mode audio : masquer la syllabe + bouton écouter */
+                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '15px' }}>
+                                    <div style={{
+                                        backgroundColor: '#e84393',
+                                        color: 'white',
+                                        padding: window.innerWidth <= 768 ? '10px 20px' : '15px 30px',
+                                        borderRadius: '25px',
+                                        fontSize: window.innerWidth <= 768 ? '18px' : '24px',
+                                        fontWeight: 'bold',
+                                        boxShadow: '0 4px 15px rgba(232, 67, 147, 0.3)',
+                                        border: '3px solid white'
+                                    }}>
+                                        🔊 ???
+                                    </div>
+                                    <button
+                                        onClick={() => jouerSyllabe(currentSyllable)}
+                                        style={{
+                                            background: 'linear-gradient(135deg, #fd79a8 0%, #e84393 100%)',
+                                            color: 'white',
+                                            padding: '10px 20px',
+                                            border: 'none',
+                                            borderRadius: '12px',
+                                            fontSize: '16px',
+                                            fontWeight: 'bold',
+                                            cursor: 'pointer',
+                                            boxShadow: '0 4px 15px rgba(253, 121, 168, 0.3)'
+                                        }}
+                                    >
+                                        🔊 Écouter
+                                    </button>
+                                </div>
+                            )}
 
                             {isRoundComplete && (
                                 <div style={{
