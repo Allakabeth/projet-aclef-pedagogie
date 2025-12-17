@@ -9,12 +9,12 @@ export default function SyllabesJeu5() {
     const [currentSyllable, setCurrentSyllable] = useState(null)
     const [options, setOptions] = useState([])
     const [gameStarted, setGameStarted] = useState(false)
-    const [score, setScore] = useState(0)
-    const [maxPossibleScore, setMaxPossibleScore] = useState(0)
+    const [bonnesReponses, setBonnesReponses] = useState(0)
     const [isRoundComplete, setIsRoundComplete] = useState(false)
     const [isGameComplete, setIsGameComplete] = useState(false)
     const [selectedOption, setSelectedOption] = useState(null)
     const [correctAnswer, setCorrectAnswer] = useState(null)
+    const [syllabesAudio, setSyllabesAudio] = useState({})
     const router = useRouter()
 
     // Système audio intelligent (ElevenLabs + Web Speech fallback)
@@ -93,6 +93,29 @@ export default function SyllabesJeu5() {
         }
     }
 
+    // Fonction pour jouer une syllabe (enregistrement perso si dispo, sinon fallback)
+    const jouerSyllabe = (syllabe) => {
+        if (!syllabe) return
+
+        const syllabeNormalisee = syllabe.toLowerCase().trim()
+        const audioUrl = syllabesAudio[syllabeNormalisee]
+
+        if (audioUrl) {
+            // Jouer l'enregistrement personnel
+            console.log(`🎵 Lecture enregistrement perso pour "${syllabe}"`)
+            const audio = new Audio(audioUrl)
+            audio.play().catch(err => {
+                console.error('Erreur lecture audio:', err)
+                // Fallback sur synthèse vocale
+                lireTexte(syllabe)
+            })
+        } else {
+            // Pas d'enregistrement, fallback sur lireTexte
+            console.log(`⚠️ Pas d'enregistrement pour "${syllabe}", fallback voix`)
+            lireTexte(syllabe)
+        }
+    }
+
     useEffect(() => {
         // Vérifier l'authentification
         const token = localStorage.getItem('token')
@@ -119,7 +142,7 @@ export default function SyllabesJeu5() {
         try {
             const token = localStorage.getItem('token')
 
-            // Récupérer tous les paniers de syllabes de l'utilisateur
+            // 1. Récupérer tous les paniers de syllabes de l'utilisateur
             const response = await fetch('/api/paniers/charger', {
                 method: 'GET',
                 headers: {
@@ -127,6 +150,38 @@ export default function SyllabesJeu5() {
                     'Authorization': `Bearer ${token}`
                 }
             })
+
+            // 2. Récupérer les enregistrements audio des syllabes
+            const responseAudio = await fetch('/api/enregistrements-syllabes/list', {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            })
+
+            // Construire le dictionnaire syllabe -> audioUrl
+            if (responseAudio.ok) {
+                const dataAudio = await responseAudio.json()
+                const audioMap = {}
+
+                // Parcourir les segmentations pour extraire syllabe -> audioUrl
+                Object.values(dataAudio.segmentationsMap || {}).forEach(seg => {
+                    if (seg.segmentation_personnalisee && seg.audio_urls) {
+                        seg.segmentation_personnalisee.forEach((syllabe, index) => {
+                            if (seg.audio_urls[index]) {
+                                const syllabeNorm = syllabe.toLowerCase().trim()
+                                // Ne pas écraser si déjà présent (garder le premier)
+                                if (!audioMap[syllabeNorm]) {
+                                    audioMap[syllabeNorm] = seg.audio_urls[index]
+                                }
+                            }
+                        })
+                    }
+                })
+
+                setSyllabesAudio(audioMap)
+                console.log(`🎵 ${Object.keys(audioMap).length} syllabes avec enregistrement audio`)
+            }
 
             if (response.ok) {
                 const data = await response.json()
@@ -193,13 +248,12 @@ export default function SyllabesJeu5() {
             }))
 
         setGameWords(selectedSyllables)
-        setMaxPossibleScore(selectedSyllables.length * 5)
         console.log('Syllabes sélectionnées:', selectedSyllables)
     }
 
     const startGame = () => {
         setGameStarted(true)
-        setScore(0)
+        setBonnesReponses(0)
         setCurrentSyllableIndex(0)
         setIsGameComplete(false)
         startNewRound()
@@ -230,7 +284,7 @@ export default function SyllabesJeu5() {
 
         // Lecture automatique de la syllabe avec un petit délai
         setTimeout(() => {
-            lireTexte(syllable.syllabe)
+            jouerSyllabe(syllable.syllabe)
         }, 500)
 
         console.log(`Round ${syllableIndex + 1}: syllabe "${syllable.syllabe}"`)
@@ -242,9 +296,7 @@ export default function SyllabesJeu5() {
         setSelectedOption(option.syllabe)
 
         if (option.syllabe === correctAnswer) {
-            setScore(score + 5)
-        } else {
-            setScore(Math.max(0, score - 2))
+            setBonnesReponses(bonnesReponses + 1)
         }
 
         setIsRoundComplete(true)
@@ -259,8 +311,7 @@ export default function SyllabesJeu5() {
     const resetGame = () => {
         loadUserWords()
         setGameStarted(false)
-        setScore(0)
-        setMaxPossibleScore(0)
+        setBonnesReponses(0)
         setCurrentSyllableIndex(0)
         setSelectedOption(null)
         setIsRoundComplete(false)
@@ -397,7 +448,7 @@ export default function SyllabesJeu5() {
                             fontSize: '18px',
                             marginBottom: '30px'
                         }}>
-                            Vous avez terminé le jeu avec {score}/{maxPossibleScore} points !
+                            Vous avez trouvé {bonnesReponses}/{gameWords.length} syllabes !
                         </p>
                         <div style={{ display: 'flex', gap: '15px', justifyContent: 'center', flexWrap: 'wrap' }}>
                             <button
@@ -452,7 +503,7 @@ export default function SyllabesJeu5() {
                             gap: '10px'
                         }}>
                             <div>Syllabe {currentSyllableIndex + 1}/{gameWords.length}</div>
-                            <div>Score: {score}/{maxPossibleScore}</div>
+                            <div>Réussi : {bonnesReponses}/{gameWords.length}</div>
                             <button
                                 onClick={() => router.push('/lire/je-joue-syllabes')}
                                 style={{
@@ -493,7 +544,7 @@ export default function SyllabesJeu5() {
                                     Écoutez la syllabe mystère
                                 </p>
                                 <button
-                                    onClick={() => currentSyllable && lireTexte(currentSyllable.syllabe)}
+                                    onClick={() => currentSyllable && jouerSyllabe(currentSyllable.syllabe)}
                                     style={{
                                         background: 'linear-gradient(135deg, #fd79a8 0%, #e84393 100%)',
                                         color: 'white',
