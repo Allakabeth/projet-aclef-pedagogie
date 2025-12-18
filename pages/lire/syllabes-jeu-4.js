@@ -15,7 +15,59 @@ export default function JeJoueSyllabes4() {
     const [isRoundComplete, setIsRoundComplete] = useState(false)
     const [isGameComplete, setIsGameComplete] = useState(false)
     const [completedWords, setCompletedWords] = useState(new Set())
+    const [gameMode, setGameMode] = useState(null) // 'ecrit' ou 'audio'
+    const [motsAudio, setMotsAudio] = useState({}) // Dictionnaire mot → URL audio
     const router = useRouter()
+
+    // Fonction pour lire un texte avec la voix de synthèse (fallback)
+    const lireTexte = (texte) => {
+        if (!texte) return
+
+        // Utiliser l'API ElevenLabs via notre endpoint
+        fetch('/api/speech/elevenlabs', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text: texte })
+        })
+        .then(response => {
+            if (response.ok) {
+                return response.blob()
+            }
+            throw new Error('ElevenLabs non disponible')
+        })
+        .then(blob => {
+            const audio = new Audio(URL.createObjectURL(blob))
+            audio.play()
+        })
+        .catch(() => {
+            // Fallback sur Web Speech API
+            if ('speechSynthesis' in window) {
+                const utterance = new SpeechSynthesisUtterance(texte)
+                utterance.lang = 'fr-FR'
+                utterance.rate = 0.8
+                window.speechSynthesis.speak(utterance)
+            }
+        })
+    }
+
+    // Fonction pour jouer un mot (enregistrement perso si dispo, sinon fallback)
+    const jouerMot = (mot) => {
+        if (!mot) return
+        const motNormalise = mot.toLowerCase().trim()
+        const audioUrl = motsAudio[motNormalise]
+
+        if (audioUrl) {
+            console.log(`🎵 Lecture enregistrement perso pour "${mot}"`)
+            const audio = new Audio(audioUrl)
+            audio.play().catch(err => {
+                console.error('Erreur lecture audio:', err)
+                lireTexte(mot)
+            })
+        } else {
+            console.log(`⚠️ Pas d'enregistrement pour "${mot}", fallback voix`)
+            lireTexte(mot)
+        }
+    }
 
     useEffect(() => {
         // Vérifier l'authentification
@@ -79,6 +131,28 @@ export default function JeJoueSyllabes4() {
                 })
 
                 prepareGame(allWords)
+
+                // Charger les enregistrements audio des mots
+                const responseAudio = await fetch('/api/enregistrements-mots/list', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                })
+                if (responseAudio.ok) {
+                    const dataAudio = await responseAudio.json()
+                    const audioMap = {}
+                    // Format: { enregistrements: [{ mot, audio_url }, ...] }
+                    if (dataAudio.enregistrements) {
+                        dataAudio.enregistrements.forEach(enr => {
+                            if (enr.mot && enr.audio_url) {
+                                const motNorm = enr.mot.toLowerCase().trim()
+                                if (!audioMap[motNorm]) {
+                                    audioMap[motNorm] = enr.audio_url
+                                }
+                            }
+                        })
+                    }
+                    setMotsAudio(audioMap)
+                    console.log('🎵 Enregistrements mots chargés:', Object.keys(audioMap).length)
+                }
             } else {
                 console.error('Erreur chargement paniers')
             }
@@ -140,27 +214,38 @@ export default function JeJoueSyllabes4() {
         console.log('Pool de syllabes:', shuffledSyllables)
     }
 
-    const startGame = () => {
+    const startGame = (mode) => {
+        setGameMode(mode)
         setGameStarted(true)
         setScore(0)
         setCurrentWordIndex(0)
         setSelectedSyllables([])
         setIsGameComplete(false)
         setCompletedWords(new Set())
-        startNewRound()
+        startNewRound(0, mode)
     }
 
-    const startNewRound = (wordIndex = currentWordIndex) => {
-        if (wordIndex >= 10) {
+    const startNewRound = (wordIndex = null, modeParam = null) => {
+        const index = wordIndex !== null ? wordIndex : currentWordIndex
+        const mode = modeParam || gameMode
+
+        if (index >= 10) {
             setIsGameComplete(true)
             return
         }
 
-        const word = gameWords[wordIndex]
+        const word = gameWords[index]
         setCurrentWord(word)
         setSelectedSyllables([])
         setIsRoundComplete(false)
-        console.log(`Round ${wordIndex + 1}: mot "${word.original}" avec syllabes:`, word.segmentation)
+        console.log(`Round ${index + 1}: mot "${word.original}" avec syllabes:`, word.segmentation)
+
+        // En mode audio, jouer automatiquement le mot
+        if (mode === 'audio' && word) {
+            setTimeout(() => {
+                jouerMot(word.original)
+            }, 500)
+        }
     }
 
     const handleSyllableClick = (syllable, syllableIndex) => {
@@ -209,6 +294,7 @@ export default function JeJoueSyllabes4() {
         setCompletedWords(new Set())
         loadUserWords()
         setGameStarted(false)
+        setGameMode(null) // Reset du mode
         setScore(0)
         setMaxPossibleScore(0)
         setCurrentWordIndex(0)
@@ -290,27 +376,60 @@ export default function JeJoueSyllabes4() {
                             <strong>Attention :</strong> L'ordre des syllabes est important !
                         </p>
 
-                        <div style={{ display: 'flex', gap: '20px', justifyContent: 'center' }}>
-                            <button
-                                onClick={startGame}
-                                style={{
-                                    backgroundColor: '#10b981',
-                                    color: 'white',
-                                    padding: '15px 30px',
-                                    border: 'none',
-                                    borderRadius: '12px',
-                                    fontSize: '18px',
-                                    fontWeight: 'bold',
-                                    cursor: 'pointer',
-                                    boxShadow: '0 4px 15px rgba(16, 185, 129, 0.3)',
-                                    transition: 'transform 0.2s ease'
-                                }}
-                                onMouseOver={(e) => e.target.style.transform = 'translateY(-2px)'}
-                                onMouseOut={(e) => e.target.style.transform = 'translateY(0)'}
-                            >
-                                🚀 Commencer le jeu
-                            </button>
+                        {gameWords.length > 0 && availableSyllables.length > 0 ? (
+                            <>
+                                <p style={{ fontSize: '14px', color: '#888', marginBottom: '15px' }}>
+                                    Choisissez votre mode de jeu :
+                                </p>
+                                <div style={{ display: 'flex', gap: '20px', justifyContent: 'center', flexWrap: 'wrap', marginBottom: '20px' }}>
+                                    <button
+                                        onClick={() => startGame('ecrit')}
+                                        style={{
+                                            backgroundColor: '#10b981',
+                                            color: 'white',
+                                            padding: '15px 30px',
+                                            border: 'none',
+                                            borderRadius: '12px',
+                                            fontSize: '18px',
+                                            fontWeight: 'bold',
+                                            cursor: 'pointer',
+                                            boxShadow: '0 4px 15px rgba(16, 185, 129, 0.3)',
+                                            transition: 'transform 0.2s ease'
+                                        }}
+                                        onMouseOver={(e) => e.target.style.transform = 'translateY(-2px)'}
+                                        onMouseOut={(e) => e.target.style.transform = 'translateY(0)'}
+                                    >
+                                        📖 Mot écrit
+                                    </button>
 
+                                    <button
+                                        onClick={() => startGame('audio')}
+                                        style={{
+                                            backgroundColor: '#ec4899',
+                                            color: 'white',
+                                            padding: '15px 30px',
+                                            border: 'none',
+                                            borderRadius: '12px',
+                                            fontSize: '18px',
+                                            fontWeight: 'bold',
+                                            cursor: 'pointer',
+                                            boxShadow: '0 4px 15px rgba(236, 72, 153, 0.3)',
+                                            transition: 'transform 0.2s ease'
+                                        }}
+                                        onMouseOver={(e) => e.target.style.transform = 'translateY(-2px)'}
+                                        onMouseOut={(e) => e.target.style.transform = 'translateY(0)'}
+                                    >
+                                        🔊 Mot entendu
+                                    </button>
+                                </div>
+                            </>
+                        ) : (
+                            <div style={{ color: '#666', fontSize: '16px', marginBottom: '20px' }}>
+                                ⏳ Chargement des données...
+                            </div>
+                        )}
+
+                        <div style={{ display: 'flex', gap: '20px', justifyContent: 'center' }}>
                             <button
                                 onClick={() => router.push('/lire/je-joue-syllabes')}
                                 style={{
@@ -444,19 +563,59 @@ export default function JeJoueSyllabes4() {
 
                             {currentWord && (
                                 <>
-                                    <div style={{
-                                        backgroundColor: '#3b82f6',
-                                        color: 'white',
-                                        padding: window.innerWidth <= 768 ? '15px 25px' : '20px 35px',
-                                        borderRadius: '15px',
-                                        fontSize: window.innerWidth <= 768 ? '20px' : '28px',
-                                        fontWeight: 'bold',
-                                        boxShadow: '0 4px 15px rgba(59, 130, 246, 0.3)',
-                                        border: '3px solid white',
-                                        marginBottom: '15px'
-                                    }}>
-                                        {currentWord.original}
-                                    </div>
+                                    {/* Affichage du mot selon le mode */}
+                                    {gameMode === 'ecrit' ? (
+                                        <div style={{
+                                            backgroundColor: '#3b82f6',
+                                            color: 'white',
+                                            padding: window.innerWidth <= 768 ? '15px 25px' : '20px 35px',
+                                            borderRadius: '15px',
+                                            fontSize: window.innerWidth <= 768 ? '20px' : '28px',
+                                            fontWeight: 'bold',
+                                            boxShadow: '0 4px 15px rgba(59, 130, 246, 0.3)',
+                                            border: '3px solid white',
+                                            marginBottom: '15px'
+                                        }}>
+                                            {currentWord.original}
+                                        </div>
+                                    ) : (
+                                        <div style={{
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            alignItems: 'center',
+                                            gap: '10px',
+                                            marginBottom: '15px'
+                                        }}>
+                                            <div style={{
+                                                backgroundColor: '#ec4899',
+                                                color: 'white',
+                                                padding: window.innerWidth <= 768 ? '15px 25px' : '20px 35px',
+                                                borderRadius: '15px',
+                                                fontSize: window.innerWidth <= 768 ? '20px' : '28px',
+                                                fontWeight: 'bold',
+                                                boxShadow: '0 4px 15px rgba(236, 72, 153, 0.3)',
+                                                border: '3px solid white'
+                                            }}>
+                                                🔊 ???
+                                            </div>
+                                            <button
+                                                onClick={() => jouerMot(currentWord.original)}
+                                                style={{
+                                                    backgroundColor: '#8b5cf6',
+                                                    color: 'white',
+                                                    padding: '10px 20px',
+                                                    border: 'none',
+                                                    borderRadius: '10px',
+                                                    fontSize: '16px',
+                                                    fontWeight: 'bold',
+                                                    cursor: 'pointer',
+                                                    boxShadow: '0 4px 15px rgba(139, 92, 246, 0.3)'
+                                                }}
+                                            >
+                                                🔊 Écouter
+                                            </button>
+                                        </div>
+                                    )}
 
                                     {/* Affichage des syllabes sélectionnées */}
                                     <div style={{
