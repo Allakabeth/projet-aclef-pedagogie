@@ -244,20 +244,21 @@ export default function JeJoueSyllabes3() {
         setCurrentSyllableIndex(0)
         setFoundSyllables(new Set())
         setIsGameComplete(false)
-        startNewRound(mode)
+        startNewRound(0, mode)
     }
 
-    const startNewRound = (modeParam = null) => {
-        // Utiliser le mode passé en paramètre ou le state gameMode
+    const startNewRound = (syllableIndex = null, modeParam = null) => {
+        // Utiliser les paramètres passés ou les states
+        const index = syllableIndex !== null ? syllableIndex : currentSyllableIndex
         const mode = modeParam || gameMode
 
-        if (currentSyllableIndex >= 10) {
+        if (index >= 10) {
             setIsGameComplete(true)
             return
         }
 
-        const syllable = availableSyllables[currentSyllableIndex]
-        console.log(`Round ${currentSyllableIndex + 1}: syllabe "${syllable}" (mode: ${mode})`)
+        const syllable = availableSyllables[index]
+        console.log(`Round ${index + 1}: syllabe "${syllable}" (mode: ${mode})`)
         setCurrentSyllable(syllable)
         setFoundSyllables(new Set())
         setIsRoundComplete(false)
@@ -306,11 +307,11 @@ export default function JeJoueSyllabes3() {
 
         // Si la syllabe n'apparaît nulle part, passer à la suivante
         if (positions.length === 0) {
+            const nextIndex = index + 1
             setTimeout(() => {
-                const nextIndex = currentSyllableIndex + 1
                 setCurrentSyllableIndex(nextIndex)
                 if (nextIndex < 10) {
-                    startNewRound()
+                    startNewRound(nextIndex)
                 } else {
                     setIsGameComplete(true)
                 }
@@ -440,56 +441,71 @@ export default function JeJoueSyllabes3() {
                             <strong>Attention :</strong> La même syllabe peut être présente dans plusieurs mots !
                         </p>
 
-                        <p style={{
-                            fontSize: '14px',
-                            marginBottom: '20px',
-                            color: '#888',
-                            fontStyle: 'italic'
-                        }}>
-                            Choisissez votre mode de jeu :
-                        </p>
+                        {gameWords.length > 0 && availableSyllables.length > 0 ? (
+                            <>
+                                <p style={{
+                                    fontSize: '14px',
+                                    marginBottom: '20px',
+                                    color: '#888',
+                                    fontStyle: 'italic'
+                                }}>
+                                    Choisissez votre mode de jeu :
+                                </p>
 
-                        <div style={{ display: 'flex', gap: '20px', justifyContent: 'center', flexWrap: 'wrap', marginBottom: '20px' }}>
-                            <button
-                                onClick={() => startGame('ecrit')}
-                                style={{
-                                    backgroundColor: '#10b981',
-                                    color: 'white',
-                                    padding: '15px 30px',
-                                    border: 'none',
-                                    borderRadius: '12px',
-                                    fontSize: '18px',
-                                    fontWeight: 'bold',
-                                    cursor: 'pointer',
-                                    boxShadow: '0 4px 15px rgba(16, 185, 129, 0.3)',
-                                    transition: 'transform 0.2s ease'
-                                }}
-                                onMouseOver={(e) => e.target.style.transform = 'translateY(-2px)'}
-                                onMouseOut={(e) => e.target.style.transform = 'translateY(0)'}
-                            >
-                                📖 Syllabe écrite
-                            </button>
+                                <div style={{ display: 'flex', gap: '20px', justifyContent: 'center', flexWrap: 'wrap', marginBottom: '20px' }}>
+                                    <button
+                                        onClick={() => startGame('ecrit')}
+                                        style={{
+                                            backgroundColor: '#10b981',
+                                            color: 'white',
+                                            padding: '15px 30px',
+                                            border: 'none',
+                                            borderRadius: '12px',
+                                            fontSize: '18px',
+                                            fontWeight: 'bold',
+                                            cursor: 'pointer',
+                                            boxShadow: '0 4px 15px rgba(16, 185, 129, 0.3)',
+                                            transition: 'transform 0.2s ease'
+                                        }}
+                                        onMouseOver={(e) => e.target.style.transform = 'translateY(-2px)'}
+                                        onMouseOut={(e) => e.target.style.transform = 'translateY(0)'}
+                                    >
+                                        📖 Syllabe écrite
+                                    </button>
 
-                            <button
-                                onClick={() => startGame('audio')}
-                                style={{
-                                    background: 'linear-gradient(135deg, #fd79a8 0%, #e84393 100%)',
-                                    color: 'white',
-                                    padding: '15px 30px',
-                                    border: 'none',
-                                    borderRadius: '12px',
-                                    fontSize: '18px',
-                                    fontWeight: 'bold',
-                                    cursor: 'pointer',
-                                    boxShadow: '0 4px 15px rgba(253, 121, 168, 0.3)',
-                                    transition: 'transform 0.2s ease'
-                                }}
-                                onMouseOver={(e) => e.target.style.transform = 'translateY(-2px)'}
-                                onMouseOut={(e) => e.target.style.transform = 'translateY(0)'}
-                            >
-                                🔊 Syllabe entendue
-                            </button>
-                        </div>
+                                    <button
+                                        onClick={() => startGame('audio')}
+                                        style={{
+                                            background: 'linear-gradient(135deg, #fd79a8 0%, #e84393 100%)',
+                                            color: 'white',
+                                            padding: '15px 30px',
+                                            border: 'none',
+                                            borderRadius: '12px',
+                                            fontSize: '18px',
+                                            fontWeight: 'bold',
+                                            cursor: 'pointer',
+                                            boxShadow: '0 4px 15px rgba(253, 121, 168, 0.3)',
+                                            transition: 'transform 0.2s ease'
+                                        }}
+                                        onMouseOver={(e) => e.target.style.transform = 'translateY(-2px)'}
+                                        onMouseOut={(e) => e.target.style.transform = 'translateY(0)'}
+                                    >
+                                        🔊 Syllabe entendue
+                                    </button>
+                                </div>
+                            </>
+                        ) : (
+                            <div style={{
+                                color: '#666',
+                                fontSize: '16px',
+                                marginBottom: '20px',
+                                padding: '20px',
+                                backgroundColor: '#f0f0f0',
+                                borderRadius: '10px'
+                            }}>
+                                ⏳ Chargement des données...
+                            </div>
+                        )}
 
                         <div style={{ display: 'flex', justifyContent: 'center' }}>
                             <button

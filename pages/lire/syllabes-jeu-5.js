@@ -256,7 +256,7 @@ export default function SyllabesJeu5() {
         setBonnesReponses(0)
         setCurrentSyllableIndex(0)
         setIsGameComplete(false)
-        startNewRound()
+        startNewRound(0)
     }
 
     const startNewRound = (syllableIndex = currentSyllableIndex) => {
@@ -385,47 +385,76 @@ export default function SyllabesJeu5() {
                             Dans ce jeu, vous allez entendre une syllabe et devrez la retrouver parmi 4 choix visuels.<br/>
                             Écoutez bien et cliquez sur la bonne syllabe !
                         </p>
-                        <div style={{ display: 'flex', gap: '20px', justifyContent: 'center' }}>
-                            <button
-                                onClick={startGame}
-                                style={{
-                                    background: 'linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%)',
-                                    color: 'white',
-                                    padding: '15px 30px',
-                                    border: 'none',
-                                    borderRadius: '15px',
-                                    fontSize: '18px',
-                                    fontWeight: 'bold',
-                                    cursor: 'pointer',
-                                    boxShadow: '0 10px 30px rgba(255, 107, 107, 0.3)',
-                                    transition: 'transform 0.2s'
-                                }}
-                                onMouseOver={(e) => e.target.style.transform = 'translateY(-2px)'}
-                                onMouseOut={(e) => e.target.style.transform = 'translateY(0)'}
-                            >
-                                🎮 Commencer le jeu
-                            </button>
+                        {gameWords.length > 0 ? (
+                            <div style={{ display: 'flex', gap: '20px', justifyContent: 'center' }}>
+                                <button
+                                    onClick={startGame}
+                                    style={{
+                                        background: 'linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%)',
+                                        color: 'white',
+                                        padding: '15px 30px',
+                                        border: 'none',
+                                        borderRadius: '15px',
+                                        fontSize: '18px',
+                                        fontWeight: 'bold',
+                                        cursor: 'pointer',
+                                        boxShadow: '0 10px 30px rgba(255, 107, 107, 0.3)',
+                                        transition: 'transform 0.2s'
+                                    }}
+                                    onMouseOver={(e) => e.target.style.transform = 'translateY(-2px)'}
+                                    onMouseOut={(e) => e.target.style.transform = 'translateY(0)'}
+                                >
+                                    🎮 Commencer le jeu
+                                </button>
 
-                            <button
-                                onClick={() => router.push('/lire/je-joue-syllabes')}
-                                style={{
-                                    backgroundColor: '#6b7280',
+                                <button
+                                    onClick={() => router.push('/lire/je-joue-syllabes')}
+                                    style={{
+                                        backgroundColor: '#6b7280',
+                                        color: 'white',
+                                        padding: '15px 30px',
+                                        border: 'none',
+                                        borderRadius: '15px',
+                                        fontSize: '18px',
+                                        fontWeight: 'bold',
+                                        cursor: 'pointer',
+                                        boxShadow: '0 10px 30px rgba(107, 114, 128, 0.3)',
+                                        transition: 'transform 0.2s'
+                                    }}
+                                    onMouseOver={(e) => e.target.style.transform = 'translateY(-2px)'}
+                                    onMouseOut={(e) => e.target.style.transform = 'translateY(0)'}
+                                >
+                                    ← Retour au menu
+                                </button>
+                            </div>
+                        ) : (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', alignItems: 'center' }}>
+                                <div style={{
                                     color: 'white',
-                                    padding: '15px 30px',
-                                    border: 'none',
-                                    borderRadius: '15px',
-                                    fontSize: '18px',
-                                    fontWeight: 'bold',
-                                    cursor: 'pointer',
-                                    boxShadow: '0 10px 30px rgba(107, 114, 128, 0.3)',
-                                    transition: 'transform 0.2s'
-                                }}
-                                onMouseOver={(e) => e.target.style.transform = 'translateY(-2px)'}
-                                onMouseOut={(e) => e.target.style.transform = 'translateY(0)'}
-                            >
-                                ← Retour au menu
-                            </button>
-                        </div>
+                                    fontSize: '16px',
+                                    padding: '15px 25px',
+                                    backgroundColor: 'rgba(255,255,255,0.2)',
+                                    borderRadius: '10px'
+                                }}>
+                                    ⏳ Chargement des données...
+                                </div>
+                                <button
+                                    onClick={() => router.push('/lire/je-joue-syllabes')}
+                                    style={{
+                                        backgroundColor: '#6b7280',
+                                        color: 'white',
+                                        padding: '15px 30px',
+                                        border: 'none',
+                                        borderRadius: '15px',
+                                        fontSize: '18px',
+                                        fontWeight: 'bold',
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    ← Retour au menu
+                                </button>
+                            </div>
+                        )}
                     </div>
                 ) : isGameComplete ? (
                     <div style={{
