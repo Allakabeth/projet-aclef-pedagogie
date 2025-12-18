@@ -12,6 +12,7 @@ export default function SyllabesJeu7() {
     const [moves, setMoves] = useState(0)
     const [isGameComplete, setIsGameComplete] = useState(false)
     const [canFlip, setCanFlip] = useState(true)
+    const [validWords, setValidWords] = useState({}) // Dictionnaire syllabe1+syllabe2 → mot
     const router = useRouter()
 
     useEffect(() => {
@@ -88,6 +89,19 @@ export default function SyllabesJeu7() {
             alert('Vous devez avoir au moins 10 mots à 2 syllabes dans vos paniers pour jouer !')
             return
         }
+
+        // Créer le dictionnaire de tous les mots valides (syllabe1+syllabe2 → mot)
+        // Cela permet de valider TOUTES les combinaisons possibles
+        const validWordsMap = {}
+        twoSyllableWords.forEach(word => {
+            const [syllabe1, syllabe2] = word.segmentation
+            const key = `${syllabe1.toLowerCase()}|${syllabe2.toLowerCase()}`
+            if (!validWordsMap[key]) {
+                validWordsMap[key] = word.mot
+            }
+        })
+        setValidWords(validWordsMap)
+        console.log('Mots valides pour validation:', validWordsMap)
 
         // Éliminer les doublons de mots (même mot écrit différemment)
         const uniqueWords = []
@@ -178,18 +192,29 @@ export default function SyllabesJeu7() {
             setCanFlip(false)
             setMoves(moves + 1)
 
-            // Vérifier si c'est une paire dans le bon ordre
             const [firstCard, secondCard] = newFlippedCards
 
-            if (firstCard.pairId === secondCard.pairId && firstCard.isFirstSyllable && !secondCard.isFirstSyllable) {
-                // C'est une paire dans le bon ordre !
+            // Vérifier si les deux syllabes forment un mot valide (dans n'importe quel ordre)
+            // On vérifie d'abord 1ère carte + 2ème carte, puis l'inverse
+            const key1 = `${firstCard.syllabe.toLowerCase()}|${secondCard.syllabe.toLowerCase()}`
+            const key2 = `${secondCard.syllabe.toLowerCase()}|${firstCard.syllabe.toLowerCase()}`
+
+            const formedWord = validWords[key1] || validWords[key2]
+            const isCorrectOrder = validWords[key1] !== undefined // Le bon ordre est syllabe1 puis syllabe2
+
+            if (formedWord && isCorrectOrder) {
+                // C'est une paire valide dans le bon ordre !
+                console.log(`✅ Paire trouvée: ${firstCard.syllabe} + ${secondCard.syllabe} = ${formedWord}`)
+
                 setTimeout(() => {
+                    // Marquer les deux cartes comme matchées (par leur ID, pas pairId)
                     setGameCards(prev => prev.map(c =>
-                        c.pairId === firstCard.pairId ? { ...c, isMatched: true } : c
+                        (c.id === firstCard.id || c.id === secondCard.id) ? { ...c, isMatched: true } : c
                     ))
 
                     const newMatchedPairs = new Set(matchedPairs)
-                    newMatchedPairs.add(firstCard.pairId)
+                    // Utiliser une clé unique pour cette paire trouvée
+                    newMatchedPairs.add(`${firstCard.id}-${secondCard.id}`)
                     setMatchedPairs(newMatchedPairs)
 
                     // Bonus pour trouver rapidement
@@ -199,18 +224,28 @@ export default function SyllabesJeu7() {
                     setFlippedCards([])
                     setCanFlip(true)
 
-                    // Vérifier si le jeu est terminé
-                    if (newMatchedPairs.size === 10) {
+                    // Vérifier si le jeu est terminé (10 paires = 20 cartes matchées)
+                    const matchedCardsCount = gameCards.filter(c => c.isMatched).length + 2 // +2 pour les cartes qu'on vient de matcher
+                    if (matchedCardsCount >= 20) {
                         setIsGameComplete(true)
                     }
                 }, 1000)
-            } else {
-                // Pas une paire ou mauvais ordre
-                let penaltyMessage = ''
-                if (firstCard.pairId === secondCard.pairId) {
-                    penaltyMessage = 'Mauvais ordre ! Il faut cliquer d\'abord sur la 1ère syllabe'
-                }
+            } else if (formedWord && !isCorrectOrder) {
+                // Les syllabes forment un mot mais dans le mauvais ordre
+                console.log(`⚠️ Bon mot mais mauvais ordre: ${secondCard.syllabe} + ${firstCard.syllabe} = ${formedWord}`)
+                setScore(Math.max(0, score - 25)) // Pénalité pour mauvais ordre
 
+                setTimeout(() => {
+                    setGameCards(prev => prev.map(c =>
+                        newFlippedCards.some(fc => fc.id === c.id) ?
+                        { ...c, isFlipped: false } : c
+                    ))
+                    setFlippedCards([])
+                    setCanFlip(true)
+                }, 1500)
+            } else {
+                // Ces syllabes ne forment aucun mot valide
+                console.log(`❌ Pas de mot: ${firstCard.syllabe} + ${secondCard.syllabe}`)
                 setScore(Math.max(0, score - 25)) // Pénalité pour erreur
 
                 setTimeout(() => {
