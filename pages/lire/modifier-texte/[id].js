@@ -126,7 +126,7 @@ export default function ModifierTexte() {
                 // Convertir les groupes de sens en format pour l'édition
                 const groupes = data.groupes_sens.map((groupe, index) => ({
                     id: groupe.id,
-                    type: 'text',
+                    type: groupe.type_groupe || 'text',
                     content: groupe.contenu
                 }))
                 
