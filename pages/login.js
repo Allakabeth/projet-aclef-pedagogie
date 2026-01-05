@@ -9,7 +9,6 @@ export default function LoginApprenant() {
     const [message, setMessage] = useState('')
     const [messageType, setMessageType] = useState('error')
     const [suggestion, setSuggestion] = useState(null)
-    const [showPassword, setShowPassword] = useState(false)
 
     const handleSubmit = async (e) => {
         e.preventDefault()
@@ -47,13 +46,9 @@ export default function LoginApprenant() {
                 setMessage('Connexion réussie ! Redirection...')
                 setMessageType('success')
 
-                // Rediriger vers le dashboard ou page de changement de mot de passe
+                // Rediriger vers le dashboard
                 setTimeout(() => {
-                    if (data.user.mustChangePassword) {
-                        router.push('/change-password')
-                    } else {
-                        router.push('/dashboard')
-                    }
+                    router.push('/dashboard')
                 }, 1500)
             } else {
                 // Distinguer erreur serveur vs erreur identifiants
@@ -136,7 +131,7 @@ export default function LoginApprenant() {
                             fontSize: '14px',
                             fontWeight: '500'
                         }}>
-                            Identifiant
+                            Prénom
                         </label>
                         <input
                             type="text"
@@ -165,45 +160,25 @@ export default function LoginApprenant() {
                             fontSize: '14px',
                             fontWeight: '500'
                         }}>
-                            Mot de passe
+                            Nom
                         </label>
-                        <div style={{ position: 'relative' }}>
-                            <input
-                                type={showPassword ? "text" : "password"}
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                                placeholder="Votre nom de famille"
-                                style={{
-                                    width: '100%',
-                                    padding: '12px',
-                                    paddingRight: '45px',
-                                    border: '2px solid #e5e7eb',
-                                    borderRadius: '10px',
-                                    fontSize: '16px',
-                                    transition: 'border-color 0.2s',
-                                    outline: 'none'
-                                }}
-                                onFocus={(e) => e.target.style.borderColor = '#667eea'}
-                                onBlur={(e) => e.target.style.borderColor = '#e5e7eb'}
-                            />
-                            <button
-                                type="button"
-                                onClick={() => setShowPassword(!showPassword)}
-                                style={{
-                                    position: 'absolute',
-                                    right: '12px',
-                                    top: '50%',
-                                    transform: 'translateY(-50%)',
-                                    background: 'none',
-                                    border: 'none',
-                                    cursor: 'pointer',
-                                    fontSize: '18px',
-                                    color: '#6b7280'
-                                }}
-                            >
-                                {showPassword ? '🙈' : '👁️'}
-                            </button>
-                        </div>
+                        <input
+                            type="text"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            placeholder="Votre nom de famille"
+                            style={{
+                                width: '100%',
+                                padding: '12px',
+                                border: '2px solid #e5e7eb',
+                                borderRadius: '10px',
+                                fontSize: '16px',
+                                transition: 'border-color 0.2s',
+                                outline: 'none'
+                            }}
+                            onFocus={(e) => e.target.style.borderColor = '#667eea'}
+                            onBlur={(e) => e.target.style.borderColor = '#e5e7eb'}
+                        />
                     </div>
 
                     {message && (
@@ -299,22 +274,14 @@ export default function LoginApprenant() {
 
                     <div style={{
                         textAlign: 'center',
-                        fontSize: '12px',
+                        fontSize: '14px',
                         color: '#6b7280',
                         marginTop: '20px',
                         padding: '15px',
                         backgroundColor: '#f9fafb',
                         borderRadius: '8px'
                     }}>
-                        <div style={{ fontWeight: '600', marginBottom: '5px' }}>
-                            Première connexion ?
-                        </div>
-                        <div>
-                            Utilisez votre prénom comme identifiant
-                        </div>
-                        <div>
-                            et votre nom de famille comme mot de passe
-                        </div>
+                        Entrez votre prénom et votre nom pour vous connecter
                     </div>
                 </form>
             </div>
