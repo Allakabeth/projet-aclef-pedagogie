@@ -497,290 +497,78 @@ export default function VoirMesTextes() {
                                     >
                                         🔊
                                     </button>
-                                    <div style={{ position: 'relative', display: 'inline-block' }}>
-                                            <button
-                                                onClick={(e) => {
-                                                    e.stopPropagation()
-                                                    lireTexte('Voir')
-                                                }}
-                                                style={{
-                                                    backgroundColor: 'rgba(255,255,255,0.2)',
-                                                    color: 'white',
-                                                    border: '2px solid rgba(255,255,255,0.3)',
-                                                    borderRadius: '25px',
-                                                    padding: '10px 20px',
-                                                    fontSize: '14px',
-                                                    fontWeight: 'bold',
-                                                    cursor: 'pointer',
-                                                    backdropFilter: 'blur(10px)',
-                                                    transition: 'all 0.2s ease',
-                                                    textShadow: '0 1px 2px rgba(0,0,0,0.3)',
-                                                    paddingRight: '45px'
-                                                }}
-                                                onMouseEnter={(e) => {
-                                                    e.target.style.backgroundColor = 'rgba(255,255,255,0.3)'
-                                                    e.target.style.transform = 'translateY(-2px)'
-                                                }}
-                                                onMouseLeave={(e) => {
-                                                    e.target.style.backgroundColor = 'rgba(255,255,255,0.2)'
-                                                    e.target.style.transform = 'translateY(0)'
-                                                }}
-                                                title="Cliquez pour écouter, puis sur → pour voir"
-                                            >
-                                                👁️ Voir
-                                            </button>
-                                            <button
-                                                onClick={(e) => {
-                                                    e.stopPropagation()
-                                                    router.push(`/lire/texte/${texte.id}`)
-                                                }}
-                                                style={{
-                                                    position: 'absolute',
-                                                    top: '50%',
-                                                    right: '8px',
-                                                    transform: 'translateY(-50%)',
-                                                    backgroundColor: 'rgba(255,255,255,0.3)',
-                                                    border: 'none',
-                                                    borderRadius: '50%',
-                                                    width: '25px',
-                                                    height: '25px',
-                                                    cursor: 'pointer',
-                                                    fontSize: '12px',
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'center',
-                                                    transition: 'all 0.2s ease'
-                                                }}
-                                                onMouseEnter={(e) => {
-                                                    e.target.style.backgroundColor = 'rgba(255,255,255,0.5)'
-                                                    e.target.style.transform = 'translateY(-50%) scale(1.1)'
-                                                }}
-                                                onMouseLeave={(e) => {
-                                                    e.target.style.backgroundColor = 'rgba(255,255,255,0.3)'
-                                                    e.target.style.transform = 'translateY(-50%) scale(1)'
-                                                }}
-                                                title="Voir le texte"
-                                            >
-                                                →
-                                            </button>
-                                        </div>
-                                    <div style={{ position: 'relative', display: 'inline-block' }}>
-                                            <button
-                                                onClick={(e) => {
-                                                    e.stopPropagation()
-                                                    lireTexte('Modifier')
-                                                }}
-                                                style={{
-                                                    backgroundColor: 'rgba(255,255,255,0.2)',
-                                                    color: 'white',
-                                                    border: '2px solid rgba(255,255,255,0.3)',
-                                                    borderRadius: '25px',
-                                                    padding: '10px 20px',
-                                                    fontSize: '14px',
-                                                    fontWeight: 'bold',
-                                                    cursor: 'pointer',
-                                                    backdropFilter: 'blur(10px)',
-                                                    transition: 'all 0.2s ease',
-                                                    textShadow: '0 1px 2px rgba(0,0,0,0.3)',
-                                                    paddingRight: '45px'
-                                                }}
-                                                onMouseEnter={(e) => {
-                                                    e.target.style.backgroundColor = 'rgba(255,255,255,0.3)'
-                                                    e.target.style.transform = 'translateY(-2px)'
-                                                }}
-                                                onMouseLeave={(e) => {
-                                                    e.target.style.backgroundColor = 'rgba(255,255,255,0.2)'
-                                                    e.target.style.transform = 'translateY(0)'
-                                                }}
-                                                title="Cliquez pour écouter, puis sur → pour modifier"
-                                            >
-                                                ✏️ Modifier
-                                            </button>
-                                            <button
-                                                onClick={(e) => {
-                                                    e.stopPropagation()
-                                                    router.push(`/lire/modifier-texte/${texte.id}`)
-                                                }}
-                                                style={{
-                                                    position: 'absolute',
-                                                    top: '50%',
-                                                    right: '8px',
-                                                    transform: 'translateY(-50%)',
-                                                    backgroundColor: 'rgba(255,255,255,0.3)',
-                                                    border: 'none',
-                                                    borderRadius: '50%',
-                                                    width: '25px',
-                                                    height: '25px',
-                                                    cursor: 'pointer',
-                                                    fontSize: '12px',
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'center',
-                                                    transition: 'all 0.2s ease'
-                                                }}
-                                                onMouseEnter={(e) => {
-                                                    e.target.style.backgroundColor = 'rgba(255,255,255,0.5)'
-                                                    e.target.style.transform = 'translateY(-50%) scale(1.1)'
-                                                }}
-                                                onMouseLeave={(e) => {
-                                                    e.target.style.backgroundColor = 'rgba(255,255,255,0.3)'
-                                                    e.target.style.transform = 'translateY(-50%) scale(1)'
-                                                }}
-                                                title="Modifier le texte"
-                                            >
-                                                →
-                                            </button>
-                                        </div>
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation()
+                                            router.push(`/lire/texte/${texte.id}`)
+                                        }}
+                                        style={{
+                                            backgroundColor: 'rgba(255,255,255,0.2)',
+                                            color: 'white',
+                                            border: '2px solid rgba(255,255,255,0.3)',
+                                            borderRadius: '25px',
+                                            padding: '10px 20px',
+                                            fontSize: '14px',
+                                            fontWeight: 'bold',
+                                            cursor: 'pointer',
+                                            backdropFilter: 'blur(10px)',
+                                            transition: 'all 0.2s ease',
+                                            textShadow: '0 1px 2px rgba(0,0,0,0.3)'
+                                        }}
+                                        onMouseEnter={(e) => {
+                                            e.target.style.backgroundColor = 'rgba(255,255,255,0.3)'
+                                            e.target.style.transform = 'translateY(-2px)'
+                                        }}
+                                        onMouseLeave={(e) => {
+                                            e.target.style.backgroundColor = 'rgba(255,255,255,0.2)'
+                                            e.target.style.transform = 'translateY(0)'
+                                        }}
+                                        title="Voir le texte"
+                                    >
+                                        👁️ Voir
+                                    </button>
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation()
+                                            router.push(`/lire/modifier-texte/${texte.id}`)
+                                        }}
+                                        style={{
+                                            backgroundColor: 'rgba(255,255,255,0.2)',
+                                            color: 'white',
+                                            border: '2px solid rgba(255,255,255,0.3)',
+                                            borderRadius: '25px',
+                                            padding: '10px 20px',
+                                            fontSize: '14px',
+                                            fontWeight: 'bold',
+                                            cursor: 'pointer',
+                                            backdropFilter: 'blur(10px)',
+                                            transition: 'all 0.2s ease',
+                                            textShadow: '0 1px 2px rgba(0,0,0,0.3)'
+                                        }}
+                                        onMouseEnter={(e) => {
+                                            e.target.style.backgroundColor = 'rgba(255,255,255,0.3)'
+                                            e.target.style.transform = 'translateY(-2px)'
+                                        }}
+                                        onMouseLeave={(e) => {
+                                            e.target.style.backgroundColor = 'rgba(255,255,255,0.2)'
+                                            e.target.style.transform = 'translateY(0)'
+                                        }}
+                                        title="Modifier le texte"
+                                    >
+                                        ✏️ Modifier
+                                    </button>
                                     {confirmSupprimer === texte.id ? (
                                         // Mode confirmation
                                         <div style={{ display: 'flex', gap: '8px' }}>
-                                            <div style={{ position: 'relative', display: 'inline-block' }}>
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.stopPropagation()
-                                                        lireTexte('Confirmer suppression')
-                                                    }}
-                                                    style={{
-                                                        backgroundColor: 'rgba(220, 38, 38, 0.9)',
-                                                        color: 'white',
-                                                        border: '2px solid rgba(220, 38, 38, 0.6)',
-                                                        borderRadius: '25px',
-                                                        padding: '10px 20px',
-                                                        fontSize: '14px',
-                                                        fontWeight: 'bold',
-                                                        cursor: 'pointer',
-                                                        backdropFilter: 'blur(10px)',
-                                                        transition: 'all 0.2s ease',
-                                                        textShadow: '0 1px 2px rgba(0,0,0,0.3)',
-                                                        paddingRight: '45px'
-                                                    }}
-                                                    onMouseEnter={(e) => {
-                                                        e.target.style.backgroundColor = 'rgba(220, 38, 38, 1)'
-                                                        e.target.style.transform = 'translateY(-2px)'
-                                                    }}
-                                                    onMouseLeave={(e) => {
-                                                        e.target.style.backgroundColor = 'rgba(220, 38, 38, 0.9)'
-                                                        e.target.style.transform = 'translateY(0)'
-                                                    }}
-                                                    title="Cliquez pour écouter, puis sur → pour confirmer"
-                                                >
-                                                    ✅ CONFIRMER
-                                                </button>
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.stopPropagation()
-                                                        confirmerSupprimer(texte.id)
-                                                    }}
-                                                    style={{
-                                                        position: 'absolute',
-                                                        top: '50%',
-                                                        right: '8px',
-                                                        transform: 'translateY(-50%)',
-                                                        backgroundColor: 'rgba(255,255,255,0.3)',
-                                                        border: 'none',
-                                                        borderRadius: '50%',
-                                                        width: '25px',
-                                                        height: '25px',
-                                                        cursor: 'pointer',
-                                                        fontSize: '12px',
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        justifyContent: 'center',
-                                                        transition: 'all 0.2s ease'
-                                                    }}
-                                                    onMouseEnter={(e) => {
-                                                        e.target.style.backgroundColor = 'rgba(255,255,255,0.5)'
-                                                        e.target.style.transform = 'translateY(-50%) scale(1.1)'
-                                                    }}
-                                                    onMouseLeave={(e) => {
-                                                        e.target.style.backgroundColor = 'rgba(255,255,255,0.3)'
-                                                        e.target.style.transform = 'translateY(-50%) scale(1)'
-                                                    }}
-                                                    title="Confirmer la suppression"
-                                                >
-                                                    →
-                                                </button>
-                                            </div>
-                                            <div style={{ position: 'relative', display: 'inline-block' }}>
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.stopPropagation()
-                                                        lireTexte('Annuler')
-                                                    }}
-                                                    style={{
-                                                        backgroundColor: 'rgba(107, 114, 128, 0.9)',
-                                                        color: 'white',
-                                                        border: '2px solid rgba(107, 114, 128, 0.6)',
-                                                        borderRadius: '25px',
-                                                        padding: '10px 20px',
-                                                        fontSize: '14px',
-                                                        fontWeight: 'bold',
-                                                        cursor: 'pointer',
-                                                        backdropFilter: 'blur(10px)',
-                                                        transition: 'all 0.2s ease',
-                                                        textShadow: '0 1px 2px rgba(0,0,0,0.3)',
-                                                        paddingRight: '45px'
-                                                    }}
-                                                    onMouseEnter={(e) => {
-                                                        e.target.style.backgroundColor = 'rgba(107, 114, 128, 1)'
-                                                        e.target.style.transform = 'translateY(-2px)'
-                                                    }}
-                                                    onMouseLeave={(e) => {
-                                                        e.target.style.backgroundColor = 'rgba(107, 114, 128, 0.9)'
-                                                        e.target.style.transform = 'translateY(0)'
-                                                    }}
-                                                    title="Cliquez pour écouter, puis sur → pour annuler"
-                                                >
-                                                    ❌ ANNULER
-                                                </button>
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.stopPropagation()
-                                                        annulerSupprimer()
-                                                    }}
-                                                    style={{
-                                                        position: 'absolute',
-                                                        top: '50%',
-                                                        right: '8px',
-                                                        transform: 'translateY(-50%)',
-                                                        backgroundColor: 'rgba(255,255,255,0.3)',
-                                                        border: 'none',
-                                                        borderRadius: '50%',
-                                                        width: '25px',
-                                                        height: '25px',
-                                                        cursor: 'pointer',
-                                                        fontSize: '12px',
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        justifyContent: 'center',
-                                                        transition: 'all 0.2s ease'
-                                                    }}
-                                                    onMouseEnter={(e) => {
-                                                        e.target.style.backgroundColor = 'rgba(255,255,255,0.5)'
-                                                        e.target.style.transform = 'translateY(-50%) scale(1.1)'
-                                                    }}
-                                                    onMouseLeave={(e) => {
-                                                        e.target.style.backgroundColor = 'rgba(255,255,255,0.3)'
-                                                        e.target.style.transform = 'translateY(-50%) scale(1)'
-                                                    }}
-                                                    title="Annuler"
-                                                >
-                                                    →
-                                                </button>
-                                            </div>
-                                        </div>
-                                    ) : (
-                                        // Mode normal
-                                        <div style={{ position: 'relative', display: 'inline-block' }}>
                                             <button
                                                 onClick={(e) => {
                                                     e.stopPropagation()
-                                                    lireTexte('Supprimer')
+                                                    confirmerSupprimer(texte.id)
                                                 }}
                                                 style={{
-                                                    backgroundColor: 'rgba(239, 68, 68, 0.8)',
+                                                    backgroundColor: 'rgba(220, 38, 38, 0.9)',
                                                     color: 'white',
-                                                    border: '2px solid rgba(239, 68, 68, 0.6)',
+                                                    border: '2px solid rgba(220, 38, 38, 0.6)',
                                                     borderRadius: '25px',
                                                     padding: '10px 20px',
                                                     fontSize: '14px',
@@ -788,56 +576,83 @@ export default function VoirMesTextes() {
                                                     cursor: 'pointer',
                                                     backdropFilter: 'blur(10px)',
                                                     transition: 'all 0.2s ease',
-                                                    textShadow: '0 1px 2px rgba(0,0,0,0.3)',
-                                                    paddingRight: '45px'
+                                                    textShadow: '0 1px 2px rgba(0,0,0,0.3)'
                                                 }}
                                                 onMouseEnter={(e) => {
-                                                    e.target.style.backgroundColor = 'rgba(239, 68, 68, 1)'
+                                                    e.target.style.backgroundColor = 'rgba(220, 38, 38, 1)'
                                                     e.target.style.transform = 'translateY(-2px)'
                                                 }}
                                                 onMouseLeave={(e) => {
-                                                    e.target.style.backgroundColor = 'rgba(239, 68, 68, 0.8)'
+                                                    e.target.style.backgroundColor = 'rgba(220, 38, 38, 0.9)'
                                                     e.target.style.transform = 'translateY(0)'
                                                 }}
-                                                title="Cliquez pour écouter, puis sur → pour supprimer"
+                                                title="Confirmer la suppression"
                                             >
-                                                🗑️ Supprimer
+                                                ✅ CONFIRMER
                                             </button>
                                             <button
                                                 onClick={(e) => {
                                                     e.stopPropagation()
-                                                    demanderConfirmationSupprimer(texte.id)
+                                                    annulerSupprimer()
                                                 }}
                                                 style={{
-                                                    position: 'absolute',
-                                                    top: '50%',
-                                                    right: '8px',
-                                                    transform: 'translateY(-50%)',
-                                                    backgroundColor: 'rgba(255,255,255,0.3)',
-                                                    border: 'none',
-                                                    borderRadius: '50%',
-                                                    width: '25px',
-                                                    height: '25px',
+                                                    backgroundColor: 'rgba(107, 114, 128, 0.9)',
+                                                    color: 'white',
+                                                    border: '2px solid rgba(107, 114, 128, 0.6)',
+                                                    borderRadius: '25px',
+                                                    padding: '10px 20px',
+                                                    fontSize: '14px',
+                                                    fontWeight: 'bold',
                                                     cursor: 'pointer',
-                                                    fontSize: '12px',
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'center',
-                                                    transition: 'all 0.2s ease'
+                                                    backdropFilter: 'blur(10px)',
+                                                    transition: 'all 0.2s ease',
+                                                    textShadow: '0 1px 2px rgba(0,0,0,0.3)'
                                                 }}
                                                 onMouseEnter={(e) => {
-                                                    e.target.style.backgroundColor = 'rgba(255,255,255,0.5)'
-                                                    e.target.style.transform = 'translateY(-50%) scale(1.1)'
+                                                    e.target.style.backgroundColor = 'rgba(107, 114, 128, 1)'
+                                                    e.target.style.transform = 'translateY(-2px)'
                                                 }}
                                                 onMouseLeave={(e) => {
-                                                    e.target.style.backgroundColor = 'rgba(255,255,255,0.3)'
-                                                    e.target.style.transform = 'translateY(-50%) scale(1)'
+                                                    e.target.style.backgroundColor = 'rgba(107, 114, 128, 0.9)'
+                                                    e.target.style.transform = 'translateY(0)'
                                                 }}
-                                                title="Supprimer le texte"
+                                                title="Annuler"
                                             >
-                                                →
+                                                ❌ ANNULER
                                             </button>
                                         </div>
+                                    ) : (
+                                        // Mode normal
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation()
+                                                demanderConfirmationSupprimer(texte.id)
+                                            }}
+                                            style={{
+                                                backgroundColor: 'rgba(239, 68, 68, 0.8)',
+                                                color: 'white',
+                                                border: '2px solid rgba(239, 68, 68, 0.6)',
+                                                borderRadius: '25px',
+                                                padding: '10px 20px',
+                                                fontSize: '14px',
+                                                fontWeight: 'bold',
+                                                cursor: 'pointer',
+                                                backdropFilter: 'blur(10px)',
+                                                transition: 'all 0.2s ease',
+                                                textShadow: '0 1px 2px rgba(0,0,0,0.3)'
+                                            }}
+                                            onMouseEnter={(e) => {
+                                                e.target.style.backgroundColor = 'rgba(239, 68, 68, 1)'
+                                                e.target.style.transform = 'translateY(-2px)'
+                                            }}
+                                            onMouseLeave={(e) => {
+                                                e.target.style.backgroundColor = 'rgba(239, 68, 68, 0.8)'
+                                                e.target.style.transform = 'translateY(0)'
+                                            }}
+                                            title="Supprimer le texte"
+                                        >
+                                            🗑️ Supprimer
+                                        </button>
                                     )}
                                 </div>
                                 )}
