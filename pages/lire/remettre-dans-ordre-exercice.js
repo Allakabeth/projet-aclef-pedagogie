@@ -473,12 +473,14 @@ export default function RemettreOrdreExercicePage() {
         }
 
         const groupe = groupesAUtiliser[index]
-        const mots = groupe.contenu
+        const motsTexte = groupe.contenu
             .trim()
             .split(/\s+/)
             .filter(mot => mot && mot.trim().length > 0)
             .filter(mot => !/^[.,:;!?]+$/.test(mot))
 
+        // Créer des objets avec id unique pour gérer les mots en double
+        const mots = motsTexte.map((mot, idx) => ({ id: idx, mot: mot }))
         const motsMelanges = melangerTableau(mots)
 
         setGroupeActuel(groupe)
@@ -489,9 +491,9 @@ export default function RemettreOrdreExercicePage() {
         setFeedback(null)
     }
 
-    function ajouterMotDansOrdre(mot) {
-        setMotsSelectionnes([...motsSelectionnes, mot])
-        setMotsDisponibles(motsDisponibles.filter(m => m !== mot))
+    function ajouterMotDansOrdre(motObj) {
+        setMotsSelectionnes([...motsSelectionnes, motObj])
+        setMotsDisponibles(motsDisponibles.filter(m => m.id !== motObj.id))
     }
 
     function retirerMotDansOrdre(index) {
@@ -511,14 +513,14 @@ export default function RemettreOrdreExercicePage() {
             .filter(mot => mot && mot.trim().length > 0)
             .filter(mot => !/^[.,:;!?]+$/.test(mot))
 
-        const validation = motsSelectionnes.map((mot, i) =>
-            mot === motsAttendus[i] ? 'correct' : 'incorrect'
+        const validation = motsSelectionnes.map((motObj, i) =>
+            motObj.mot === motsAttendus[i] ? 'correct' : 'incorrect'
         )
         setMotsValidation(validation)
 
         const correct =
             motsSelectionnes.length === motsAttendus.length &&
-            motsSelectionnes.every((mot, i) => mot === motsAttendus[i])
+            motsSelectionnes.every((motObj, i) => motObj.mot === motsAttendus[i])
 
         const newScore = {
             bonnes: score.bonnes + (correct ? 1 : 0),
@@ -526,7 +528,7 @@ export default function RemettreOrdreExercicePage() {
         }
         setScore(newScore)
 
-        const phraseReconstitue = motsSelectionnes.join(' ')
+        const phraseReconstitue = motsSelectionnes.map(m => m.mot).join(' ')
         if (correct) {
             setResultats(prev => ({
                 ...prev,
@@ -539,7 +541,7 @@ export default function RemettreOrdreExercicePage() {
             }))
         }
 
-        lirePhraseDansOrdre(motsSelectionnes, () => {
+        lirePhraseDansOrdre(motsSelectionnes.map(m => m.mot), () => {
             if (correct) {
                 setFeedback({ type: 'success', message: '✅ Parfait ! C\'est bien ça !' })
             } else {
@@ -926,9 +928,9 @@ export default function RemettreOrdreExercicePage() {
                                 Clique sur les mots ci-dessous pour construire ta phrase...
                             </span>
                         ) : (
-                            motsSelectionnes.map((mot, index) => (
+                            motsSelectionnes.map((motObj, index) => (
                                 <button
-                                    key={index}
+                                    key={motObj.id}
                                     onClick={() => retirerMotDansOrdre(index)}
                                     disabled={feedback !== null}
                                     style={{
@@ -962,7 +964,7 @@ export default function RemettreOrdreExercicePage() {
                                         } : {})
                                     }}
                                 >
-                                    <span>{mot}</span>
+                                    <span>{motObj.mot}</span>
                                     {feedback === null && (
                                         <span style={{
                                             fontSize: isMobile ? `${taillePoliceMots * 0.5}px` : '14px',
@@ -982,17 +984,17 @@ export default function RemettreOrdreExercicePage() {
                 {/* Zone des mots disponibles (mélangés) */}
                 <div style={styles.ordreSection}>
                     <div style={styles.motsDisponiblesGrid}>
-                        {motsDisponibles.map((mot, index) => (
+                        {motsDisponibles.map((motObj) => (
                             <button
-                                key={index}
-                                onClick={() => ajouterMotDansOrdre(mot)}
+                                key={motObj.id}
+                                onClick={() => ajouterMotDansOrdre(motObj)}
                                 disabled={feedback !== null}
                                 style={{
                                     ...styles.motDisponible,
                                     ...(feedback ? { opacity: 0.5, cursor: 'not-allowed' } : {})
                                 }}
                             >
-                                {mot}
+                                {motObj.mot}
                             </button>
                         ))}
                     </div>
