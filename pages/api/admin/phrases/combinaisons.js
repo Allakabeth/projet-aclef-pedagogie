@@ -19,7 +19,7 @@ export default async function handler(req, res) {
         // 1. Récupérer toutes les phrases de cet apprenant
         const { data: phrases, error: errorPhrases } = await supabaseAdmin
             .from('phrases_pregenerees')
-            .select('texte_ids, phrase, mots, source, created_at')
+            .select('id, texte_ids, phrase, mots, source, created_at')
             .eq('user_id', user_id)
 
         if (errorPhrases) {
@@ -45,8 +45,9 @@ export default async function handler(req, res) {
 
             combinaisonsMap[comboKey].nb_phrases++
 
-            // Ajouter la phrase complète
+            // Ajouter la phrase complète avec son id
             combinaisonsMap[comboKey].phrases.push({
+                id: phrase.id,
                 phrase: phrase.phrase,
                 mots: phrase.mots
             })

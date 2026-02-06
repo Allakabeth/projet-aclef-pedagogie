@@ -8,6 +8,12 @@ export default function PhrasesPregenerees() {
     const [apprenants, setApprenants] = useState([])
     const [selectedApprenant, setSelectedApprenant] = useState(null)
     const [combinaisons, setCombinaisons] = useState([])
+    const [editingPhrase, setEditingPhrase] = useState(null)
+    const [editPhrase, setEditPhrase] = useState('')
+    const [editMots, setEditMots] = useState('')
+    const [saving, setSaving] = useState(false)
+    const [motsDisponibles, setMotsDisponibles] = useState([])
+    const [loadingMots, setLoadingMots] = useState(false)
     const router = useRouter()
 
     useEffect(() => {
@@ -72,6 +78,79 @@ export default function PhrasesPregenerees() {
     const selectApprenant = (apprenant) => {
         setSelectedApprenant(apprenant)
         loadCombinaisons(apprenant.user_id)
+    }
+
+    const startEditing = async (phrase, texteIds) => {
+        setEditingPhrase(phrase.id)
+        setEditPhrase(phrase.phrase)
+        setEditMots(phrase.mots.join(' • '))
+        setMotsDisponibles([])
+
+        // Charger les mots disponibles
+        setLoadingMots(true)
+        try {
+            const response = await fetch(`/api/admin/phrases/mots-disponibles?user_id=${selectedApprenant.user_id}&texte_ids=${texteIds.join(',')}`)
+            if (response.ok) {
+                const data = await response.json()
+                setMotsDisponibles(data.mots || [])
+            }
+        } catch (error) {
+            console.error('Erreur chargement mots:', error)
+        }
+        setLoadingMots(false)
+    }
+
+    const cancelEditing = () => {
+        setEditingPhrase(null)
+        setEditPhrase('')
+        setEditMots('')
+        setMotsDisponibles([])
+    }
+
+    const savePhrase = async () => {
+        if (!editPhrase.trim()) {
+            alert('La phrase ne peut pas être vide')
+            return
+        }
+
+        const motsArray = editMots.split(/[•,\s]+/).filter(m => m.trim())
+        if (motsArray.length < 3 || motsArray.length > 7) {
+            alert('La phrase doit contenir entre 3 et 7 mots')
+            return
+        }
+
+        setSaving(true)
+        try {
+            const response = await fetch('/api/admin/phrases/modifier', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    id: editingPhrase,
+                    phrase: editPhrase.trim(),
+                    mots: motsArray
+                })
+            })
+
+            if (response.ok) {
+                // Mettre à jour localement
+                setCombinaisons(prev => prev.map(combo => ({
+                    ...combo,
+                    phrases: combo.phrases.map(p =>
+                        p.id === editingPhrase
+                            ? { ...p, phrase: editPhrase.trim(), mots: motsArray }
+                            : p
+                    )
+                })))
+                cancelEditing()
+            } else {
+                const data = await response.json()
+                alert(`Erreur: ${data.error || 'Erreur lors de la modification'}`)
+            }
+        } catch (error) {
+            console.error('Erreur sauvegarde:', error)
+            alert('Erreur lors de la sauvegarde')
+        }
+        setSaving(false)
     }
 
     const purgerCombinaison = async (texteIds, userId) => {
@@ -428,22 +507,185 @@ export default function PhrasesPregenerees() {
                                                     </div>
                                                     {combo.phrases.map((phrase, pIdx) => (
                                                         <div
-                                                            key={pIdx}
+                                                            key={phrase.id}
                                                             style={{
                                                                 padding: '8px',
                                                                 marginBottom: '6px',
-                                                                background: '#f9fafb',
+                                                                background: editingPhrase === phrase.id ? '#fef3c7' : '#f9fafb',
                                                                 borderRadius: '4px',
-                                                                borderLeft: '3px solid #8b5cf6',
+                                                                borderLeft: `3px solid ${editingPhrase === phrase.id ? '#f59e0b' : '#8b5cf6'}`,
                                                                 fontSize: '14px'
                                                             }}
                                                         >
-                                                            <div style={{ fontWeight: '500', marginBottom: '4px' }}>
-                                                                {pIdx + 1}. {phrase.phrase}
-                                                            </div>
-                                                            <div style={{ fontSize: '12px', color: '#666' }}>
-                                                                Mots ({phrase.mots.length}) : {phrase.mots.join(' • ')}
-                                                            </div>
+                                                            {editingPhrase === phrase.id ? (
+                                                                // Mode édition
+                                                                <div>
+                                                                    <div style={{ marginBottom: '8px' }}>
+                                                                        <label style={{ fontSize: '12px', color: '#666', display: 'block', marginBottom: '4px' }}>
+                                                                            Phrase :
+                                                                        </label>
+                                                                        <input
+                                                                            type="text"
+                                                                            value={editPhrase}
+                                                                            onChange={(e) => setEditPhrase(e.target.value)}
+                                                                            style={{
+                                                                                width: '100%',
+                                                                                padding: '8px',
+                                                                                border: '1px solid #d1d5db',
+                                                                                borderRadius: '4px',
+                                                                                fontSize: '14px'
+                                                                            }}
+                                                                        />
+                                                                    </div>
+                                                                    <div style={{ marginBottom: '8px' }}>
+                                                                        <label style={{ fontSize: '12px', color: '#666', display: 'block', marginBottom: '4px' }}>
+                                                                            Mots (séparés par • ou espaces) :
+                                                                        </label>
+                                                                        <input
+                                                                            type="text"
+                                                                            value={editMots}
+                                                                            onChange={(e) => setEditMots(e.target.value)}
+                                                                            style={{
+                                                                                width: '100%',
+                                                                                padding: '8px',
+                                                                                border: '1px solid #d1d5db',
+                                                                                borderRadius: '4px',
+                                                                                fontSize: '14px'
+                                                                            }}
+                                                                        />
+                                                                    </div>
+                                                                    <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
+                                                                        <button
+                                                                            onClick={savePhrase}
+                                                                            disabled={saving}
+                                                                            style={{
+                                                                                background: '#10b981',
+                                                                                color: 'white',
+                                                                                padding: '6px 12px',
+                                                                                borderRadius: '4px',
+                                                                                border: 'none',
+                                                                                cursor: saving ? 'not-allowed' : 'pointer',
+                                                                                fontSize: '12px',
+                                                                                fontWeight: 'bold',
+                                                                                opacity: saving ? 0.6 : 1
+                                                                            }}
+                                                                        >
+                                                                            {saving ? '...' : '✓ Sauvegarder'}
+                                                                        </button>
+                                                                        <button
+                                                                            onClick={cancelEditing}
+                                                                            disabled={saving}
+                                                                            style={{
+                                                                                background: '#6b7280',
+                                                                                color: 'white',
+                                                                                padding: '6px 12px',
+                                                                                borderRadius: '4px',
+                                                                                border: 'none',
+                                                                                cursor: 'pointer',
+                                                                                fontSize: '12px'
+                                                                            }}
+                                                                        >
+                                                                            ✕ Annuler
+                                                                        </button>
+                                                                    </div>
+
+                                                                    {/* Liste des mots disponibles */}
+                                                                    <div style={{
+                                                                        background: '#f0fdf4',
+                                                                        border: '1px solid #bbf7d0',
+                                                                        borderRadius: '6px',
+                                                                        padding: '10px'
+                                                                    }}>
+                                                                        <div style={{
+                                                                            fontSize: '12px',
+                                                                            fontWeight: 'bold',
+                                                                            color: '#166534',
+                                                                            marginBottom: '8px'
+                                                                        }}>
+                                                                            📚 Mots disponibles ({motsDisponibles.length}) :
+                                                                        </div>
+                                                                        {loadingMots ? (
+                                                                            <div style={{ fontSize: '12px', color: '#666' }}>
+                                                                                Chargement...
+                                                                            </div>
+                                                                        ) : motsDisponibles.length > 0 ? (
+                                                                            <div style={{
+                                                                                display: 'flex',
+                                                                                flexWrap: 'wrap',
+                                                                                gap: '6px',
+                                                                                maxHeight: '150px',
+                                                                                overflowY: 'auto'
+                                                                            }}>
+                                                                                {motsDisponibles.map((mot, idx) => (
+                                                                                    <span
+                                                                                        key={idx}
+                                                                                        onClick={() => {
+                                                                                            const currentMots = editMots.trim()
+                                                                                            setEditMots(currentMots ? `${currentMots} • ${mot}` : mot)
+                                                                                        }}
+                                                                                        style={{
+                                                                                            background: '#dcfce7',
+                                                                                            color: '#166534',
+                                                                                            padding: '3px 8px',
+                                                                                            borderRadius: '4px',
+                                                                                            fontSize: '12px',
+                                                                                            cursor: 'pointer',
+                                                                                            border: '1px solid #bbf7d0',
+                                                                                            transition: 'all 0.15s'
+                                                                                        }}
+                                                                                        onMouseEnter={(e) => {
+                                                                                            e.currentTarget.style.background = '#bbf7d0'
+                                                                                            e.currentTarget.style.transform = 'scale(1.05)'
+                                                                                        }}
+                                                                                        onMouseLeave={(e) => {
+                                                                                            e.currentTarget.style.background = '#dcfce7'
+                                                                                            e.currentTarget.style.transform = 'scale(1)'
+                                                                                        }}
+                                                                                        title="Cliquer pour ajouter"
+                                                                                    >
+                                                                                        {mot}
+                                                                                    </span>
+                                                                                ))}
+                                                                            </div>
+                                                                        ) : (
+                                                                            <div style={{ fontSize: '12px', color: '#666' }}>
+                                                                                Aucun mot trouvé
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                            ) : (
+                                                                // Mode affichage
+                                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                                                    <div style={{ flex: 1 }}>
+                                                                        <div style={{ fontWeight: '500', marginBottom: '4px' }}>
+                                                                            {pIdx + 1}. {phrase.phrase}
+                                                                        </div>
+                                                                        <div style={{ fontSize: '12px', color: '#666' }}>
+                                                                            Mots ({phrase.mots.length}) : {phrase.mots.join(' • ')}
+                                                                        </div>
+                                                                    </div>
+                                                                    <button
+                                                                        onClick={() => startEditing(phrase, combo.texte_ids)}
+                                                                        style={{
+                                                                            background: '#3b82f6',
+                                                                            color: 'white',
+                                                                            padding: '4px 10px',
+                                                                            borderRadius: '4px',
+                                                                            border: 'none',
+                                                                            cursor: 'pointer',
+                                                                            fontSize: '11px',
+                                                                            fontWeight: 'bold',
+                                                                            marginLeft: '8px',
+                                                                            flexShrink: 0
+                                                                        }}
+                                                                        onMouseEnter={(e) => e.currentTarget.style.background = '#2563eb'}
+                                                                        onMouseLeave={(e) => e.currentTarget.style.background = '#3b82f6'}
+                                                                    >
+                                                                        ✏️ Modifier
+                                                                    </button>
+                                                                </div>
+                                                            )}
                                                         </div>
                                                     ))}
                                                 </div>

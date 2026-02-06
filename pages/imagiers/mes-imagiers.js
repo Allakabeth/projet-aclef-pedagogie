@@ -310,6 +310,119 @@ export default function MesImagiers() {
         }
     }
 
+    const printImagier = async (imagier) => {
+        try {
+            // Charger les éléments si pas encore chargés
+            let elements = imagier.elements
+            if (!elements || elements.length === 0) {
+                const token = localStorage.getItem('token')
+                const response = await fetch(`/api/imagiers/${imagier.id}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                })
+                if (response.ok) {
+                    const data = await response.json()
+                    elements = data.imagier?.elements || []
+                }
+            }
+
+            if (!elements || elements.length === 0) {
+                alert('Cet imagier ne contient aucun élément à imprimer')
+                return
+            }
+
+            // Créer le contenu HTML pour l'impression
+            const printContent = `
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>Imagier - ${imagier.titre}</title>
+                    <style>
+                        @page { margin: 1cm; }
+                        body {
+                            font-family: Arial, sans-serif;
+                            margin: 0;
+                            padding: 20px;
+                        }
+                        h1 {
+                            text-align: center;
+                            color: #8b5cf6;
+                            margin-bottom: 10px;
+                            font-size: 28px;
+                        }
+                        .subtitle {
+                            text-align: center;
+                            color: #666;
+                            margin-bottom: 30px;
+                            font-size: 14px;
+                        }
+                        .grid {
+                            display: grid;
+                            grid-template-columns: repeat(3, 1fr);
+                            gap: 20px;
+                            page-break-inside: auto;
+                        }
+                        .card {
+                            border: 2px solid #e5e7eb;
+                            border-radius: 12px;
+                            padding: 15px;
+                            text-align: center;
+                            page-break-inside: avoid;
+                            background: #fafafa;
+                        }
+                        .card img {
+                            max-width: 100%;
+                            max-height: 150px;
+                            object-fit: contain;
+                            border-radius: 8px;
+                            margin-bottom: 10px;
+                        }
+                        .mot {
+                            font-size: 20px;
+                            font-weight: bold;
+                            color: #333;
+                            margin-bottom: 5px;
+                        }
+                        .commentaire {
+                            font-size: 12px;
+                            color: #666;
+                            font-style: italic;
+                        }
+                        @media print {
+                            .grid { grid-template-columns: repeat(3, 1fr); }
+                            .card { break-inside: avoid; }
+                        }
+                    </style>
+                </head>
+                <body>
+                    <h1>🖼️ ${imagier.titre}</h1>
+                    ${imagier.description ? `<div class="subtitle">${imagier.description}</div>` : ''}
+                    <div class="grid">
+                        ${elements.map(el => `
+                            <div class="card">
+                                ${el.image_url ? `<img src="${el.image_url}" alt="${el.mot}" />` : '<div style="height:100px;background:#eee;border-radius:8px;"></div>'}
+                                <div class="mot">${el.mot}</div>
+                                ${el.commentaire ? `<div class="commentaire">${el.commentaire}</div>` : ''}
+                            </div>
+                        `).join('')}
+                    </div>
+                </body>
+                </html>
+            `
+
+            // Ouvrir une nouvelle fenêtre et imprimer
+            const printWindow = window.open('', '_blank')
+            printWindow.document.write(printContent)
+            printWindow.document.close()
+            printWindow.onload = () => {
+                printWindow.print()
+            }
+
+        } catch (error) {
+            console.error('Erreur impression:', error)
+            alert('❌ Erreur lors de la préparation de l\'impression')
+        }
+    }
+
     // Fonctions de capture d'écran Google Images
     const openGoogleImages = (mot) => {
         const searchTerm = mot?.trim() || 'image'
@@ -582,6 +695,21 @@ export default function MesImagiers() {
                                                     title="Dupliquer"
                                                 >
                                                     📋
+                                                </button>
+                                                <button
+                                                    onClick={() => printImagier(imagier)}
+                                                    style={{
+                                                        backgroundColor: '#3b82f6',
+                                                        color: 'white',
+                                                        padding: '4px 8px',
+                                                        border: 'none',
+                                                        borderRadius: '4px',
+                                                        fontSize: '12px',
+                                                        cursor: 'pointer'
+                                                    }}
+                                                    title="Imprimer"
+                                                >
+                                                    🖨️
                                                 </button>
                                                 <button
                                                     onClick={() => deleteImagier(imagier.id)}
