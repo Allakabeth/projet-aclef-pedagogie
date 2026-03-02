@@ -172,11 +172,25 @@ export default function DashboardFormation() {
                     </p>
                 </div>
 
-                <div style={{ ...styles.menuCard, ...styles.menuCardDisabled }}>
+                <div
+                    style={styles.menuCard}
+                    onClick={() => router.push('/admin/formation/bilans')}
+                >
                     <div style={styles.menuIcon}>📈</div>
                     <h3 style={styles.menuTitle}>Bilans</h3>
                     <p style={styles.menuDescription}>
-                        À venir - Phase 5
+                        Créer et gérer les bilans de formation
+                    </p>
+                </div>
+
+                <div
+                    style={styles.menuCard}
+                    onClick={() => router.push('/admin/formation/attestations')}
+                >
+                    <div style={styles.menuIcon}>🎓</div>
+                    <h3 style={styles.menuTitle}>Attestations (ACA)</h3>
+                    <p style={styles.menuDescription}>
+                        Gérer les attestations de compétences acquises
                     </p>
                 </div>
 

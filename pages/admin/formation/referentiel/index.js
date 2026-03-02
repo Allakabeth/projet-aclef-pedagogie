@@ -46,6 +46,17 @@ export default function ReferentielsMenu() {
                         Gérer les compétences détaillées avec codes et descriptions
                     </p>
                 </div>
+
+                <div
+                    style={styles.menuCard}
+                    onClick={() => router.push('/admin/formation/referentiel/profils')}
+                >
+                    <div style={styles.menuIcon}>👥</div>
+                    <h3 style={styles.menuTitle}>Profils de Référence</h3>
+                    <p style={styles.menuDescription}>
+                        Voir les profils (FLE, Illettrisme, Lecture...) et leurs étapes de parcours
+                    </p>
+                </div>
             </div>
 
             <div style={styles.footer}>

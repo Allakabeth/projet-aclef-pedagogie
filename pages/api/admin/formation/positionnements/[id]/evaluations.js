@@ -67,6 +67,11 @@ export default async function handler(req, res) {
                     continue
                 }
 
+                // Mapper vers les noms de colonnes réels de la DB
+                // Code utilise niveau_atteint/commentaire, DB utilise evaluation/observations
+                const dbEvaluation = niveau_atteint || 'non_evalue'
+                const dbObservations = commentaire || ''
+
                 // Vérifier si l'évaluation existe déjà
                 const { data: existing } = await supabase
                     .from('formation_evaluations_positionnement')
@@ -80,8 +85,8 @@ export default async function handler(req, res) {
                     const { data, error } = await supabase
                         .from('formation_evaluations_positionnement')
                         .update({
-                            niveau_atteint,
-                            commentaire
+                            evaluation: dbEvaluation,
+                            observations: dbObservations
                         })
                         .eq('id', existing.id)
                         .select()
@@ -99,8 +104,8 @@ export default async function handler(req, res) {
                         .insert([{
                             positionnement_id: id,
                             competence_id,
-                            niveau_atteint,
-                            commentaire
+                            evaluation: dbEvaluation,
+                            observations: dbObservations
                         }])
                         .select()
                         .single()

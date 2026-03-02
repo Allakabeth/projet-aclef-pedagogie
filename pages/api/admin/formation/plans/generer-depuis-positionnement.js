@@ -55,17 +55,16 @@ export default async function handler(req, res) {
         // 2. Analyser les évaluations et extraire les compétences à travailler
         const competencesATravailler = []
 
-        positionnement.evaluations.forEach(evaluation => {
-            const { niveau_atteint, competence } = evaluation
+        positionnement.evaluations.forEach(ev => {
+            const niveau = ev.evaluation // colonne DB = 'evaluation', pas 'niveau_atteint'
+            const competence = ev.competence
 
             // Sélectionner seulement "non_acquis" et "en_cours"
-            if (niveau_atteint === 'non_acquis' || niveau_atteint === 'en_cours') {
-                // Conversion priorité : 'haute'→1, 'moyenne'→2, 'faible'→3
-                // Conversion statut : 'a_faire'→'a_travailler'
+            if (niveau === 'non_acquis' || niveau === 'en_cours') {
                 competencesATravailler.push({
                     competence_id: competence.id,
-                    priorite: niveau_atteint === 'non_acquis' ? 1 : 2, // haute=1, moyenne=2
-                    statut: 'a_travailler', // 'a_faire' → 'a_travailler'
+                    priorite: niveau === 'non_acquis' ? 1 : 2, // haute=1, moyenne=2
+                    statut: niveau === 'en_cours' ? 'en_cours' : 'a_travailler', // conserver le niveau du positionnement
                     // Note: ordre et objectif_specifique omis (colonnes inexistantes)
                     // Métadonnées pour tri
                     _domaine_ordre: competence.categorie.domaine.ordre,
@@ -93,16 +92,24 @@ export default async function handler(req, res) {
             delete comp._competence_ordre
         })
 
-        // 4. Créer le plan de formation
+        // 4. Récupérer les dates de formation de l'apprenant
+        const { data: apprenant } = await supabase
+            .from('users')
+            .select('date_entree_formation, date_sortie_previsionnelle')
+            .eq('id', positionnement.apprenant_id)
+            .single()
+
+        // 5. Créer le plan de formation
         const { data: plan, error: planError } = await supabase
             .from('formation_plans')
             .insert([{
                 apprenant_id: positionnement.apprenant_id,
                 formateur_id: positionnement.formateur_id,
                 positionnement_id: positionnement.id,
-                date_debut: new Date().toISOString().split('T')[0],
-                objectif_principal: `Plan généré depuis positionnement (${new Date(positionnement.date_positionnement).toLocaleDateString('fr-FR')}) - ${competencesATravailler.length} compétence(s)`,
-                statut: 'en_cours' // 'brouillon' → 'en_cours' (correspond au schéma actuel)
+                date_debut: apprenant?.date_entree_formation || new Date().toISOString().split('T')[0],
+                date_fin_prevue: apprenant?.date_sortie_previsionnelle || null,
+                objectif_principal: '',
+                statut: 'en_cours'
             }])
             .select()
             .single()

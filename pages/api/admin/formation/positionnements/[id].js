@@ -21,7 +21,7 @@ export default async function handler(req, res) {
                 .from('formation_positionnements')
                 .select(`
                     *,
-                    apprenant:users!formation_positionnements_apprenant_id_fkey(id, prenom, nom, email),
+                    apprenant:users!formation_positionnements_apprenant_id_fkey(id, prenom, nom, email, dispositif),
                     formateur:users!formation_positionnements_formateur_id_fkey(id, prenom, nom, email),
                     evaluations:formation_evaluations_positionnement(
                         *,
@@ -47,12 +47,13 @@ export default async function handler(req, res) {
         }
 
         if (req.method === 'PUT') {
-            const { date_positionnement, commentaires_generaux, statut } = req.body
+            const { date_positionnement, commentaires_generaux, statut, profils_detectes } = req.body
 
             const updateData = {}
             if (date_positionnement !== undefined) updateData.date_positionnement = date_positionnement
             if (commentaires_generaux !== undefined) updateData.commentaires_generaux = commentaires_generaux
             if (statut !== undefined) updateData.statut = statut
+            if (profils_detectes !== undefined) updateData.profils_detectes = profils_detectes
 
             const { data, error } = await supabase
                 .from('formation_positionnements')

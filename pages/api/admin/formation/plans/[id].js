@@ -21,9 +21,19 @@ export default async function handler(req, res) {
                 .from('formation_plans')
                 .select(`
                     *,
-                    apprenant:users!formation_plans_apprenant_id_fkey(id, prenom, nom, email),
+                    apprenant:users!formation_plans_apprenant_id_fkey(id, prenom, nom, email, dispositif, date_entree_formation, date_sortie_previsionnelle),
                     formateur:users!formation_plans_formateur_id_fkey(id, prenom, nom, email),
-                    positionnement:formation_positionnements(id, date_positionnement, statut),
+                    positionnement:formation_positionnements(
+                        id, date_positionnement, statut, profils_detectes, commentaires_generaux,
+                        evaluations:formation_evaluations_positionnement(
+                            competence_id, evaluation, observations,
+                            competence:formation_competences(id, intitule,
+                                categorie:formation_categories_competences(id, nom,
+                                    domaine:formation_domaines(id, nom, emoji, ordre)
+                                )
+                            )
+                        )
+                    ),
                     competences:formation_plan_competences(
                         *,
                         competence:formation_competences(
@@ -44,7 +54,18 @@ export default async function handler(req, res) {
                 return res.status(404).json({ error: 'Plan non trouvé' })
             }
 
-            return res.status(200).json({ plan: data })
+            // Récupérer le nombre de séances planning de l'apprenant
+            let planningSeances = []
+            if (data.apprenant_id) {
+                const { data: seances } = await supabase
+                    .from('planning_apprenants')
+                    .select('id, jour, creneau')
+                    .eq('apprenant_id', data.apprenant_id)
+                    .eq('actif', true)
+                planningSeances = seances || []
+            }
+
+            return res.status(200).json({ plan: data, planning_seances: planningSeances })
         }
 
         if (req.method === 'PUT') {
