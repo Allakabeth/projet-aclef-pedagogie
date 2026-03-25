@@ -164,8 +164,32 @@ export default function JeJoueSyllabes2() {
         const newGameWords = [...gameWords]
         const word = newGameWords[wordIndex]
 
-        // Vérifier si c'est la bonne syllabe
-        if (draggedSyllable === word.lastSyllable) {
+        // Vérifier si c'est la bonne syllabe directement
+        let isCorrect = (draggedSyllable === word.lastSyllable)
+
+        // Si pas correct directement, vérifier si un autre mot non complété
+        // a le même début et cette syllabe comme fin
+        // (ex: "agent" et "avant" affichent tous les deux "a_")
+        let swapWordIndex = -1
+        if (!isCorrect) {
+            swapWordIndex = newGameWords.findIndex((w, i) =>
+                i !== wordIndex &&
+                !w.isCompleted &&
+                w.firstSyllables === word.firstSyllables &&
+                w.lastSyllable === draggedSyllable
+            )
+            if (swapWordIndex !== -1) {
+                isCorrect = true
+            }
+        }
+
+        if (isCorrect) {
+            // Si échange nécessaire, permuter les fins attendues
+            if (swapWordIndex !== -1) {
+                newGameWords[swapWordIndex].lastSyllable = word.lastSyllable
+                word.lastSyllable = draggedSyllable
+            }
+
             // Bonne réponse
             word.isCompleted = true
             word.droppedSyllable = draggedSyllable
