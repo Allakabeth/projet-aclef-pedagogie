@@ -173,8 +173,32 @@ export default function JeJoueSyllabes() {
         const newGameWords = [...gameWords]
         const word = newGameWords[wordIndex]
 
-        // Vérifier si c'est la bonne syllabe
-        if (draggedSyllable === word.firstSyllable) {
+        // Vérifier si c'est la bonne syllabe directement
+        let isCorrect = (draggedSyllable === word.firstSyllable)
+
+        // Si pas correct directement, vérifier si un autre mot non complété
+        // a la même fin affichée et cette syllabe comme début
+        // (ex: "_tour" pour "retour" et "détour")
+        let swapWordIndex = -1
+        if (!isCorrect) {
+            swapWordIndex = newGameWords.findIndex((w, i) =>
+                i !== wordIndex &&
+                !w.isCompleted &&
+                w.remainingSyllables === word.remainingSyllables &&
+                w.firstSyllable === draggedSyllable
+            )
+            if (swapWordIndex !== -1) {
+                isCorrect = true
+            }
+        }
+
+        if (isCorrect) {
+            // Si échange nécessaire, permuter les débuts attendus
+            if (swapWordIndex !== -1) {
+                newGameWords[swapWordIndex].firstSyllable = word.firstSyllable
+                word.firstSyllable = draggedSyllable
+            }
+
             // Bonne réponse
             word.isCompleted = true
             word.droppedSyllable = draggedSyllable
