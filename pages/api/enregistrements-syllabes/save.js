@@ -27,12 +27,10 @@ async function sauvegarderSyllabesUniques(apprenantId, segmentation, audioUrls, 
                 continue
             }
 
-            // Normaliser la syllabe
+            // Normaliser la syllabe (garder les accents : "te" ≠ "té")
             const syllabeNormalisee = syllabe
                 .toLowerCase()
                 .trim()
-                .normalize('NFD')
-                .replace(/[\u0300-\u036f]/g, '')
 
             syllabesToSave.push({
                 apprenant_id: apprenantId,
@@ -240,8 +238,6 @@ export default async function handler(req, res) {
                 const syllabeNormalisee = segmentation[i]
                     .toLowerCase()
                     .trim()
-                    .normalize('NFD')
-                    .replace(/[\u0300-\u036f]/g, '')
                 syllabesToFetch.push(syllabeNormalisee)
             }
         }
@@ -301,8 +297,6 @@ export default async function handler(req, res) {
                 const syllabeNormalisee = syllabe
                     .toLowerCase()
                     .trim()
-                    .normalize('NFD')
-                    .replace(/[\u0300-\u036f]/g, '')
 
                 const existingUrl = existingSyllabesMap[syllabeNormalisee]
 
