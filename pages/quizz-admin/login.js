@@ -104,6 +104,9 @@ export default function QuizzAdminLogin() {
                         </label>
                         <input
                             type="email"
+                            name="email"
+                            id="email"
+                            autoComplete="username"
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
                             placeholder="mathieu@aclef.fr"
@@ -135,6 +138,9 @@ export default function QuizzAdminLogin() {
                         </label>
                         <input
                             type="password"
+                            name="password"
+                            id="password"
+                            autoComplete="current-password"
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
                             placeholder="••••••••••••"
